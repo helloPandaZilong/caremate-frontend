@@ -1,15 +1,28 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import path from "path";
+import react from "@vitejs/plugin-react";
+
+function figmaAssetResolver() {
+  return {
+    name: "figma-asset-resolver",
+    resolveId(id) {
+      if (id.startsWith("figma:asset/")) {
+        const filename = id.replace("figma:asset/", "");
+        return path.resolve(__dirname, "src/assets", filename);
+      }
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-      },
+  plugins: [figmaAssetResolver(), react()],
+  resolve: {
+    alias: {
+      // Alias @ to the src directory
+      "@": path.resolve(__dirname, "./src"),
     },
   },
-})
+
+  // File types to support raw imports.
+  assetsInclude: ["**/*.svg", "**/*.csv"],
+});
