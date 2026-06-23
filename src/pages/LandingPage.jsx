@@ -309,7 +309,7 @@ function Hero() {
                   지금 무료로 시작하기 <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
-              <Link to="/find-shop">
+              <Link to="/customer/find-shop">
                 <Button variant="secondary" size="lg">
                   서비스 센터 찾기
                 </Button>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Search, Star, Clock, Phone, Navigation, X } from "lucide-react";
-import { Badge } from "../components/shared";
+import { Badge } from "../../components/shared.jsx";
 
 const BRANDS = ["전체", "Apple", "Samsung", "Google", "LG"];
 

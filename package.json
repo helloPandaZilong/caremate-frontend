@@ -1,11 +1,12 @@
 {
-  "name": "@figma/my-make-file",
+  "name": "caremate-frontend",
   "private": true,
   "version": "0.0.1",
   "type": "module",
+  "description": "CareMate - 스마트폰 A/S 보험 통합 관리 플랫폼 프론트엔드",
   "scripts": {
-    "build": "vite build",
     "dev": "vite",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -41,6 +42,7 @@
     "@radix-ui/react-toggle-group": "1.1.2",
     "@radix-ui/react-tooltip": "1.1.8",
     "@rollup/rollup-win32-x64-msvc": "^4.62.2",
+    "axios": "^1.7.4",
     "canvas-confetti": "1.9.4",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",

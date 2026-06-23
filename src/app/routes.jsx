@@ -1,19 +1,24 @@
 import { createBrowserRouter } from "react-router";
 import AppShell from "../components/AppShell";
 import LandingPage from "../pages/LandingPage";
-import DesignOverviewPage from "../pages/DesignOverviewPage";
 import AuthPage from "../pages/AuthPage";
-import FindShopPage from "../pages/FindShopPage";
+
+// 수리 고객용 import
 import CustomerDashboard from "../pages/customer/DashboardPage";
 import CustomerRequest from "../pages/customer/RequestPage";
 import CustomerInsurance from "../pages/customer/InsurancePage";
 import CustomerPayment from "../pages/customer/PaymentPage";
 import CustomerProfile from "../pages/customer/ProfilePage";
+import CustomerFindShop from "../pages/customer/FindShopPage";
+
+// 수리점용 import
 import ShopDashboard from "../pages/repairshop/DashboardPage";
 import ShopReport from "../pages/repairshop/ReportPage";
 import ShopSettlement from "../pages/repairshop/SettlementPage";
 import ShopLMS from "../pages/repairshop/LMSPage";
 import ShopProfile from "../pages/repairshop/ProfilePage";
+
+// 관리자용 import
 import AdminDashboard from "../pages/admin/DashboardPage";
 import AdminPolicies from "../pages/admin/PoliciesPage";
 import AdminSettlements from "../pages/admin/SettlementsPage";
@@ -23,31 +28,33 @@ import AdminProfile from "../pages/admin/ProfilePage";
 
 export const router = createBrowserRouter([
   { path: "/", Component: LandingPage },
-  { path: "/design", Component: DesignOverviewPage },
   { path: "/auth", Component: AuthPage },
   {
-    Component: AppShell,
+    Component: AppShell, // 전체 레이아웃 정보
     children: [
-      { path: "/find-shop", Component: FindShopPage },
-      // Customer
-      { path: "/customer/dashboard", Component: CustomerDashboard },
-      { path: "/customer/request", Component: CustomerRequest },
-      { path: "/customer/insurance", Component: CustomerInsurance },
-      { path: "/customer/payment", Component: CustomerPayment },
-      { path: "/customer/profile", Component: CustomerProfile },
-      // Shop
-      { path: "/shop/dashboard", Component: ShopDashboard },
-      { path: "/shop/report", Component: ShopReport },
-      { path: "/shop/settlement", Component: ShopSettlement },
-      { path: "/shop/lms", Component: ShopLMS },
-      { path: "/shop/profile", Component: ShopProfile },
-      // Admin
-      { path: "/admin/dashboard", Component: AdminDashboard },
-      { path: "/admin/policies", Component: AdminPolicies },
-      { path: "/admin/settlements", Component: AdminSettlements },
-      { path: "/admin/audit", Component: AdminAudit },
-      { path: "/admin/lms", Component: AdminLMS },
-      { path: "/admin/profile", Component: AdminProfile },
+
+      // 수리 고객
+      { path: "/customer/dashboard", Component: CustomerDashboard }, // 메인 대시보드
+      { path: "/customer/request", Component: CustomerRequest }, // A/S 접수
+      { path: "/customer/insurance", Component: CustomerInsurance }, // 보험 관리
+      { path: "/customer/payment", Component: CustomerPayment }, // 결제/청구
+      { path: "/customer/find-shop", Component: CustomerFindShop }, // 서비스 센터 찾기
+      { path: "/customer/profile", Component: CustomerProfile }, // 수리 고객 프로필
+
+      // 수리점
+      { path: "/shop/dashboard", Component: ShopDashboard }, // 메인 대시보드
+      { path: "/shop/report", Component: ShopReport }, // 수리 리포트 목록
+      { path: "/shop/settlement", Component: ShopSettlement }, // 월말 정산
+      { path: "/shop/lms", Component: ShopLMS }, // LMS 교육
+      { path: "/shop/profile", Component: ShopProfile }, // 수리점 프로필
+
+      // 관리자
+      { path: "/admin/dashboard", Component: AdminDashboard }, // 메인 대시보드
+      { path: "/admin/policies", Component: AdminPolicies }, // 보험 약관 관리
+      { path: "/admin/settlements", Component: AdminSettlements }, // 수수료 청구 관리
+      { path: "/admin/audit", Component: AdminAudit }, // 수리점 LMS 관리
+      { path: "/admin/lms", Component: AdminLMS }, // 검사/DLQ
+      { path: "/admin/profile", Component: AdminProfile }, // 관리자 프로필
     ],
   },
 ]);

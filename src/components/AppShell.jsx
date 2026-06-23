@@ -43,7 +43,7 @@ const CUSTOMER_NAV = [
   { label: "A/S 접수", href: "/customer/request", icon: FileText },
   { label: "보험 관리", href: "/customer/insurance", icon: Shield },
   { label: "결제·청구", href: "/customer/payment", icon: CreditCard },
-  { label: "서비스 센터 찾기", href: "/find-shop", icon: MapPin },
+  { label: "서비스 센터 찾기", href: "customer/find-shop", icon: MapPin },
 ];
 
 const SHOP_NAV = [
