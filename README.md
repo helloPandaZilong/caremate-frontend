@@ -8,7 +8,9 @@
 |---|---|
 | React 18 | SPA 메인 UI (고객 접수, 수리점 대시보드, 관리자) |
 | Vite | 개발/빌드 도구 |
-| React Router | 클라이언트 라우팅 |
+| React Router (v7) | 클라이언트 라우팅 |
+| Tailwind CSS v3 | 유틸리티 기반 스타일링 / 반응형 퍼블리싱 |
+| shadcn/ui · Radix UI | 공통 UI 컴포넌트 |
 | Axios | 백엔드 API 통신 |
 | HTML / CSS | 반응형 퍼블리싱 |
 | jQuery | 일부 동적 UI 보조 |
@@ -17,21 +19,33 @@
 
 ```
 src/
-├── api/              # axios 클라이언트, API 호출 모듈
-├── components/       # 공통 컴포넌트
+├── api/                  # axios 클라이언트, API 호출 모듈 (예정)
+├── app/
+│   ├── routes.jsx        # 라우트 정의 (React Router)
+│   └── components/
+│       ├── ui/           # shadcn/ui 기반 공통 UI 컴포넌트
+│       └── figma/        # 이미지 폴백 등 보조 컴포넌트
+├── components/           # AppShell, 공통 레이아웃 컴포넌트
+├── hooks/                # 커스텀 훅 (예: 다크모드)
 ├── pages/
-│   ├── customer/     # 고객: 보험 관리, 비대면 A/S 접수
-│   ├── repairshop/   # 수리점: 대시보드, LMS 가이드
-│   └── admin/        # 관리자
-├── styles/           # 전역 스타일
-├── App.jsx           # 라우팅
-└── main.jsx          # 진입점
+│   ├── customer/         # 고객: 보험 관리, 비대면 A/S 접수
+│   ├── repairshop/       # 수리점: 대시보드, LMS 가이드
+│   ├── admin/            # 관리자: 정산, 정책, 감사
+│   ├── LandingPage.jsx   # 랜딩
+│   └── AuthPage.jsx      # 로그인 / 인증
+├── styles/               # 전역 스타일 (Tailwind, 테마 변수)
+├── App.jsx               # 라우터 렌더링 (RouterProvider)
+└── main.jsx              # 진입점
 ```
 
 ## 실행
 
 ```bash
 npm install
+
+아래 에러발생시 (npm install '@rollup/rollup-win32-x64-msvc') < 모듈 설치
+[cause]: Error: Cannot find module '@rollup/rollup-win32-x64-msvc'
+
 npm run dev      # http://localhost:3000
 npm run build
 ```
