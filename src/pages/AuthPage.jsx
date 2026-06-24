@@ -117,9 +117,16 @@ export default function AuthPage() {
       saveAuth(accessToken, { memberId, role, name, email: form.email });
       toast.success(`${name}님, 환영합니다!`);
 
-      // ProtectedRoute에서 저장한 이전 경로 또는 역할별 기본 대시보드로 이동
-      const from = location.state?.from?.pathname || ROLE_REDIRECT[role] || "/customer/dashboard";
-      nav(from, { replace: true });
+      // 역할별 기본 대시보드로 고정 이동.
+      // ProtectedRoute가 저장한 이전 경로(from)는 동일 역할 경로인 경우에만 복귀에 사용한다.
+      // (예: ADMIN이 /customer 페이지를 방문했다가 로그인 시 /customer로 가는 경우를 방지)
+      const ROLE_PREFIX = { CUSTOMER: '/customer', REPAIR_SHOP: '/shop', ADMIN: '/admin' };
+      const prevPath = location.state?.from?.pathname;
+      const prefix   = ROLE_PREFIX[role];
+      const target   = (prevPath && prefix && prevPath.startsWith(prefix))
+        ? prevPath
+        : ROLE_REDIRECT[role] ?? '/customer/dashboard';
+      nav(target, { replace: true });
     } catch (err) {
       const code = err.response?.data?.error?.code;
       if (code === "SHOP_NOT_APPROVED") {

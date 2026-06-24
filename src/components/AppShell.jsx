@@ -217,34 +217,6 @@ function DarkModeToggle({ dark, toggle }) {
   );
 }
 
-// ── Role switcher ─────────────────────────────────────────────────────────────
-
-function RoleSwitcher() {
-  const loc = useLocation();
-  const active = loc.pathname.startsWith("/shop")
-    ? "수리점"
-    : loc.pathname.startsWith("/admin")
-      ? "관리자"
-      : "고객";
-  return (
-    <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
-      {[
-        { label: "고객", href: "/customer/dashboard" },
-        { label: "수리점", href: "/shop/dashboard" },
-        { label: "관리자", href: "/admin/dashboard" },
-      ].map((r) => (
-        <Link
-          key={r.label}
-          to={r.href}
-          className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${active === r.label ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          {r.label}
-        </Link>
-      ))}
-    </div>
-  );
-}
-
 // ── Notification dropdown ─────────────────────────────────────────────────────
 
 function NotificationDropdown({ path, onClose }) {
@@ -624,33 +596,6 @@ function MobileTopNav({ dark, toggleDark, onLogout }) {
               <DarkModeToggle dark={dark} toggle={toggleDark} />
             </div>
 
-            <div className="px-5 py-3 border-b border-white/10">
-              <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">
-                포털 전환
-              </p>
-              <div className="flex gap-1 bg-white/10 rounded-lg p-0.5">
-                {[
-                  { label: "고객", href: "/customer/dashboard" },
-                  { label: "수리점", href: "/shop/dashboard" },
-                  { label: "관리자", href: "/admin/dashboard" },
-                ].map((r) => {
-                  const isActive = loc.pathname.startsWith(
-                    `/${r.label === "고객" ? "customer" : r.label === "수리점" ? "shop" : "admin"}`,
-                  );
-                  return (
-                    <Link
-                      key={r.label}
-                      to={r.href}
-                      onClick={() => setOpen(false)}
-                      className={`flex-1 text-center py-1.5 text-xs font-medium rounded-md transition-all ${isActive ? "bg-white text-[#1A1D2E]" : "text-white/60 hover:text-white"}`}
-                    >
-                      {r.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-
             <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
               {items.map((item) => {
                 const Icon = item.icon;
@@ -711,7 +656,6 @@ function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
       className="hidden lg:flex fixed top-0 right-0 h-16 bg-background/90 backdrop-blur-md border-b border-border z-30 items-center justify-end px-6 gap-3 transition-all duration-300"
       style={{ left: collapsed ? "4rem" : "15rem" }}
     >
-      <RoleSwitcher />
       <DarkModeToggle dark={dark} toggle={toggleDark} />
       <BellButton path={loc.pathname} />
       <Link
