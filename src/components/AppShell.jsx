@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link, useLocation, Outlet, useNavigate } from "react-router";
+import { useAuth } from "../contexts/AuthContext";
+import { logout as logoutApi } from "../api/auth";
 import {
   Shield,
   LayoutDashboard,
@@ -27,6 +29,7 @@ import {
   AlertCircle,
   CreditCard as Pay,
   Award,
+  Store, // 수리점 가입 승인 메뉴 아이콘
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
 
@@ -55,6 +58,7 @@ const SHOP_NAV = [
 
 const ADMIN_NAV = [
   { label: "통합 대시보드", href: "/admin/dashboard", icon: BarChart2 },
+  { label: "수리점 가입 승인", href: "/admin/shop-approvals", icon: Store }, // 신규 수리점 승인 관리
   { label: "보험 약관 관리", href: "/admin/policies", icon: BookOpen },
   { label: "수수료 청구 관리", href: "/admin/settlements", icon: Package },
   { label: "LMS 관리", href: "/admin/lms", icon: GraduationCap },
@@ -445,7 +449,7 @@ function LMSGate({ onNavigate }) {
 
 // ── Desktop Sidebar ───────────────────────────────────────────────────────────
 
-function DesktopSidebar({ collapsed, onToggle, dark }) {
+function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
   const loc = useLocation();
   const nav = useNavigate();
   const { items, role, roleColorLight, roleColorDark, profileHref } =
@@ -515,13 +519,14 @@ function DesktopSidebar({ collapsed, onToggle, dark }) {
           <User className="w-4 h-4 shrink-0" />
           {!collapsed && <span>마이페이지</span>}
         </button>
-        <Link
-          to="/"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/8 transition-all"
+        {/* 로그아웃 버튼 — API 호출 후 인증 정보 초기화 */}
+        <button
+          onClick={onLogout}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/8 transition-all w-full text-left"
         >
           <LogOut className="w-4 h-4 shrink-0" />
-          {!collapsed && <span>홈으로</span>}
-        </Link>
+          {!collapsed && <span>로그아웃</span>}
+        </button>
         <button
           onClick={onToggle}
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/8 transition-all"
@@ -536,7 +541,7 @@ function DesktopSidebar({ collapsed, onToggle, dark }) {
 
 // ── Mobile Top Nav ────────────────────────────────────────────────────────────
 
-function MobileTopNav({ dark, toggleDark }) {
+function MobileTopNav({ dark, toggleDark, onLogout }) {
   const loc = useLocation();
   const { items, role, roleColorLight, roleColorDark, profileHref } =
     getNavConfig(loc.pathname);
@@ -676,14 +681,14 @@ function MobileTopNav({ dark, toggleDark }) {
                 <User className="w-4 h-4" />
                 <span>마이페이지</span>
               </Link>
-              <Link
-                to="/"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/8 transition-all"
+              {/* 로그아웃 버튼 — API 호출 후 인증 정보 초기화 */}
+              <button
+                onClick={() => { setOpen(false); onLogout(); }}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/40 hover:text-white/70 hover:bg-white/8 transition-all w-full text-left"
               >
                 <LogOut className="w-4 h-4" />
-                <span>홈으로</span>
-              </Link>
+                <span>로그아웃</span>
+              </button>
             </div>
           </div>
         </>
@@ -694,9 +699,12 @@ function MobileTopNav({ dark, toggleDark }) {
 
 // ── Desktop Top Bar ───────────────────────────────────────────────────────────
 
-function DesktopTopBar({ collapsed, dark, toggleDark }) {
+function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
   const loc = useLocation();
   const { profileHref } = getNavConfig(loc.pathname);
+
+  // 사용자 이름의 첫 글자를 아바타 이니셜로 사용
+  const initial = user?.name ? user.name.charAt(0) : "?";
 
   return (
     <header
@@ -708,9 +716,10 @@ function DesktopTopBar({ collapsed, dark, toggleDark }) {
       <BellButton path={loc.pathname} />
       <Link
         to={profileHref}
+        title={user?.name}
         className="w-8 h-8 rounded-full bg-accent/15 flex items-center justify-center text-accent text-sm font-bold border border-accent/25 hover:bg-accent/25 transition-colors"
       >
-        김
+        {initial}
       </Link>
     </header>
   );
@@ -748,6 +757,19 @@ export default function AppShell() {
   const { dark, toggle } = useDarkMode();
   const loc = useLocation();
   const nav = useNavigate();
+  const { user, clearAuth } = useAuth();
+
+  // 로그아웃: 서버에 토큰 무효화 요청 후 클라이언트 인증 정보 초기화
+  const handleLogout = async () => {
+    try {
+      await logoutApi()
+    } catch {
+      // 네트워크 오류 등 API 실패 시에도 클라이언트 상태는 반드시 초기화
+    } finally {
+      clearAuth()
+      nav("/", { replace: true })
+    }
+  };
 
   // LMS gate state for shop — re-check on navigation AND on custom "lms-completed" event
   const [shopLMSDone, setShopLMSDone] = useState(isShopLMSDone);
@@ -762,7 +784,7 @@ export default function AppShell() {
 
   const isShopRoute = loc.pathname.startsWith("/shop");
   const isLMSPage = loc.pathname === "/shop/lms";
-  const showLMSGate = isShopRoute && !isLMSPage && !shopLMSDone;
+  const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone;
 
   return (
     <div
@@ -773,9 +795,10 @@ export default function AppShell() {
         collapsed={collapsed}
         onToggle={() => setCollapsed((v) => !v)}
         dark={dark}
+        onLogout={handleLogout}
       />
-      <DesktopTopBar collapsed={collapsed} dark={dark} toggleDark={toggle} />
-      <MobileTopNav dark={dark} toggleDark={toggle} />
+      <DesktopTopBar collapsed={collapsed} dark={dark} toggleDark={toggle} user={user} />
+      <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} />
       <ContentArea collapsed={collapsed}>
         {showLMSGate ? (
           <LMSGate onNavigate={() => nav("/shop/lms")} />
