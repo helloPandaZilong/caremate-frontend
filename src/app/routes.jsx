@@ -1,60 +1,70 @@
 import { createBrowserRouter } from "react-router";
 import AppShell from "../components/AppShell";
+import ProtectedRoute from "../components/ProtectedRoute";
 import LandingPage from "../pages/LandingPage";
 import AuthPage from "../pages/AuthPage";
 
 // 수리 고객용 import
 import CustomerDashboard from "../pages/customer/DashboardPage";
-import CustomerRequest from "../pages/customer/RequestPage";
+import CustomerRequest   from "../pages/customer/RequestPage";
 import CustomerInsurance from "../pages/customer/InsurancePage";
-import CustomerPayment from "../pages/customer/PaymentPage";
-import CustomerProfile from "../pages/customer/ProfilePage";
-import CustomerFindShop from "../pages/customer/FindShopPage";
+import CustomerPayment   from "../pages/customer/PaymentPage";
+import CustomerProfile   from "../pages/customer/ProfilePage";
+import CustomerFindShop  from "../pages/customer/FindShopPage";
 
 // 수리점용 import
-import ShopDashboard from "../pages/repairshop/DashboardPage";
-import ShopReport from "../pages/repairshop/ReportPage";
+import ShopDashboard  from "../pages/repairshop/DashboardPage";
+import ShopReport     from "../pages/repairshop/ReportPage";
 import ShopSettlement from "../pages/repairshop/SettlementPage";
-import ShopLMS from "../pages/repairshop/LMSPage";
-import ShopProfile from "../pages/repairshop/ProfilePage";
+import ShopLMS        from "../pages/repairshop/LMSPage";
+import ShopProfile    from "../pages/repairshop/ProfilePage";
 
 // 관리자용 import
-import AdminDashboard from "../pages/admin/DashboardPage";
-import AdminPolicies from "../pages/admin/PoliciesPage";
-import AdminSettlements from "../pages/admin/SettlementsPage";
-import AdminAudit from "../pages/admin/AuditPage";
-import AdminLMS from "../pages/admin/LMSManagePage";
-import AdminProfile from "../pages/admin/ProfilePage";
+import AdminDashboard      from "../pages/admin/DashboardPage";
+import AdminPolicies       from "../pages/admin/PoliciesPage";
+import AdminSettlements    from "../pages/admin/SettlementsPage";
+import AdminAudit          from "../pages/admin/AuditPage";
+import AdminLMS            from "../pages/admin/LMSManagePage";
+import AdminProfile        from "../pages/admin/ProfilePage";
+import AdminShopApprovals  from "../pages/admin/ShopApprovalsPage"; // 수리점 가입 승인 관리
 
 export const router = createBrowserRouter([
-  { path: "/", Component: LandingPage },
+  // 공개 라우트 — 인증 불필요
+  { path: "/",     Component: LandingPage },
   { path: "/auth", Component: AuthPage },
+
+  // 보호 라우트 — 미로그인 접근 시 /auth 로 리다이렉트
   {
-    Component: AppShell, // 전체 레이아웃 정보
+    element: (
+      <ProtectedRoute>
+        <AppShell />
+      </ProtectedRoute>
+    ),
     children: [
 
       // 수리 고객
-      { path: "/customer/dashboard", Component: CustomerDashboard }, // 메인 대시보드
-      { path: "/customer/request", Component: CustomerRequest }, // A/S 접수
-      { path: "/customer/insurance", Component: CustomerInsurance }, // 보험 관리
-      { path: "/customer/payment", Component: CustomerPayment }, // 결제/청구
-      { path: "/customer/find-shop", Component: CustomerFindShop }, // 서비스 센터 찾기
-      { path: "/customer/profile", Component: CustomerProfile }, // 수리 고객 프로필
+      { path: "/customer/dashboard",  Component: CustomerDashboard }, // 메인 대시보드
+      { path: "/customer/request",    Component: CustomerRequest   }, // A/S 접수
+      { path: "/customer/insurance",  Component: CustomerInsurance }, // 보험 관리
+      { path: "/customer/payment",    Component: CustomerPayment   }, // 결제·청구
+      { path: "/customer/find-shop",  Component: CustomerFindShop  }, // 서비스 센터 찾기
+      { path: "/customer/profile",    Component: CustomerProfile   }, // 프로필
 
       // 수리점
-      { path: "/shop/dashboard", Component: ShopDashboard }, // 메인 대시보드
-      { path: "/shop/report", Component: ShopReport }, // 수리 리포트 목록
+      { path: "/shop/dashboard",  Component: ShopDashboard  }, // 메인 대시보드
+      { path: "/shop/report",     Component: ShopReport     }, // 수리 리포트 목록
       { path: "/shop/settlement", Component: ShopSettlement }, // 월말 정산
-      { path: "/shop/lms", Component: ShopLMS }, // LMS 교육
-      { path: "/shop/profile", Component: ShopProfile }, // 수리점 프로필
+      { path: "/shop/lms",        Component: ShopLMS        }, // LMS 교육
+      { path: "/shop/profile",    Component: ShopProfile    }, // 수리점 프로필
 
       // 관리자
-      { path: "/admin/dashboard", Component: AdminDashboard }, // 메인 대시보드
-      { path: "/admin/policies", Component: AdminPolicies }, // 보험 약관 관리
-      { path: "/admin/settlements", Component: AdminSettlements }, // 수수료 청구 관리
-      { path: "/admin/audit", Component: AdminAudit }, // 수리점 LMS 관리
-      { path: "/admin/lms", Component: AdminLMS }, // 검사/DLQ
-      { path: "/admin/profile", Component: AdminProfile }, // 관리자 프로필
+      { path: "/admin/dashboard",      Component: AdminDashboard     }, // 통합 대시보드
+      { path: "/admin/policies",       Component: AdminPolicies      }, // 보험 약관 관리
+      { path: "/admin/settlements",    Component: AdminSettlements   }, // 수수료 청구 관리
+      { path: "/admin/audit",          Component: AdminAudit         }, // 감사·DLQ
+      { path: "/admin/lms",            Component: AdminLMS           }, // LMS 관리
+      { path: "/admin/profile",        Component: AdminProfile       }, // 관리자 프로필
+      { path: "/admin/shop-approvals", Component: AdminShopApprovals }, // 수리점 가입 승인 관리
     ],
   },
 ]);

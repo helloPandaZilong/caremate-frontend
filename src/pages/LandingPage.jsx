@@ -93,13 +93,8 @@ function Header() {
           </nav>
           <div className="hidden md:flex items-center gap-2">
             <Link to="/auth">
-              <Button variant="ghost" size="sm">
-                로그인
-              </Button>
-            </Link>
-            <Link to="/auth">
               <Button variant="accent" size="sm">
-                무료로 시작하기
+                로그인
               </Button>
             </Link>
           </div>
