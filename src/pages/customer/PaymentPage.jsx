@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CreditCard,
   Smartphone,
@@ -10,37 +10,10 @@ import {
   Receipt,
   ArrowRight,
   Info,
+  Loader2,
 } from "lucide-react";
 import { Button, Card } from "../../components/shared";
-
-const INVOICE_ITEMS = [
-  { label: "전면 유리 교체 (파트비)", amount: 180000 },
-  { label: "액정 모듈 교체 (파트비)", amount: 120000 },
-  { label: "공임비", amount: 50000 },
-  { label: "출장 방문비", amount: 20000 },
-];
-
-const TOTAL = INVOICE_ITEMS.reduce((a, i) => a + i.amount, 0);
-
-// Per-policy reimbursement estimates
-const POLICY_ESTIMATES = [
-  {
-    name: "Carrier Care (SKT)",
-    coverage: 80,
-    deductible: 30000,
-    estimated: Math.min(Math.round((TOTAL - 30000) * 0.8), 800000),
-    submitUrl: "https://www.tworld.co.kr/insurance-claim",
-    carrier: "SKT 보험",
-  },
-  {
-    name: "프리미엄 카드 폰케어",
-    coverage: 60,
-    deductible: 50000,
-    estimated: Math.min(Math.round((TOTAL - 50000) * 0.6), 500000),
-    submitUrl: "https://www.shinhancard.com/claim",
-    carrier: "신한카드",
-  },
-];
+import { getRepairOrders, getInsurancePolicies } from "../../api/customerService";
 
 const PAYMENT_METHODS = [
   { id: "card", label: "신용카드", icon: CreditCard },
@@ -51,19 +24,16 @@ function fmt(n) {
   return n.toLocaleString("ko-KR") + "원";
 }
 
-// ── Post-Payment: Claim Package Screen ───────────────────────────────────────
-
-function ClaimPackageScreen() {
+function ClaimPackageScreen({ policies }) {
   const [downloading, setDownloading] = useState(null);
 
-  const handleDownload = (policyName) => {
-    setDownloading(policyName);
+  const handleDownload = (name) => {
+    setDownloading(name);
     setTimeout(() => setDownloading(null), 2000);
   };
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
-      {/* Success header */}
       <div className="flex items-start gap-4 p-5 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700/50 rounded-2xl">
         <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-800/50 flex items-center justify-center shrink-0 mt-0.5">
           <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -73,8 +43,7 @@ function ClaimPackageScreen() {
             결제 완료
           </h2>
           <p className="text-sm text-green-700 dark:text-green-400 mt-0.5">
-            수리 대금 <strong>{fmt(TOTAL)}</strong>이 결제되어 수리점으로
-            지급되었습니다.
+            수리 대금이 결제되어 수리점으로 지급되었습니다.
           </p>
           <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 leading-relaxed">
             아래에서 보험사별 청구 패키지를 다운로드하고, 해당 보험사 제출
@@ -83,38 +52,6 @@ function ClaimPackageScreen() {
         </div>
       </div>
 
-      {/* Receipt summary */}
-      <Card className="p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <Receipt className="w-4 h-4 text-accent" />
-          <h3 className="text-sm font-semibold text-foreground">결제 영수증</h3>
-          <span className="text-xs text-muted-foreground ml-auto font-mono">
-            CM-20240613-0042
-          </span>
-        </div>
-        <div className="flex flex-col divide-y divide-border/40 text-sm mb-4">
-          {INVOICE_ITEMS.map((item) => (
-            <div key={item.label} className="flex justify-between py-2.5">
-              <span className="text-muted-foreground">{item.label}</span>
-              <span className="font-medium text-foreground">
-                {fmt(item.amount)}
-              </span>
-            </div>
-          ))}
-          <div className="flex justify-between py-3 font-semibold text-base">
-            <span>합계 (결제 완료)</span>
-            <span className="text-green-700 dark:text-green-400">
-              {fmt(TOTAL)}
-            </span>
-          </div>
-        </div>
-        <button className="flex items-center gap-2 text-xs text-accent hover:underline font-medium">
-          <Download className="w-3.5 h-3.5" />
-          결제 영수증 PDF 다운로드
-        </button>
-      </Card>
-
-      {/* Insurance claim packages */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-foreground" />
@@ -123,41 +60,27 @@ function ClaimPackageScreen() {
           </h3>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          CareMate가 보험사별 제출 서류 패키지를 자동 생성했습니다. 각 보험사
-          패키지를 다운로드한 후 제출 사이트 링크로 이동하여 직접 제출해 주세요.
+          CareMate가 보험사별 제출 서류 패키지를 자동 생성했습니다.
         </p>
-
         <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-xl flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400">
           <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
           <span>
             실제 보험금 수령액은 보험사 심사 결과에 따라 달라질 수 있습니다.
-            CareMate는 청구 패키지 생성 및 제출 안내까지만 지원합니다.
           </span>
         </div>
 
-        {POLICY_ESTIMATES.map((p) => (
-          <Card key={p.name} className="p-5 flex flex-col gap-4">
+        {policies.map((p) => (
+          <Card key={p.id} className="p-5 flex flex-col gap-4">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  {p.name}
+                  {p.productName}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {p.carrier}
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">예상 환급액</p>
-                <p className="text-base font-bold text-accent">
-                  ≈ {fmt(p.estimated)}
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  보장 {p.coverage}% · 자부담 {fmt(p.deductible)}
+                  {p.providerName}
                 </p>
               </div>
             </div>
-
-            {/* Package contents */}
             <div className="bg-secondary rounded-xl p-3 flex flex-col gap-2">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                 패키지 포함 서류
@@ -176,61 +99,31 @@ function ClaimPackageScreen() {
                 </div>
               ))}
             </div>
-
-            {/* Actions */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleDownload(p.name)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                  downloading === p.name
-                    ? "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50"
-                    : "bg-accent text-white hover:bg-accent/90 border-accent"
-                }`}
-              >
-                <Download className="w-4 h-4" />
-                {downloading === p.name ? "다운로드 중..." : "패키지 다운로드"}
-              </button>
-              <a
-                href={p.submitUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border border-border text-foreground hover:bg-secondary transition-all"
-              >
-                <ExternalLink className="w-4 h-4" />
-                {p.carrier} 제출 사이트
-              </a>
-            </div>
+            <button
+              onClick={() => handleDownload(p.productName)}
+              className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                downloading === p.productName
+                  ? "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50"
+                  : "bg-accent text-white hover:bg-accent/90 border-accent"
+              }`}
+            >
+              <Download className="w-4 h-4" />
+              {downloading === p.productName ? "다운로드 중..." : "패키지 다운로드"}
+            </button>
           </Card>
         ))}
       </div>
 
-      {/* Guide */}
       <Card className="p-5 flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-foreground">
           청구 절차 안내
         </h3>
         <div className="flex flex-col gap-3">
           {[
-            {
-              step: "01",
-              label: "패키지 다운로드",
-              desc: "보험사별 청구 패키지를 PDF로 다운로드합니다.",
-            },
-            {
-              step: "02",
-              label: "보험사 제출 사이트 이동",
-              desc: "위 '제출 사이트' 버튼을 클릭하여 해당 보험사 청구 페이지로 이동합니다.",
-            },
-            {
-              step: "03",
-              label: "서류 제출",
-              desc: "다운로드한 패키지 파일을 첨부하여 보험 청구를 제출합니다.",
-            },
-            {
-              step: "04",
-              label: "심사 대기",
-              desc: "보험사 심사 결과는 각 보험사 앱/홈페이지에서 직접 확인하세요.",
-            },
+            { step: "01", label: "패키지 다운로드", desc: "보험사별 청구 패키지를 PDF로 다운로드합니다." },
+            { step: "02", label: "보험사 제출 사이트 이동", desc: "해당 보험사 청구 페이지로 이동합니다." },
+            { step: "03", label: "서류 제출", desc: "다운로드한 패키지 파일을 첨부하여 보험 청구를 제출합니다." },
+            { step: "04", label: "심사 대기", desc: "보험사 심사 결과는 각 보험사 앱/홈페이지에서 직접 확인하세요." },
           ].map((g) => (
             <div key={g.step} className="flex gap-3 text-sm">
               <span
@@ -248,20 +141,46 @@ function ClaimPackageScreen() {
         </div>
       </Card>
 
-      <Button variant="secondary" size="md" className="self-start">
+      <Button
+        variant="secondary"
+        size="md"
+        className="self-start"
+        onClick={() => (window.location.href = "/customer/dashboard")}
+      >
         대시보드로 돌아가기
       </Button>
     </div>
   );
 }
 
-// ── Payment Form Screen ───────────────────────────────────────────────────────
-
 export default function PaymentPage() {
   const [method, setMethod] = useState("card");
   const [paid, setPaid] = useState(false);
+  const [policies, setPolicies] = useState([]);
+  const [latestOrder, setLatestOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  if (paid) return <ClaimPackageScreen />;
+  useEffect(() => {
+    Promise.all([
+      getRepairOrders(0, 1).catch(() => ({ data: { data: { content: [] } } })),
+      getInsurancePolicies().catch(() => ({ data: { data: [] } })),
+    ]).then(([orderRes, policyRes]) => {
+      const orders = orderRes.data.data?.content ?? [];
+      if (orders.length > 0) setLatestOrder(orders[0]);
+      setPolicies((policyRes.data.data ?? []).filter((p) => p.status === "ACTIVE"));
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  if (paid) return <ClaimPackageScreen policies={policies} />;
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
@@ -272,7 +191,6 @@ export default function PaymentPage() {
         </p>
       </div>
 
-      {/* Flow notice */}
       <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
         {[
           "수리 대금 전액 결제 (수리점 지급)",
@@ -294,28 +212,30 @@ export default function PaymentPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-5">
-        {/* Invoice */}
         <Card className="p-5 flex flex-col gap-4">
           <h3 className="text-sm font-semibold text-foreground">
-            수리 청구 명세서
+            수리 정보
           </h3>
-          <div className="flex flex-col divide-y divide-border/40">
-            {INVOICE_ITEMS.map((item) => (
-              <div
-                key={item.label}
-                className="flex justify-between py-2.5 text-sm"
-              >
-                <span className="text-muted-foreground">{item.label}</span>
-                <span className="font-medium text-foreground">
-                  {fmt(item.amount)}
+          {latestOrder ? (
+            <div className="flex flex-col gap-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">접수번호</span>
+                <span className="font-medium text-foreground font-mono">
+                  {latestOrder.orderNo}
                 </span>
               </div>
-            ))}
-            <div className="flex justify-between py-3 text-base font-semibold">
-              <span className="text-foreground">결제 금액 합계</span>
-              <span className="text-foreground">{fmt(TOTAL)}</span>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">수리점</span>
+                <span className="font-medium text-foreground">
+                  {latestOrder.shopName}
+                </span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              진행 중인 수리 건이 없습니다.
+            </p>
+          )}
 
           <div className="flex flex-col gap-2 pt-2 border-t border-border/40">
             <p className="text-xs font-medium text-muted-foreground">
@@ -347,53 +267,44 @@ export default function PaymentPage() {
           </div>
         </Card>
 
-        {/* Insurance estimate preview */}
         <Card className="p-5 flex flex-col gap-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-700/50">
           <div className="flex items-center gap-2">
             <TrendingDown className="w-4 h-4 text-accent" />
             <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300">
-              보험 환급 예상액
+              적용 보험
             </h3>
           </div>
           <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
-            결제 완료 후 아래 예상액 기준으로 보험사별 청구 패키지가 생성됩니다.
-            실제 수령액은 보험사 심사 결과에 따라 다를 수 있습니다.
+            결제 완료 후 아래 보험 기준으로 청구 패키지가 생성됩니다.
           </p>
           <div className="flex flex-col gap-3">
-            {POLICY_ESTIMATES.map((p) => (
+            {policies.map((p) => (
               <div
-                key={p.name}
+                key={p.id}
                 className="bg-card/70 rounded-xl p-3.5 flex items-center justify-between gap-2"
               >
                 <div>
                   <p className="text-xs font-semibold text-foreground">
-                    {p.name}
+                    {p.productName}
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    {p.coverage}% 보장 · 자부담 {fmt(p.deductible)}
+                    {p.providerName}
                   </p>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs text-muted-foreground">예상 환급</p>
-                  <p className="text-base font-bold text-accent">
-                    ≈ {fmt(p.estimated)}
-                  </p>
-                </div>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700/50 font-medium">
+                  활성
+                </span>
               </div>
             ))}
-          </div>
-          <div className="flex justify-between items-center pt-2 border-t border-blue-200 dark:border-blue-700/50 text-sm">
-            <span className="text-blue-700 dark:text-blue-400 font-medium">
-              총 예상 환급액
-            </span>
-            <span className="text-lg font-bold text-blue-800 dark:text-blue-300">
-              ≈ {fmt(POLICY_ESTIMATES.reduce((a, p) => a + p.estimated, 0))}
-            </span>
+            {policies.length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-4">
+                활성화된 보험이 없습니다.
+              </p>
+            )}
           </div>
         </Card>
       </div>
 
-      {/* CTA */}
       <div className="flex flex-col md:flex-row items-center gap-4 p-5 bg-card border border-border rounded-2xl">
         <div className="flex-1">
           <p className="text-sm font-semibold text-foreground">
@@ -409,9 +320,10 @@ export default function PaymentPage() {
           size="lg"
           className="shrink-0"
           onClick={() => setPaid(true)}
+          disabled={!latestOrder}
         >
           <CreditCard className="w-4 h-4" />
-          {fmt(TOTAL)} 결제하기
+          결제하기
         </Button>
       </div>
     </div>
