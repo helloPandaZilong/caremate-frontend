@@ -266,29 +266,31 @@ export default function AuthPage() {
 
         <div className="p-6 flex flex-col gap-5">
           {/* 회원 유형 선택 */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-2">
-              회원 유형 선택
-            </p>
-            <div className="flex gap-1 p-1 bg-secondary rounded-xl">
-              {[
-                { id: "customer", label: "일반 고객" },
-                { id: "shop",     label: "수리점 파트너" },
-              ].map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => handleTabChange(t.id)}
-                  className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                    tab === t.id
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          {mode === "signup" && (
+              <div className="animate-in fade-in duration-200">
+                <p className="text-xs font-medium text-muted-foreground mb-2">
+                  회원 유형 선택
+                </p>
+                <div className="flex gap-1 p-1 bg-secondary rounded-xl">
+                  {[
+                    { id: "customer", label: "일반 고객" },
+                    { id: "shop",     label: "수리점 파트너" },
+                  ].map((t) => (
+                      <button
+                          key={t.id}
+                          onClick={() => handleTabChange(t.id)}
+                          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                              tab === t.id
+                                  ? "bg-card text-foreground shadow-sm"
+                                  : "text-muted-foreground hover:text-foreground"
+                          }`}
+                      >
+                        {t.label}
+                      </button>
+                  ))}
+                </div>
+              </div>
+          )}
 
           {/* 공통 입력 필드: 이메일, 비밀번호 */}
           <div className="flex flex-col gap-3">
