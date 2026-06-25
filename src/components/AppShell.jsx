@@ -52,6 +52,7 @@ const CUSTOMER_NAV = [
 
 const SHOP_NAV = [
   { label: "대시보드", href: "/shop/dashboard", icon: Calendar },
+  { label: "주문 접수", href: "/shop/orders", icon: FileText },
   { label: "수리 리포트", href: "/shop/report", icon: Wrench },
   { label: "LMS 교육", href: "/shop/lms", icon: GraduationCap },
   { label: "월말 정산", href: "/shop/settlement", icon: Receipt },
@@ -491,7 +492,7 @@ function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/55 hover:text-white hover:bg-white/10 transition-all"
         >
           <User className="w-4 h-4 shrink-0" />
-          {!collapsed && <span>마이페이지</span>}
+          {!collapsed && <span>매장 프로필</span>}
         </button>
         {/* 로그아웃 버튼 — API 호출 후 인증 정보 초기화 */}
         <button
@@ -626,7 +627,7 @@ function MobileTopNav({ dark, toggleDark, onLogout }) {
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all"
               >
                 <User className="w-4 h-4" />
-                <span>마이페이지</span>
+                <span>매장 프로필</span>
               </Link>
               {/* 로그아웃 버튼 — API 호출 후 인증 정보 초기화 */}
               <button

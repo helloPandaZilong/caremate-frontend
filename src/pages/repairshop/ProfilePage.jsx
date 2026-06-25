@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Store,
   Clock,
@@ -11,6 +11,12 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { Card, Button, Input } from "../../components/shared";
+import {
+  getShopProfile,
+  updateShopProfile,
+  getOperatingHours,
+  updateOperatingHours,
+} from "../../api/repairshopApi";
 
 function GraduationCapIcon() {
   return (
@@ -38,16 +44,75 @@ const DEFAULT_HOURS = {
   일: { open: "10:00", close: "17:00", closed: true },
 };
 
+// 요일 인덱스 매핑 (백엔드: 0=일, 1=월, ... , 6=토)
+const DAY_TO_INDEX = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 };
+
 export default function ShopProfilePage() {
   const [tab, setTab] = useState("shop");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [hours, setHours] = useState(DEFAULT_HOURS);
+  const [profile, setProfile] = useState({
+    shopName: "강남 스마트케어",
+    ownerName: "박기술",
+    phone: "02-1234-5678",
+    businessNo: "123-45-67890",
+    address: "서울특별시 강남구 테헤란로 152",
+  });
   const lmsDone = localStorage.getItem("caremate-shop-lms") === "done";
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  // 프로필 & 운영시간 로드
+  useEffect(() => {
+    getShopProfile()
+      .then((d) => {
+        if (d) setProfile((p) => ({ ...p, ...d }));
+      })
+      .catch(() => {});
+
+    getOperatingHours()
+      .then((data) => {
+        const list = data?.hours ?? data ?? [];
+        if (!list.length) return;
+        const next = { ...DEFAULT_HOURS };
+        list.forEach((row) => {
+          const dayName = DAYS[row.dayOfWeek === 0 ? 6 : row.dayOfWeek - 1]; // 월=1→index0
+          if (dayName) {
+            next[dayName] = {
+              open: row.openTime ?? "09:00",
+              close: row.closeTime ?? "18:00",
+              closed: row.isClosed ?? false,
+            };
+          }
+        });
+        setHours(next);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (tab === "shop") {
+        await updateShopProfile(profile);
+      } else if (tab === "hours") {
+        const hoursPayload = {
+          hours: DAYS.map((day) => ({
+            dayOfWeek: DAY_TO_INDEX[day],
+            openTime: hours[day].closed ? null : hours[day].open,
+            closeTime: hours[day].closed ? null : hours[day].close,
+            isClosed: hours[day].closed,
+          })),
+        };
+        await updateOperatingHours(hoursPayload);
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      alert("저장 중 오류가 발생했습니다.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateHour = (day, field, value) => {
@@ -186,8 +251,8 @@ export default function ShopProfilePage() {
             ) : (
               <div />
             )}
-            <Button variant="accent" size="sm" onClick={handleSave}>
-              변경사항 저장
+            <Button variant="accent" size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? "저장 중..." : "변경사항 저장"}
             </Button>
           </div>
         </Card>
