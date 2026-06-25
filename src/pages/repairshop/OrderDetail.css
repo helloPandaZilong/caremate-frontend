@@ -1,0 +1,288 @@
+/* ── Back button ──────────────────────────────────────────── */
+.od-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  color: #3b82f6;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 20px;
+  transition: opacity 0.15s;
+}
+.od-back:hover { opacity: 0.7; }
+
+/* ── Header ───────────────────────────────────────────────── */
+.od-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.od-order-no {
+  font-size: 13px;
+  color: #3b82f6;
+  font-weight: 500;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.od-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111;
+}
+
+/* ── Grid ─────────────────────────────────────────────────── */
+.od-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .od-grid { grid-template-columns: 1fr; }
+}
+
+.od-left, .od-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+.od-card { padding: 22px; }
+
+.od-card--danger {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+}
+
+.od-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 16px;
+}
+
+/* ── Info rows ────────────────────────────────────────────── */
+.od-info-rows { display: flex; flex-direction: column; gap: 12px; }
+
+.od-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.od-info-label {
+  min-width: 90px;
+  font-size: 13px;
+  color: #888;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.od-info-value {
+  font-size: 14px;
+  color: #111;
+  font-weight: 500;
+}
+
+/* ── Description ──────────────────────────────────────────── */
+.od-description {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+/* ── Images ───────────────────────────────────────────────── */
+.od-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.od-image {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  transition: opacity 0.15s;
+}
+.od-image:hover { opacity: 0.85; }
+
+/* ── Action card ──────────────────────────────────────────── */
+.od-action-card {}
+
+.od-action-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.od-action-buttons .btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+}
+
+.od-action-hint {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.od-action-hint--info {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  padding: 14px;
+  color: #1d4ed8;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.od-action-hint--success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 14px;
+  color: #15803d;
+  font-size: 14px;
+}
+
+.od-action-hint--danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 14px;
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+/* ── Timeline ─────────────────────────────────────────────── */
+.od-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.od-timeline-empty {
+  color: #aaa;
+  font-size: 14px;
+  padding: 8px 0;
+}
+
+.od-timeline-item {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 20px;
+  position: relative;
+}
+
+.od-timeline-item::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 14px;
+  bottom: 0;
+  width: 2px;
+  background: #e5e7eb;
+}
+
+.od-timeline-item:last-child::after { display: none; }
+
+.od-timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #d1d5db;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px #e5e7eb;
+  flex-shrink: 0;
+  margin-top: 2px;
+  z-index: 1;
+}
+
+.od-timeline-item--current .od-timeline-dot {
+  background: #3b82f6;
+  box-shadow: 0 0 0 2px #bfdbfe;
+}
+
+.od-timeline-content { flex: 1; }
+
+.od-timeline-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.od-timeline-arrow {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.od-timeline-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.od-timeline-meta > span {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.od-timeline-note {
+  font-size: 12px;
+  color: #666;
+}
+
+/* ── Loading ──────────────────────────────────────────────── */
+.od-loading {
+  text-align: center;
+  padding: 64px;
+  color: #aaa;
+  font-size: 15px;
+}
+
+/* ── Shared modal styles (from OrderList) ─────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+.modal-title { font-size: 18px; font-weight: 700; color: #111; margin-bottom: 8px; }
+.modal-desc  { font-size: 13px; color: #888; margin-bottom: 16px; }
+.modal-textarea {
+  width: 100%; padding: 12px;
+  border: 1px solid #e5e7eb; border-radius: 10px;
+  font-size: 14px; resize: vertical; outline: none;
+  font-family: inherit; margin-bottom: 16px; box-sizing: border-box;
+}
+.modal-textarea:focus { border-color: #3b82f6; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   ChevronRight,
   CheckCircle2,
@@ -7,8 +7,10 @@ import {
   ArrowLeft,
   Clock,
   FileText,
+  Play,
 } from "lucide-react";
 import { Button, Card, Badge, UploadZone } from "../../components/shared";
+import { getOrders, startRepair } from "../../api/repairshopApi";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -91,17 +93,75 @@ const STATUS_CONFIG = {
 
 const PAGE_SIZE = 4;
 
+// 백엔드 status → 화면 status 매핑
+const BE_STATUS_MAP = {
+  ACCEPTED: "pending",       // 수리 시작 전
+  IN_REPAIR: "in_progress",  // 수리 중
+  REPAIR_DONE: "completed",
+  PAYMENT_COMPLETED: "completed",
+  CLAIM_REQUESTED: "completed",
+  CLAIM_COMPLETED: "completed",
+};
+
+function fmtDate(s) {
+  if (!s) return "-";
+  const d = new Date(s);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
+}
+
 function ReportList({ onSelect }) {
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState("all");
+  const [items, setItems] = useState(REPORT_ITEMS);
+  const [startingId, setStartingId] = useState(null);
 
-  const filtered = REPORT_ITEMS.filter(
+  const loadOrders = useCallback(() => {
+    getOrders({ size: 100 })
+      .then((data) => {
+        const raw = data?.content ?? data ?? [];
+        if (!raw.length) return;
+        const mapped = raw
+          .filter((o) => BE_STATUS_MAP[o.status])   // RECEIVED는 대시보드에서 처리
+          .map((o) => ({
+            id: o.id,
+            orderNo: o.orderNo,
+            customer: o.customerName,
+            device: o.deviceModel ?? "-",
+            issue: o.damageDescription ?? "-",
+            receivedAt: fmtDate(o.createdAt),
+            visitAt: fmtDate(o.reservedVisitAt) + (o.reservedVisitAt ? " " + String(new Date(o.reservedVisitAt).getHours()).padStart(2,"0") + ":00" : ""),
+            status: BE_STATUS_MAP[o.status],
+            hasReport: ["REPAIR_DONE","PAYMENT_COMPLETED","CLAIM_REQUESTED","CLAIM_COMPLETED"].includes(o.status),
+            rawStatus: o.status,
+          }));
+        setItems(mapped);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  async function handleStartRepair(e, item) {
+    e.stopPropagation();
+    if (!window.confirm("수리를 시작하시겠습니까?")) return;
+    setStartingId(item.id);
+    try {
+      await startRepair(item.id);
+      loadOrders();
+    } catch {
+      alert("처리 중 오류가 발생했습니다.");
+    } finally {
+      setStartingId(null);
+    }
+  }
+
+  const filtered = items.filter(
     (r) => filter === "all" || r.status === filter,
   );
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  const pendingCount = REPORT_ITEMS.filter(
+  const pendingCount = items.filter(
     (r) => r.status !== "completed",
   ).length;
 
@@ -188,7 +248,20 @@ function ReportList({ onSelect }) {
                     <span>방문 예약: {item.visitAt}</span>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 mt-1" />
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  {/* ACCEPTED 상태 → 수리 시작 버튼 (4번 담당) */}
+                  {item.status === "pending" && (
+                    <button
+                      onClick={(e) => handleStartRepair(e, item)}
+                      disabled={startingId === item.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-all"
+                    >
+                      <Play className="w-3 h-3" />
+                      {startingId === item.id ? "처리 중..." : "수리 시작"}
+                    </button>
+                  )}
+                  <ChevronRight className="w-5 h-5 text-muted-foreground mt-1" />
+                </div>
               </div>
             </Card>
           );

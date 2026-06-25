@@ -1,0 +1,170 @@
+/* ── Grid ─────────────────────────────────────────────────── */
+.sp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 800px) {
+  .sp-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Card ─────────────────────────────────────────────────── */
+.sp-card { padding: 24px; }
+
+.sp-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 20px;
+}
+
+/* ── Form ─────────────────────────────────────────────────── */
+.sp-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.sp-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.sp-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+}
+
+.sp-input {
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #111;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: inherit;
+  background: #fff;
+}
+.sp-input:focus { border-color: #3b82f6; }
+.sp-input::placeholder { color: #bbb; }
+
+.sp-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.sp-saved {
+  font-size: 13px;
+  color: #16a34a;
+  font-weight: 500;
+}
+
+/* ── Operating hours ──────────────────────────────────────── */
+.sp-hours-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid #f0f2f5;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.sp-hours-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 48px;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f8f9fc;
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+}
+
+.sp-hours-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 48px;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 14px;
+  border-top: 1px solid #f0f2f5;
+  transition: background 0.12s;
+}
+.sp-hours-row--closed { background: #fafafa; }
+
+.sp-day-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+.sp-day-label--sun { color: #ef4444; }
+.sp-day-label--sat { color: #3b82f6; }
+
+.sp-time-input {
+  padding: 7px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #111;
+  outline: none;
+  font-family: inherit;
+  background: #fff;
+  width: 100%;
+}
+.sp-time-input:focus { border-color: #3b82f6; }
+.sp-time-input:disabled { background: #f5f6f8; color: #ccc; cursor: not-allowed; }
+
+/* ── Toggle switch ────────────────────────────────────────── */
+.sp-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.sp-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.sp-toggle-track {
+  display: block;
+  width: 36px;
+  height: 20px;
+  background: #d1d5db;
+  border-radius: 20px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.sp-toggle-track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.sp-toggle input:checked + .sp-toggle-track {
+  background: #3b82f6;
+}
+
+.sp-toggle input:checked + .sp-toggle-track::after {
+  transform: translateX(16px);
+}
