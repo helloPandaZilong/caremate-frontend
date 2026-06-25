@@ -63,7 +63,6 @@ const NAV_LINKS = [
   { label: "서비스 소개", href: "#service" },
   { label: "이용 방법", href: "#how" },
   { label: "수리점 파트너", href: "#partners" },
-  { label: "요금제", href: "#pricing" },
 ];
 
 function DarkModeToggle({ dark, toggle }) {
@@ -123,7 +122,7 @@ function Header() {
           <div className="hidden md:flex items-center gap-3">
             <DarkModeToggle dark={dark} toggle={toggle} />
             <Link to="/auth">
-              <Button variant="accent" size="sm">
+              <Button variant="ghost" size="sm">
                 로그인
               </Button>
             </Link>
@@ -174,7 +173,7 @@ function Header() {
 const STATS = [
   { value: "48만+", label: "누적 가입자" },
   { value: "3,200+", label: "제휴 수리점" },
-  { value: "99.2%", label: "청구 승인율" },
+  { value: "99.2%", label: "청구 패키지 승인율" },
   { value: "4.8★", label: "사용자 만족도" },
 ];
 
@@ -323,12 +322,12 @@ function Hero() {
               공식 인증 보험 플랫폼
             </LandingBadge>
             <h1 className="text-4xl md:text-5xl lg:text-[3.5rem] font-semibold text-foreground leading-[1.15] tracking-tight">
-              스마트폰 파손·분실,
+              스마트폰 파손·보험,
               <br />
-              <span className="text-accent">한 곳에서</span> 해결하세요
+              <span className="text-accent">CareMate</span>로 해결하자
             </h1>
             <p className="text-base md:text-lg text-muted-foreground leading-relaxed max-w-md">
-              CareMate는 보험 가입부터 수리 접수, 보험금 청구까지 모든 과정을
+              CareMate는 수리 접수부터 수리, 보험청구 서류 제공까지 모든 과정을
               하나의 플랫폼에서 관리합니다.
             </p>
             <div className="flex flex-wrap gap-3 pt-1">
@@ -337,14 +336,9 @@ function Hero() {
                   지금 무료로 시작하기 <ArrowRight className="w-4 h-4" />
                 </Button>
               </Link>
-              <Link to="/customer/find-shop">
-                <Button variant="secondary" size="lg">
-                  서비스 센터 찾기
-                </Button>
-              </Link>
             </div>
             <p className="text-xs text-muted-foreground">
-              신용카드 없이 30일 무료 체험 · 언제든지 해지 가능
+              별도 가입비 없이 모든 기능 무료 제공 · 언제든지 탈퇴 가능
             </p>
           </div>
           <div className="relative hidden md:block">
@@ -358,12 +352,6 @@ function Hero() {
             <p className="text-sm font-medium text-muted-foreground">
               데모 포털 바로가기
             </p>
-            <Link
-              to="/design"
-              className="text-xs text-accent hover:underline font-medium flex items-center gap-1"
-            >
-              🎨 전체 화면 디자인 오버뷰
-            </Link>
           </div>
           <div className="grid grid-cols-3 gap-3">
             {[
@@ -425,7 +413,7 @@ const FEATURES = [
   {
     icon: Shield,
     title: "통합 보험 관리",
-    desc: "여러 보험사의 스마트폰 보험을 한 곳에서 비교하고 가입·갱신하세요. 복잡한 서류 작업 없이 5분 안에 가입 완료.",
+    desc: "여러 보험사의 스마트폰 보험을 한 곳에서 비교하고 가입·갱신하세요. 복잡한 서류 작업 없이 1분 안에 가입 완료.",
     tag: "사용자",
   },
   {
@@ -436,14 +424,14 @@ const FEATURES = [
   },
   {
     icon: Clock,
-    title: "빠른 청구 처리",
-    desc: "사진 한 장으로 보험금 청구를 시작하세요. 평균 2영업일 이내 심사 완료, 신속한 보험금 지급을 보장합니다.",
+    title: "빠른 청구 서류 제공",
+    desc: "보험 청구 패키지를 통해 빠른 보험 청구를 진행하세요. 신속한 패키지 제공 및 청구 방법 안내가 제공됩니다.",
     tag: "사용자·수리점",
   },
   {
     icon: CheckCircle2,
     title: "수리점 운영 솔루션",
-    desc: "예약 관리, 수리 이력 기록, 보험 청구 대행까지. 수리점 운영에 필요한 모든 도구를 제공합니다.",
+    desc: "예약 관리, 수리 이력 기록, AI 보험 청구 리포트 생성까지. 수리점 운영에 필요한 모든 도구를 제공합니다.",
     tag: "수리점",
   },
 ];
@@ -460,7 +448,7 @@ function Features() {
             완전한 A/S 생태계
           </h2>
           <p className="text-base text-muted-foreground max-w-xl leading-relaxed">
-            CareMate는 단순한 보험 앱이 아닙니다. 사용자, 수리점, 보험사를
+            CareMate는 단순한 중계 앱이 아닙니다. 사용자, 수리점, 보험사를
             하나로 연결하는 통합 플랫폼입니다.
           </p>
         </div>
@@ -504,23 +492,23 @@ function Features() {
 const STEPS = [
   {
     step: "01",
-    title: "보험 가입",
-    desc: "기기 정보와 이용 패턴을 입력하면 최적 보험 플랜을 추천해 드립니다.",
+    title: "비대면 A/S 접수",
+    desc: "파손된 기기의 정보를 입력하고 방문 접수 일자 예약을 진행하세요.",
   },
   {
     step: "02",
-    title: "파손·분실 신고",
-    desc: "앱에서 사진을 찍고 상황을 입력하세요. AI가 자동으로 손상 정도를 분석합니다.",
+    title: "A/S 단계별 모니터링",
+    desc: "스마트폰 A/S 접수 이후부터 현재 A/S 진행 상황을 모니터링 하세요.",
   },
   {
     step: "03",
-    title: "수리점 예약",
-    desc: "주변 제휴 수리점을 지도에서 확인하고 바로 예약하세요.",
+    title: "실시간 보험 환급금 확인",
+    desc: "수리가 끝나고 수리금액 결제 후 실시간 적용된 보험 환급액을 확인하세요.",
   },
   {
     step: "04",
-    title: "보험금 수령",
-    desc: "수리가 완료되면 보험금이 자동 청구됩니다. 지정 계좌로 빠르게 지급됩니다.",
+    title: "보험 청구 패키지 수령, 제출",
+    desc: "보험 청구 패키지를 다운로드 받고 안내되는 보험 청구 사이트에서 보험 청구를 진행하세요.",
   },
 ];
 
@@ -529,26 +517,26 @@ const TESTIMONIALS = [
     name: "이수연",
     role: "일반 사용자 · 서울",
     content:
-      "액정이 산산조각 났는데 CareMate 앱에서 사진 찍고 신청하니 이틀 만에 수리비가 들어왔어요.",
+      "액정이 산산조각 났는데 CareMate 앱에서 사진 찍고 신청하니 이틀 만에 수리가 끝났어요.",
     rating: 5,
   },
   {
     name: "박도현",
     role: "수리점 사장 · 부산",
     content:
-      "예약 관리부터 보험 청구 대행까지 한 번에 처리되니 행정 시간이 절반으로 줄었어요.",
+      "예약 관리부터 보험 청구 서류 작성 및 정산까지 한 번에 처리되니 행정 시간이 절반으로 줄었어요.",
     rating: 5,
   },
   {
     name: "김지아",
     role: "일반 사용자 · 대전",
-    content: "분실폰 신고가 5분 만에 완료되고, 새 폰 구입 지원금까지 받았어요.",
+    content: "파손된 스마트폰 보험 청구 서류 준비가 복잡했는데, 청구 방법을 상세히 알려줘서 보험금 돌려받았어요.",
     rating: 5,
   },
 ];
 
 const FOOTER_LINKS = {
-  서비스: ["서비스 소개", "요금제 안내", "수리점 파트너", "기업 솔루션"],
+  서비스: ["서비스 소개", "수리점 파트너", "기업 솔루션"],
   지원: ["고객센터", "FAQ", "공지사항", "서비스 상태"],
   법적고지: ["이용약관", "개인정보처리방침", "보험약관 안내"],
 };
@@ -652,7 +640,7 @@ export default function LandingPage() {
                   지금 바로 무료로 시작하세요
                 </h2>
                 <p className="text-base text-white/70">
-                  30일 무료 체험 · 카드 없이 가입 · 언제든 해지
+                  별도 가입비 없이 모든 기능 무료 제공 · 언제든지 탈퇴 가능
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 shrink-0">
@@ -687,7 +675,7 @@ export default function LandingPage() {
                 </span>
               </div>
               <p className="text-sm text-white/50 leading-relaxed max-w-xs">
-                스마트폰 A/S 보험 통합 관리 플랫폼.
+                스마트폰 A/S 보험 통합 중계 플랫폼.
               </p>
               <div className="flex flex-col gap-2.5 text-xs text-white/40">
                 <span className="flex items-center gap-2">
