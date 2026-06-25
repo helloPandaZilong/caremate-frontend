@@ -1,5 +1,23 @@
 import apiClient from './client'
 
+// ── 회원 관리 (차단/해제) API ──────────────────────────────────────────────────
+
+// 고객 목록 조회 (keyword: 이름 검색, page/size: 페이징)
+export const getAdminCustomers = (params) =>
+  apiClient.get('/admin/customers', { params })
+
+// 수리점 회원 목록 조회
+export const getAdminShops = (params) =>
+  apiClient.get('/admin/shops/members', { params })
+
+// 고객 계정 차단/해제 토글 → 응답: { status: "ACTIVE" | "BLOCKED" }
+export const toggleCustomerBlock = (customerId) =>
+  apiClient.patch(`/admin/customers/${customerId}/block`)
+
+// 수리점 계정 차단/해제 토글 → 응답: { status: "ACTIVE" | "BLOCKED" }
+export const toggleShopBlock = (shopId) =>
+  apiClient.patch(`/admin/shops/${shopId}/block`)
+
 // ── 수리점 가입 승인 관련 API ───────────────────────────────────────────────────
 
 // 승인 대기중인 목록 조회
