@@ -10,7 +10,7 @@ import {
   Play,
 } from "lucide-react";
 import { Button, Card, Badge, UploadZone } from "../../components/shared";
-import { getOrders, startRepair } from "../../api/repairshopApi";
+import { getOrders, startRepair, completeRepair } from "../../api/repairshopApi";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -337,12 +337,23 @@ function ReportDetail({ item, onBack }) {
   const [laborCost, setLaborCost] = useState("");
   const [log, setLog] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const total = (Number(partCost) || 0) + (Number(laborCost) || 0);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (repairStatus === "completed" && item.rawStatus === "IN_REPAIR") {
+        await completeRepair(item.id);
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      alert("처리 중 오류가 발생했습니다.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -501,9 +512,9 @@ function ReportDetail({ item, onBack }) {
         ) : (
           <div />
         )}
-        <Button variant="accent" size="md" onClick={handleSave}>
+        <Button variant="accent" size="md" onClick={handleSave} disabled={saving}>
           <Save className="w-4 h-4" />
-          리포트 저장 및 고객 알림 발송
+          {saving ? "처리 중..." : "리포트 저장 및 고객 알림 발송"}
         </Button>
       </div>
     </div>

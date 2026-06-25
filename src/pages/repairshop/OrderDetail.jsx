@@ -260,8 +260,8 @@ export default function OrderDetail() {
             <div className="od-timeline">
               {histories.length === 0
                 ? <p className="od-timeline-empty">이력이 없습니다.</p>
-                : [...histories].reverse().map((h, i) => (
-                    <div key={h.id} className={`od-timeline-item${i === 0 ? ' od-timeline-item--current' : ''}`}>
+                : histories.map((h, i) => (
+                    <div key={h.id} className={`od-timeline-item${i === histories.length - 1 ? ' od-timeline-item--current' : ''}`}>
                       <div className="od-timeline-dot" />
                       <div className="od-timeline-content">
                         <div className="od-timeline-status">

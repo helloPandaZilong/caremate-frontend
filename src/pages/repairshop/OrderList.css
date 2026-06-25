@@ -204,3 +204,45 @@
   gap: 10px;
   justify-content: flex-end;
 }
+
+/* ── Badge ────────────────────────────────────────────────── */
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge--received         { background: #eff6ff; color: #3b82f6; }
+.badge--accepted         { background: #f0fdf4; color: #16a34a; }
+.badge--rejected         { background: #fef2f2; color: #ef4444; }
+.badge--no-show          { background: #fafafa; color: #6b7280; border: 1px solid #e5e7eb; }
+.badge--in-repair        { background: #fff7ed; color: #ea580c; }
+.badge--repair-done      { background: #f5f3ff; color: #7c3aed; }
+.badge--payment-completed{ background: #ecfdf5; color: #059669; }
+.badge--claim-requested  { background: #fefce8; color: #ca8a04; }
+.badge--claim-completed  { background: #f0f9ff; color: #0284c7; }
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn--sm { padding: 5px 11px; font-size: 12px; }
+.btn--primary { background: #3b82f6; color: #fff; }
+.btn--primary:hover:not(:disabled) { background: #2563eb; }
+.btn--danger  { background: #ef4444; color: #fff; }
+.btn--danger:hover:not(:disabled)  { background: #dc2626; }
+.btn--success { background: #16a34a; color: #fff; }
+.btn--success:hover:not(:disabled) { background: #15803d; }
+.btn--ghost   { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+.btn--ghost:hover:not(:disabled)   { background: #e5e7eb; }

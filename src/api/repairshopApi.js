@@ -28,6 +28,9 @@ export const startRepair = (orderId) =>
 export const manualNoShow = (orderId) =>
   apiClient.patch(`/shop/orders/${orderId}/no-show`).then((r) => r.data.data)
 
+export const completeRepair = (orderId) =>
+  apiClient.patch(`/shop/orders/${orderId}/complete-repair`).then((r) => r.data.data)
+
 // ─── Shop Profile ─────────────────────────────────────────
 export const getShopProfile = () =>
   apiClient.get('/shop/profile').then((r) => r.data.data)

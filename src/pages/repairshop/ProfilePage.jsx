@@ -66,7 +66,15 @@ export default function ShopProfilePage() {
   useEffect(() => {
     getShopProfile()
       .then((d) => {
-        if (d) setProfile((p) => ({ ...p, ...d }));
+        if (d) setProfile((p) => ({
+          ...p,
+          shopName: d.shopName ?? p.shopName,
+          phone: d.phone ?? p.phone,
+          businessNo: d.businessNumber ?? p.businessNo,
+          address: d.address ?? p.address,
+          latitude: d.latitude ?? p.latitude,
+          longitude: d.longitude ?? p.longitude,
+        }));
       })
       .catch(() => {});
 
@@ -94,7 +102,13 @@ export default function ShopProfilePage() {
     setSaving(true);
     try {
       if (tab === "shop") {
-        await updateShopProfile(profile);
+        await updateShopProfile({
+          shopName: profile.shopName,
+          address: profile.address,
+          phone: profile.phone,
+          latitude: profile.latitude ?? null,
+          longitude: profile.longitude ?? null,
+        });
       } else if (tab === "hours") {
         const hoursPayload = {
           hours: DAYS.map((day) => ({
@@ -122,7 +136,7 @@ export default function ShopProfilePage() {
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">마이페이지</h1>
+        <h1 className="text-xl font-semibold text-foreground">매장 프로필</h1>
         <p className="text-sm text-muted-foreground mt-1">
           매장 정보 및 계정을 관리하세요.
         </p>
@@ -135,7 +149,7 @@ export default function ShopProfilePage() {
         </div>
         <div className="flex-1">
           <p className="text-base font-semibold text-foreground">
-            강남 스마트케어
+            {profile.shopName}
           </p>
           <p className="text-sm text-muted-foreground">shop@caremate.kr</p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -214,12 +228,12 @@ export default function ShopProfilePage() {
         <Card className="p-6 flex flex-col gap-5">
           <h3 className="text-sm font-semibold text-foreground">매장 프로필</h3>
           <div className="grid md:grid-cols-2 gap-4">
-            <Input label="지점명" value="강남 스마트케어" />
-            <Input label="대표자명" value="박기술" />
-            <Input label="연락처" value="02-1234-5678" />
-            <Input label="사업자번호" value="123-45-67890" />
+            <Input label="지점명" value={profile.shopName} onChange={(val) => setProfile((p) => ({ ...p, shopName: val }))} />
+            <Input label="대표자명" value={profile.ownerName} onChange={(val) => setProfile((p) => ({ ...p, ownerName: val }))} />
+            <Input label="연락처" value={profile.phone} onChange={(val) => setProfile((p) => ({ ...p, phone: val }))} />
+            <Input label="사업자번호" value={profile.businessNo} onChange={(val) => setProfile((p) => ({ ...p, businessNo: val }))} />
             <div className="col-span-2">
-              <Input label="주소" value="서울특별시 강남구 테헤란로 152" />
+              <Input label="주소" value={profile.address} onChange={(val) => setProfile((p) => ({ ...p, address: val }))} />
             </div>
             <div className="col-span-2 flex flex-col gap-1.5">
               <label className="text-xs font-medium text-muted-foreground">

@@ -15,12 +15,12 @@ const STATUS_MAP = {
 };
 
 const STATUS_BADGE = {
-  pending:   { label: "대기",    cls: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400" },
-  scheduled: { label: "확정",    cls: "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400" },
-  in_repair: { label: "수리중",  cls: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400" },
-  done:      { label: "완료",    cls: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400" },
-  rejected:  { label: "거절",    cls: "bg-red-100 text-red-500 dark:bg-red-900/30 dark:text-red-400" },
-  no_show:   { label: "노쇼",    cls: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400" },
+  pending:   { label: "대기",   barCls: "border-blue-500 bg-blue-50 text-blue-700",     badgeCls: "bg-blue-500 text-white" },
+  scheduled: { label: "접수완료", barCls: "border-amber-400 bg-amber-50 text-amber-700",  badgeCls: "bg-amber-400 text-white" },
+  in_repair: { label: "수리중", barCls: "border-purple-500 bg-purple-50 text-purple-700", badgeCls: "bg-purple-500 text-white" },
+  done:      { label: "완료",   barCls: "border-green-500 bg-green-50 text-green-700",  badgeCls: "bg-green-500 text-white" },
+  rejected:  { label: "거절",   barCls: "border-red-400 bg-red-50 text-red-700",        badgeCls: "bg-red-400 text-white" },
+  no_show:   { label: "노쇼",   barCls: "border-gray-400 bg-gray-100 text-gray-600",    badgeCls: "bg-gray-400 text-white" },
 };
 
 function formatHour(dateStr) { return dateStr ? new Date(dateStr).getHours() : 0; }
@@ -49,9 +49,9 @@ function CalendarCell({ day, bookings, onSelect, isToday }) {
           const badge = STATUS_BADGE[b.status] ?? STATUS_BADGE.pending;
           return (
             <button key={b.id} onClick={() => onSelect(b)}
-              className="w-full text-left px-1.5 py-1 rounded text-[10px] font-medium transition-colors bg-secondary hover:bg-secondary/70 flex items-center justify-between gap-1">
-              <span className="truncate text-foreground">{b.hour}:00 {b.customer}</span>
-              <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-semibold ${badge.cls}`}>{badge.label}</span>
+              className={`w-full text-left px-2 py-1 rounded text-[11px] font-semibold border-l-[3px] hover:opacity-75 transition-opacity flex items-center justify-between gap-1 ${badge.barCls}`}>
+              <span className="truncate">{b.hour}:00 {b.customer}</span>
+              <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-bold ${badge.badgeCls}`}>{badge.label}</span>
             </button>
           );
         })}
@@ -207,7 +207,6 @@ function BookingDrawer({ booking, onClose, onAction }) {
 }
 
 export default function ShopDashboard() {
-  const [view, setView] = useState("month");
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookings, setBookings] = useState(MOCK_BOOKINGS);
   const [curYear, setCurYear] = useState(new Date().getFullYear());
@@ -262,19 +261,13 @@ export default function ShopDashboard() {
           <h1 className="text-xl font-semibold text-foreground">예약 스케줄 관리</h1>
           <p className="text-sm text-muted-foreground mt-1">강남 스마트케어 · 오늘 예약 {todayBookings.length}건</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-accent/20" />검토 대기</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-amber-100 dark:bg-amber-900/30" />확정 예약</span>
-          </div>
-          <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
-            {["month", "week"].map((v) => (
-              <button key={v} onClick={() => setView(v)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${view === v ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-                {v === "month" ? "월간" : "주간"}
-              </button>
-            ))}
-          </div>
+        <div className="hidden md:flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-blue-500 bg-blue-50" />대기</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-amber-400 bg-amber-50" />접수완료</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-purple-500 bg-purple-50" />수리중</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-green-500 bg-green-50" />완료</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-red-400 bg-red-50" />거절</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-gray-400 bg-gray-100" />노쇼</span>
         </div>
       </div>
 
