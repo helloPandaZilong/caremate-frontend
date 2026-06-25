@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
-import { Shield, Eye, EyeOff, CheckCircle, Loader2, MapPin } from "lucide-react";
+import { Shield, Eye, EyeOff, CheckCircle, Loader2, MapPin, Sun, Moon } from "lucide-react";
 import { toast } from "sonner";
 import { login, signupCustomer, signupShop, checkEmail as apiCheckEmail, getGoogleAuthUrl } from "../api/auth";
 import { useAuth } from "../contexts/AuthContext";
+import { useDarkMode } from "../hooks/useDarkMode";
 
 // 로그인 성공 후 역할별 기본 이동 경로
 const ROLE_REDIRECT = {
@@ -16,6 +17,7 @@ export default function AuthPage() {
   const nav      = useNavigate();
   const location = useLocation();
   const { saveAuth } = useAuth();
+  const { dark, toggle } = useDarkMode();
 
   // ── 탭/모드 상태 ──────────────────────────────────────────────────────────────
   const [tab,    setTab]    = useState("customer"); // "customer" | "shop"
@@ -159,7 +161,7 @@ export default function AuthPage() {
       if (code === "SHOP_NOT_APPROVED") {
         toast.error("수리점 가입 승인 대기 중입니다. 관리자 승인 후 이용 가능합니다.");
       } else if (code === "MEMBER_BLOCKED") {
-        toast.error("이용이 제한된 계정입니다. 고객센터에 문의해주세요.");
+        toast.error("차단된 계정입니다! 관리자측으로 문의하세요.");
       } else {
         toast.error("이메일 또는 비밀번호를 확인해주세요.");
       }
@@ -267,6 +269,17 @@ export default function AuthPage() {
       className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-16"
       style={{ fontFamily: "'Noto Sans KR', 'DM Sans', sans-serif" }}
     >
+      {/* 다크모드 토글 — 우상단 고정 */}
+      <button
+        onClick={toggle}
+        title={dark ? "라이트 모드" : "다크 모드"}
+        className="fixed top-4 right-4 z-50 p-2.5 rounded-xl bg-card border border-border shadow-md hover:bg-secondary transition-colors"
+      >
+        {dark
+          ? <Sun className="w-4 h-4 text-amber-500" />
+          : <Moon className="w-4 h-4 text-muted-foreground" />
+        }
+      </button>
       {/* 로고 */}
       <Link to="/" className="flex items-center gap-2.5 mb-8">
         <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">

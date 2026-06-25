@@ -28,6 +28,7 @@ import AdminAudit          from "../pages/admin/AuditPage";
 import AdminLMS            from "../pages/admin/LMSManagePage";
 import AdminProfile        from "../pages/admin/ProfilePage";
 import AdminShopApprovals  from "../pages/admin/ShopApprovalsPage"; // 수리점 가입 승인 관리
+import AdminMembers        from "../pages/admin/MembersPage";        // 회원 차단/해제 관리
 
 export const router = createBrowserRouter([
   // 공개 라우트 — 인증 불필요
@@ -71,6 +72,7 @@ export const router = createBrowserRouter([
       { path: "/admin/lms",            Component: AdminLMS           }, // LMS 관리
       { path: "/admin/profile",        Component: AdminProfile       }, // 관리자 프로필
       { path: "/admin/shop-approvals", Component: AdminShopApprovals }, // 수리점 가입 승인 관리
+      { path: "/admin/members",        Component: AdminMembers        }, // 회원 차단/해제 관리
     ],
   },
 ]);

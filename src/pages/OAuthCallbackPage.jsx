@@ -93,8 +93,8 @@ export default function OAuthCallbackPage() {
           toast.error('Google 로그인에 실패했습니다. 다시 시도해주세요.')
         } else if (code === 'SHOP_NOT_APPROVED') {
           toast.error('수리점 가입 승인 대기 중입니다. 관리자 승인 후 이용 가능합니다.')
-        } else if (code === 'FORBIDDEN') {
-          toast.error('이용이 제한된 계정입니다. 고객센터에 문의해주세요.')
+        } else if (code === 'MEMBER_BLOCKED') {
+          toast.error('차단된 계정입니다! 관리자측으로 문의하세요.')
         } else {
           toast.error('Google 로그인 처리 중 오류가 발생했습니다.')
         }
