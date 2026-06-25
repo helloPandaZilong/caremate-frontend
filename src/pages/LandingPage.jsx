@@ -13,7 +13,10 @@ import {
   Wrench,
   Clock,
   ChevronRight,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useDarkMode } from "../hooks/useDarkMode";
 
 function Button({
   children,
@@ -63,8 +66,34 @@ const NAV_LINKS = [
   { label: "요금제", href: "#pricing" },
 ];
 
+function DarkModeToggle({ dark, toggle }) {
+  return (
+    <button
+      onClick={toggle}
+      title={dark ? "라이트 모드" : "다크 모드"}
+      className="relative w-12 h-6 rounded-full border transition-all duration-300 focus:outline-none shrink-0"
+      style={{
+        background: dark ? "#3B82F6" : "#EEF1F8",
+        borderColor: dark ? "#3B82F6" : "rgba(26,29,46,0.15)",
+      }}
+    >
+      <span
+        className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow-sm transition-all duration-300"
+        style={{ transform: dark ? "translateX(24px)" : "translateX(0px)" }}
+      >
+        {dark
+          ? <Moon className="w-2.5 h-2.5 text-blue-600" />
+          : <Sun className="w-2.5 h-2.5 text-amber-500" />
+        }
+      </span>
+    </button>
+  );
+}
+
 function Header() {
   const [open, setOpen] = useState(false);
+  const { dark, toggle } = useDarkMode();
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="max-w-6xl mx-auto px-5 md:px-8">
@@ -91,19 +120,23 @@ function Header() {
               </a>
             ))}
           </nav>
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-3">
+            <DarkModeToggle dark={dark} toggle={toggle} />
             <Link to="/auth">
               <Button variant="accent" size="sm">
                 로그인
               </Button>
             </Link>
           </div>
-          <button
-            className="md:hidden p-2 rounded-lg hover:bg-secondary transition-colors"
-            onClick={() => setOpen(!open)}
-          >
-            {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+          <div className="md:hidden flex items-center gap-2">
+            <DarkModeToggle dark={dark} toggle={toggle} />
+            <button
+              className="p-2 rounded-lg hover:bg-secondary transition-colors"
+              onClick={() => setOpen(!open)}
+            >
+              {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
       </div>
       {open && (

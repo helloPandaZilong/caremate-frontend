@@ -30,6 +30,7 @@ import {
   CreditCard as Pay,
   Award,
   Store, // 수리점 가입 승인 메뉴 아이콘
+  Users, // 회원 관리 메뉴 아이콘
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
 
@@ -59,7 +60,8 @@ const SHOP_NAV = [
 
 const ADMIN_NAV = [
   { label: "통합 대시보드", href: "/admin/dashboard", icon: BarChart2 },
-  { label: "수리점 가입 승인", href: "/admin/shop-approvals", icon: Store }, // 신규 수리점 승인 관리
+  { label: "수리점 가입 승인", href: "/admin/shop-approvals", icon: Store },
+  { label: "회원 관리", href: "/admin/members", icon: Users }, // 고객·수리점 차단/해제
   { label: "보험 약관 관리", href: "/admin/policies", icon: BookOpen },
   { label: "수수료 청구 관리", href: "/admin/settlements", icon: Package },
   { label: "LMS 관리", href: "/admin/lms", icon: GraduationCap },

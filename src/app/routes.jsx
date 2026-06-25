@@ -3,6 +3,7 @@ import AppShell from "../components/AppShell";
 import ProtectedRoute from "../components/ProtectedRoute";
 import LandingPage from "../pages/LandingPage";
 import AuthPage from "../pages/AuthPage";
+import OAuthCallbackPage from "../pages/OAuthCallbackPage"; // Google OAuth2 콜백 처리
 
 // 수리 고객용 import
 import CustomerDashboard from "../pages/customer/DashboardPage";
@@ -29,11 +30,17 @@ import AdminAudit          from "../pages/admin/AuditPage";
 import AdminLMS            from "../pages/admin/LMSManagePage";
 import AdminProfile        from "../pages/admin/ProfilePage";
 import AdminShopApprovals  from "../pages/admin/ShopApprovalsPage"; // 수리점 가입 승인 관리
+import AdminMembers        from "../pages/admin/MembersPage";        // 회원 차단/해제 관리
 
 export const router = createBrowserRouter([
   // 공개 라우트 — 인증 불필요
-  { path: "/",     Component: LandingPage },
-  { path: "/auth", Component: AuthPage },
+  { path: "/",              Component: LandingPage       },
+  { path: "/auth",          Component: AuthPage          },
+  // Google OAuth2 콜백 — Google이 code와 state를 붙여 리다이렉트하는 URL
+  // Google Cloud Console의 "승인된 리다이렉트 URI"에 등록 필요:
+  //   개발: http://localhost:3000/auth/callback
+  //   운영: https://your-domain.com/auth/callback
+  { path: "/auth/callback", Component: OAuthCallbackPage },
 
   // 보호 라우트 — 미로그인 접근 시 /auth 로 리다이렉트
   {
@@ -69,6 +76,7 @@ export const router = createBrowserRouter([
       { path: "/admin/lms",            Component: AdminLMS           }, // LMS 관리
       { path: "/admin/profile",        Component: AdminProfile       }, // 관리자 프로필
       { path: "/admin/shop-approvals", Component: AdminShopApprovals }, // 수리점 가입 승인 관리
+      { path: "/admin/members",        Component: AdminMembers        }, // 회원 차단/해제 관리
     ],
   },
 ]);
