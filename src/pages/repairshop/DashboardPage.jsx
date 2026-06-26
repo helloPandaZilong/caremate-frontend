@@ -31,12 +31,13 @@ function formatDate(dateStr) {
   return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:00`;
 }
 
+const _now = new Date();
 const MOCK_BOOKINGS = [
-  { id:1, day:13, hour:10, customer:"김민준", device:"iPhone 15 Pro 실버 256GB", issue:"전면 유리 균열, 터치 미인식", status:"pending", phone:"010-1234-5678" },
-  { id:2, day:13, hour:14, customer:"이수연", device:"Galaxy S24 Ultra", issue:"배터리 교체", status:"scheduled", phone:"010-2345-6789" },
-  { id:3, day:15, hour:11, customer:"박도현", device:"iPhone 14 블랙", issue:"카메라 렌즈 파손", status:"pending", phone:"010-3456-7890" },
-  { id:4, day:17, hour:15, customer:"최지아", device:"Pixel 8 Pro", issue:"침수 수리", status:"scheduled", phone:"010-4567-8901" },
-  { id:5, day:20, hour:10, customer:"정우성", device:"Galaxy Z Flip 5", issue:"힌지 파손", status:"pending", phone:"010-5678-9012" },
+  { id:1, day:13, month:_now.getMonth(), year:_now.getFullYear(), hour:10, customer:"김민준", device:"iPhone 15 Pro 실버 256GB", issue:"전면 유리 균열, 터치 미인식", status:"pending", phone:"010-1234-5678" },
+  { id:2, day:13, month:_now.getMonth(), year:_now.getFullYear(), hour:14, customer:"이수연", device:"Galaxy S24 Ultra", issue:"배터리 교체", status:"scheduled", phone:"010-2345-6789" },
+  { id:3, day:15, month:_now.getMonth(), year:_now.getFullYear(), hour:11, customer:"박도현", device:"iPhone 14 블랙", issue:"카메라 렌즈 파손", status:"pending", phone:"010-3456-7890" },
+  { id:4, day:17, month:_now.getMonth(), year:_now.getFullYear(), hour:15, customer:"최지아", device:"Pixel 8 Pro", issue:"침수 수리", status:"scheduled", phone:"010-4567-8901" },
+  { id:5, day:20, month:_now.getMonth(), year:_now.getFullYear(), hour:10, customer:"정우성", device:"Galaxy Z Flip 5", issue:"힌지 파손", status:"pending", phone:"010-5678-9012" },
 ];
 
 function CalendarCell({ day, bookings, onSelect, isToday }) {
@@ -219,10 +220,14 @@ export default function ShopDashboard() {
         if (!items.length) return;
         const mapped = items
           .filter((o) => o.reservedVisitAt)
-          .map((o) => ({
+          .map((o) => {
+            const d = new Date(o.reservedVisitAt);
+            return {
             id: o.id,
             orderNo: o.orderNo,
-            day: formatDay(o.reservedVisitAt),
+            day: d.getDate(),
+            month: d.getMonth(),
+            year: d.getFullYear(),
             hour: formatHour(o.reservedVisitAt),
             customer: o.customerName,
             device: o.deviceModel ?? "-",
@@ -230,7 +235,7 @@ export default function ShopDashboard() {
             status: STATUS_MAP[o.status] ?? "pending",
             phone: o.customerPhone ?? "",
             visitAt: formatDate(o.reservedVisitAt),
-          }));
+          };});
         setBookings(mapped);
         const first = new Date(items[0].reservedVisitAt);
         setCurYear(first.getFullYear());
@@ -248,8 +253,9 @@ export default function ShopDashboard() {
     return day >= 1 && day <= daysInMonth ? day : null;
   });
 
-  const bookingsByDay = (day) => bookings.filter((b) => b.day === day);
-  const todayBookings = bookings.filter((b) => b.day === new Date().getDate());
+  const bookingsByDay = (day) => bookings.filter((b) => b.day === day && b.month === curMonth && b.year === curYear);
+  const _today = new Date();
+  const todayBookings = bookings.filter((b) => b.day === _today.getDate() && b.month === _today.getMonth() && b.year === _today.getFullYear());
 
   const prevMonth = () => { if (curMonth === 0) { setCurYear(y => y-1); setCurMonth(11); } else setCurMonth(m => m-1); };
   const nextMonth = () => { if (curMonth === 11) { setCurYear(y => y+1); setCurMonth(0); } else setCurMonth(m => m+1); };
