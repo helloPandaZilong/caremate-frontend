@@ -55,7 +55,7 @@ export const router = createBrowserRouter([
       { path: "/customer/dashboard",  Component: CustomerDashboard }, // 메인 대시보드
       { path: "/customer/request",    Component: CustomerRequest   }, // A/S 접수
       { path: "/customer/insurance",  Component: CustomerInsurance }, // 보험 관리
-      { path: "/customer/payment",    Component: CustomerPayment   }, // 결제·청구
+      { path: "/customer/payment/:orderId", Component: CustomerPayment   }, // 결제·청구
       { path: "/customer/find-shop",  Component: CustomerFindShop  }, // 서비스 센터 찾기
       { path: "/customer/profile",    Component: CustomerProfile   }, // 프로필
 
