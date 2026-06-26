@@ -16,6 +16,8 @@ import CustomerFindShop  from "../pages/customer/FindShopPage";
 // 수리점용 import
 import ShopDashboard  from "../pages/repairshop/DashboardPage";
 import ShopReport     from "../pages/repairshop/ReportPage";
+import ShopOrderList  from "../pages/repairshop/OrderList";
+import ShopOrderDetail from "../pages/repairshop/OrderDetail";
 import ShopSettlement from "../pages/repairshop/SettlementPage";
 import ShopLMS        from "../pages/repairshop/LMSPage";
 import ShopProfile    from "../pages/repairshop/ProfilePage";
@@ -53,16 +55,18 @@ export const router = createBrowserRouter([
       { path: "/customer/dashboard",  Component: CustomerDashboard }, // 메인 대시보드
       { path: "/customer/request",    Component: CustomerRequest   }, // A/S 접수
       { path: "/customer/insurance",  Component: CustomerInsurance }, // 보험 관리
-      { path: "/customer/payment",    Component: CustomerPayment   }, // 결제·청구
+      { path: "/customer/payment/:orderId", Component: CustomerPayment   }, // 결제·청구
       { path: "/customer/find-shop",  Component: CustomerFindShop  }, // 서비스 센터 찾기
       { path: "/customer/profile",    Component: CustomerProfile   }, // 프로필
 
       // 수리점
-      { path: "/shop/dashboard",  Component: ShopDashboard  }, // 메인 대시보드
-      { path: "/shop/report",     Component: ShopReport     }, // 수리 리포트 목록
-      { path: "/shop/settlement", Component: ShopSettlement }, // 월말 정산
-      { path: "/shop/lms",        Component: ShopLMS        }, // LMS 교육
-      { path: "/shop/profile",    Component: ShopProfile    }, // 수리점 프로필
+      { path: "/shop/dashboard",    Component: ShopDashboard   }, // 메인 대시보드
+      { path: "/shop/orders",       Component: ShopOrderList   }, // 주문 접수 목록
+      { path: "/shop/orders/:id",   Component: ShopOrderDetail }, // 주문 상세
+      { path: "/shop/report",       Component: ShopReport      }, // 수리 리포트 목록
+      { path: "/shop/settlement",   Component: ShopSettlement  }, // 월말 정산
+      { path: "/shop/lms",          Component: ShopLMS         }, // LMS 교육
+      { path: "/shop/profile",      Component: ShopProfile     }, // 수리점 프로필
 
       // 관리자
       { path: "/admin/dashboard",      Component: AdminDashboard     }, // 통합 대시보드

@@ -146,9 +146,7 @@ export default function AuthPage() {
       saveAuth(accessToken, { memberId, role, name, email: form.email });
       toast.success(`${name}님, 환영합니다!`);
 
-      // 역할별 기본 대시보드로 고정 이동.
-      // ProtectedRoute가 저장한 이전 경로(from)는 동일 역할 경로인 경우에만 복귀에 사용한다.
-      // (예: ADMIN이 /customer 페이지를 방문했다가 로그인 시 /customer로 가는 경우를 방지)
+      // 역할별 기본 대시보드로 이동
       const ROLE_PREFIX = { CUSTOMER: '/customer', REPAIR_SHOP: '/shop', ADMIN: '/admin' };
       const prevPath = location.state?.from?.pathname;
       const prefix   = ROLE_PREFIX[role];
@@ -234,8 +232,8 @@ export default function AuthPage() {
 
   // 제출 버튼 클릭 시 모드/탭에 따라 분기
   const handleSubmit = () => {
-    if (mode === "signin")      return handleLogin();
-    if (tab  === "customer")    return handleSignupCustomer();
+    if (mode === "signin")   return handleLogin();
+    if (tab  === "customer") return handleSignupCustomer();
     return handleSignupShop();
   };
 
@@ -312,31 +310,31 @@ export default function AuthPage() {
         </div>
 
         <div className="p-6 flex flex-col gap-5">
-          {/* 회원 유형 선택 */}
+          {/* 회원 유형 선택 (회원가입 모드에서만) */}
           {mode === "signup" && (
-              <div className="animate-in fade-in duration-200">
-                <p className="text-xs font-medium text-muted-foreground mb-2">
-                  회원 유형 선택
-                </p>
-                <div className="flex gap-1 p-1 bg-secondary rounded-xl">
-                  {[
-                    { id: "customer", label: "일반 고객" },
-                    { id: "shop",     label: "수리점 파트너" },
-                  ].map((t) => (
-                      <button
-                          key={t.id}
-                          onClick={() => handleTabChange(t.id)}
-                          className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
-                              tab === t.id
-                                  ? "bg-card text-foreground shadow-sm"
-                                  : "text-muted-foreground hover:text-foreground"
-                          }`}
-                      >
-                        {t.label}
-                      </button>
-                  ))}
-                </div>
+            <div className="animate-in fade-in duration-200">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                회원 유형 선택
+              </p>
+              <div className="flex gap-1 p-1 bg-secondary rounded-xl">
+                {[
+                  { id: "customer", label: "일반 고객" },
+                  { id: "shop",     label: "수리점 파트너" },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    onClick={() => handleTabChange(t.id)}
+                    className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
+                      tab === t.id
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
               </div>
+            </div>
           )}
 
           {/* 공통 입력 필드: 이메일, 비밀번호 */}
@@ -386,7 +384,7 @@ export default function AuthPage() {
               </div>
             )}
 
-            {/* 고객 회원가입 추가 필드: 이름, 휴대폰 번호 */}
+            {/* 고객 회원가입 추가 필드 */}
             {mode === "signup" && tab === "customer" && (
               <>
                 <div className="flex flex-col gap-1.5">
@@ -413,7 +411,7 @@ export default function AuthPage() {
             )}
           </div>
 
-          {/* 수리점 파트너 추가 정보 (회원가입 모드에서만 표시) */}
+          {/* 수리점 파트너 추가 정보 */}
           {tab === "shop" && mode === "signup" && (
             <div className="flex flex-col gap-3 pt-2 border-t border-dashed border-border animate-in fade-in slide-in-from-top-2 duration-200">
               <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
@@ -423,80 +421,43 @@ export default function AuthPage() {
                 수리점 파트너 추가 정보
               </p>
 
-              {/* 담당자 이름 */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">담당자 이름</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={set("name")}
-                  placeholder="홍길동"
-                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
-                />
+                <input type="text" value={form.name} onChange={set("name")} placeholder="홍길동"
+                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all" />
               </div>
 
-              {/* 담당자 연락처 */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">담당자 연락처</label>
-                <input
-                  type="tel"
-                  value={form.phone}
-                  onChange={set("phone")}
-                  placeholder="010-1234-5678"
-                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
-                />
+                <input type="tel" value={form.phone} onChange={set("phone")} placeholder="010-1234-5678"
+                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all" />
               </div>
 
-              {/* 사업자 번호 */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">사업자 번호</label>
-                <input
-                  type="text"
-                  value={form.businessNumber}
-                  onChange={set("businessNumber")}
-                  placeholder="000-00-00000"
-                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
-                />
+                <input type="text" value={form.businessNumber} onChange={set("businessNumber")} placeholder="000-00-00000"
+                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all" />
               </div>
 
-              {/* 지점명 */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">지점명</label>
-                <input
-                  type="text"
-                  value={form.shopName}
-                  onChange={set("shopName")}
-                  placeholder="예: 강남 스마트폰 수리센터"
-                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
-                />
+                <input type="text" value={form.shopName} onChange={set("shopName")} placeholder="예: 강남 스마트폰 수리센터"
+                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all" />
               </div>
 
-              {/* 주소 */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">주소</label>
-                <input
-                  type="text"
-                  value={form.address}
-                  onChange={set("address")}
-                  placeholder="서울시 강남구 테헤란로 123"
-                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
-                />
+                <input type="text" value={form.address} onChange={set("address")} placeholder="서울시 강남구 테헤란로 123"
+                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all" />
               </div>
 
-              {/* 위치 좌표 — 현재 위치 버튼으로 자동 입력 또는 직접 입력 */}
+              {/* 위치 좌표 */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-medium text-muted-foreground">위치 좌표</label>
-                  <button
-                    type="button"
-                    onClick={handleGeolocate}
-                    disabled={geoLoading}
-                    className="flex items-center gap-1 text-xs text-accent hover:underline disabled:opacity-50 transition-opacity"
-                  >
-                    {geoLoading
-                      ? <Loader2 className="w-3 h-3 animate-spin" />
-                      : <MapPin className="w-3 h-3" />
-                    }
+                  <button type="button" onClick={handleGeolocate} disabled={geoLoading}
+                    className="flex items-center gap-1 text-xs text-accent hover:underline disabled:opacity-50 transition-opacity">
+                    {geoLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
                     현재 위치 사용
                   </button>
                 </div>
@@ -598,10 +559,8 @@ export default function AuthPage() {
 
       <p className="mt-6 text-xs text-muted-foreground">
         {mode === "signin" ? "아직 계정이 없으신가요?" : "이미 계정이 있으신가요?"}{" "}
-        <button
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="text-accent hover:underline font-medium"
-        >
+        <button onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+          className="text-accent hover:underline font-medium">
           {mode === "signin" ? "회원가입" : "로그인"}
         </button>
       </p>

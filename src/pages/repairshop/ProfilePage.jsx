@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Store,
   Clock,
@@ -11,6 +11,12 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { Card, Button, Input } from "../../components/shared";
+import {
+  getShopProfile,
+  updateShopProfile,
+  getOperatingHours,
+  updateOperatingHours,
+} from "../../api/repairshopApi";
 
 function GraduationCapIcon() {
   return (
@@ -38,16 +44,89 @@ const DEFAULT_HOURS = {
   일: { open: "10:00", close: "17:00", closed: true },
 };
 
+// 요일 인덱스 매핑 (백엔드: 0=일, 1=월, ... , 6=토)
+const DAY_TO_INDEX = { 일: 0, 월: 1, 화: 2, 수: 3, 목: 4, 금: 5, 토: 6 };
+
 export default function ShopProfilePage() {
   const [tab, setTab] = useState("shop");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [hours, setHours] = useState(DEFAULT_HOURS);
+  const [profile, setProfile] = useState({
+    shopName: "강남 스마트케어",
+    ownerName: "박기술",
+    phone: "02-1234-5678",
+    businessNo: "123-45-67890",
+    address: "서울특별시 강남구 테헤란로 152",
+  });
   const lmsDone = localStorage.getItem("caremate-shop-lms") === "done";
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  // 프로필 & 운영시간 로드
+  useEffect(() => {
+    getShopProfile()
+      .then((d) => {
+        if (d) setProfile((p) => ({
+          ...p,
+          shopName: d.shopName ?? p.shopName,
+          phone: d.phone ?? p.phone,
+          businessNo: d.businessNumber ?? p.businessNo,
+          address: d.address ?? p.address,
+          latitude: d.latitude ?? p.latitude,
+          longitude: d.longitude ?? p.longitude,
+        }));
+      })
+      .catch(() => {});
+
+    getOperatingHours()
+      .then((data) => {
+        const list = data?.hours ?? data ?? [];
+        if (!list.length) return;
+        const next = { ...DEFAULT_HOURS };
+        list.forEach((row) => {
+          const dayName = DAYS[row.dayOfWeek === 0 ? 6 : row.dayOfWeek - 1]; // 월=1→index0
+          if (dayName) {
+            next[dayName] = {
+              open: row.openTime ?? "09:00",
+              close: row.closeTime ?? "18:00",
+              closed: row.isClosed ?? false,
+            };
+          }
+        });
+        setHours(next);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (tab === "shop") {
+        await updateShopProfile({
+          shopName: profile.shopName,
+          address: profile.address,
+          phone: profile.phone,
+          latitude: profile.latitude ?? null,
+          longitude: profile.longitude ?? null,
+        });
+      } else if (tab === "hours") {
+        const hoursPayload = {
+          hours: DAYS.map((day) => ({
+            dayOfWeek: DAY_TO_INDEX[day],
+            openTime: hours[day].closed ? null : hours[day].open,
+            closeTime: hours[day].closed ? null : hours[day].close,
+            isClosed: hours[day].closed,
+          })),
+        };
+        await updateOperatingHours(hoursPayload);
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      alert("저장 중 오류가 발생했습니다.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateHour = (day, field, value) => {
@@ -57,7 +136,7 @@ export default function ShopProfilePage() {
   return (
     <div className="flex flex-col gap-6 max-w-3xl">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">마이페이지</h1>
+        <h1 className="text-xl font-semibold text-foreground">매장 프로필</h1>
         <p className="text-sm text-muted-foreground mt-1">
           매장 정보 및 계정을 관리하세요.
         </p>
@@ -70,7 +149,7 @@ export default function ShopProfilePage() {
         </div>
         <div className="flex-1">
           <p className="text-base font-semibold text-foreground">
-            강남 스마트케어
+            {profile.shopName}
           </p>
           <p className="text-sm text-muted-foreground">shop@caremate.kr</p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -149,12 +228,12 @@ export default function ShopProfilePage() {
         <Card className="p-6 flex flex-col gap-5">
           <h3 className="text-sm font-semibold text-foreground">매장 프로필</h3>
           <div className="grid md:grid-cols-2 gap-4">
-            <Input label="지점명" value="강남 스마트케어" />
-            <Input label="대표자명" value="박기술" />
-            <Input label="연락처" value="02-1234-5678" />
-            <Input label="사업자번호" value="123-45-67890" />
+            <Input label="지점명" value={profile.shopName} onChange={(val) => setProfile((p) => ({ ...p, shopName: val }))} />
+            <Input label="대표자명" value={profile.ownerName} onChange={(val) => setProfile((p) => ({ ...p, ownerName: val }))} />
+            <Input label="연락처" value={profile.phone} onChange={(val) => setProfile((p) => ({ ...p, phone: val }))} />
+            <Input label="사업자번호" value={profile.businessNo} onChange={(val) => setProfile((p) => ({ ...p, businessNo: val }))} />
             <div className="col-span-2">
-              <Input label="주소" value="서울특별시 강남구 테헤란로 152" />
+              <Input label="주소" value={profile.address} onChange={(val) => setProfile((p) => ({ ...p, address: val }))} />
             </div>
             <div className="col-span-2 flex flex-col gap-1.5">
               <label className="text-xs font-medium text-muted-foreground">
@@ -186,8 +265,8 @@ export default function ShopProfilePage() {
             ) : (
               <div />
             )}
-            <Button variant="accent" size="sm" onClick={handleSave}>
-              변경사항 저장
+            <Button variant="accent" size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? "저장 중..." : "변경사항 저장"}
             </Button>
           </div>
         </Card>

@@ -1,0 +1,334 @@
+/* ══════════════════════════════════════════════════════════
+   Dashboard — Figma 시안 기준
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Page header ──────────────────────────────────────────── */
+.db-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.db-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #666;
+  background: #fff;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid #edf0f7;
+}
+
+.db-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.db-legend-dot--blue   { background: #3b82f6; }
+.db-legend-dot--yellow { background: #f59e0b; }
+.db-legend-text { color: #555; font-weight: 500; margin-right: 8px; }
+.db-legend-text:last-child { margin-right: 0; }
+
+/* ── Summary (stat) cards ─────────────────────────────────── */
+.db-summary-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.db-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.db-stat-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  flex-shrink: 0;
+}
+.db-stat-icon--blue   { background: #eff6ff; color: #3b82f6; }
+.db-stat-icon--orange { background: #fff7ed; color: #f97316; }
+.db-stat-icon--teal   { background: #f0fdfa; color: #0d9488; }
+
+.db-stat-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.db-stat-label {
+  font-size: 13px;
+  color: #9299b0;
+  font-weight: 500;
+}
+
+.db-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: #111827;
+  line-height: 1.1;
+}
+.db-stat-value em {
+  font-size: 14px;
+  font-weight: 500;
+  color: #9299b0;
+  font-style: normal;
+  margin-left: 3px;
+}
+
+/* ── Main grid ────────────────────────────────────────────── */
+.db-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .db-main-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Calendar card ────────────────────────────────────────── */
+.db-calendar-card {
+  padding: 22px;
+}
+
+.db-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.db-cal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+  min-width: 130px;
+  text-align: center;
+}
+
+.db-cal-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: #f5f6fa;
+  border: none;
+  border-radius: 8px;
+  color: #555;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.db-cal-nav-btn:hover { background: #eaecf4; }
+
+/* Grid */
+.db-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.db-cal-grid--header {
+  border-bottom: 2px solid #f0f2f5;
+  margin-bottom: 0;
+}
+
+.db-cal-day-header {
+  text-align: center;
+  padding: 10px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9299b0;
+  letter-spacing: 0.3px;
+}
+.db-cal-day-header--sun { color: #ef4444; }
+.db-cal-day-header--sat { color: #3b82f6; }
+
+.db-cal-cell {
+  min-height: 108px;
+  padding: 8px 6px 6px;
+  border-right: 1px solid #f0f2f5;
+  border-bottom: 1px solid #f0f2f5;
+  vertical-align: top;
+  position: relative;
+}
+.db-cal-cell:nth-child(7n) { border-right: none; }
+.db-cal-cell--empty { background: #fafbfc; }
+.db-cal-cell--today { background: #f8fbff; }
+
+.db-cal-date {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+  border-radius: 50%;
+}
+.db-cal-date--sun   { color: #ef4444; }
+.db-cal-date--sat   { color: #3b82f6; }
+.db-cal-date--today {
+  background: #3b82f6;
+  color: #fff !important;
+  font-weight: 700;
+}
+
+.db-cal-events {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.db-cal-event {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 3px 7px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: filter 0.15s;
+  line-height: 1.5;
+}
+.db-cal-event:hover { filter: brightness(0.93); }
+.db-cal-event--blue   { background: #dbeafe; color: #1d4ed8; }
+.db-cal-event--yellow { background: #fef3c7; color: #92400e; }
+
+.db-cal-more {
+  font-size: 11px;
+  color: #9299b0;
+  padding: 2px 6px;
+  font-weight: 500;
+}
+
+/* ── Today panel ──────────────────────────────────────────── */
+.db-today-panel {
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.04);
+  /* match calendar card height roughly */
+}
+
+.db-today-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.db-today-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.db-today-count {
+  background: #eff6ff;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.db-today-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 0;
+  color: #bbb;
+  font-size: 13px;
+}
+
+.db-today-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.db-today-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid #f5f6fa;
+  cursor: pointer;
+  transition: background 0.12s;
+  border-radius: 8px;
+  margin: 0 -4px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+.db-today-item:last-child { border-bottom: none; }
+.db-today-item:hover { background: #f8f9fc; }
+
+.db-today-time-block {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  height: 40px;
+  background: #f5f6fa;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.db-today-time {
+  font-size: 13px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.db-today-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.db-today-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.db-today-order-no {
+  font-size: 11px;
+  color: #9299b0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
