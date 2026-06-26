@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router";
 import {
   CreditCard,
   Smartphone,
@@ -21,9 +22,6 @@ import {
   fetchReceipt,
 } from "../../api/payment";
 
-// 현재 진행 중인 orderId (추후 라우터 파라미터 또는 대시보드에서 전달)
-const CURRENT_ORDER_ID = 1;
-
 function fmt(n) {
   return Number(n).toLocaleString("ko-KR") + "원";
 }
@@ -31,6 +29,7 @@ function fmt(n) {
 // ── Post-Payment: Claim Package Screen ───────────────────────────────────────
 
 function ClaimPackageScreen({ paymentId, confirmData }) {
+  const navigate = useNavigate();
   const [receipt, setReceipt] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -240,7 +239,7 @@ function ClaimPackageScreen({ paymentId, confirmData }) {
         </div>
       </Card>
 
-      <Button variant="secondary" size="md" className="self-start">
+      <Button variant="secondary" size="md" className="self-start" onClick={() => navigate("/customer/dashboard")}>
         대시보드로 돌아가기
       </Button>
     </div>
@@ -250,6 +249,9 @@ function ClaimPackageScreen({ paymentId, confirmData }) {
 // ── Payment Form Screen ───────────────────────────────────────────────────────
 
 export default function PaymentPage() {
+  const { orderId: orderIdParam } = useParams();
+  const orderId = Number(orderIdParam);
+  const navigate = useNavigate();
   const [method, setMethod] = useState("card");
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -263,11 +265,12 @@ export default function PaymentPage() {
 
   // 결제 정보 조회 (GET /api/customer/payments/info/{orderId})
   useEffect(() => {
-    fetchPaymentInfo(CURRENT_ORDER_ID)
+    if (!orderId) return;
+    fetchPaymentInfo(orderId)
       .then((res) => setPaymentInfo(res.data.data))
       .catch(() => setError("결제 정보를 불러오지 못했습니다."))
       .finally(() => setLoading(false));
-  }, []);
+  }, [orderId]);
 
   // 결제하기 버튼 클릭
   const handlePayment = async () => {
@@ -277,14 +280,14 @@ export default function PaymentPage() {
 
     try {
       // 1. 결제 준비 (POST /api/customer/payments/ready)
-      const readyRes = await readyPayment(CURRENT_ORDER_ID);
+      const readyRes = await readyPayment(orderId);
       const { paymentKey, amount } = readyRes.data.data;
 
       // 2. PG SDK 호출 (실제 PG 연동 시 여기서 PG SDK 실행)
       //    현재는 바로 confirm으로 진행 (테스트용)
 
       // 3. 결제 승인 (POST /api/customer/payments/confirm)
-      const confirmRes = await confirmPayment(CURRENT_ORDER_ID, paymentKey, amount);
+      const confirmRes = await confirmPayment(orderId, paymentKey, amount);
       const confirmResult = confirmRes.data.data;
 
       setPaymentId(confirmResult.paymentId);
@@ -294,7 +297,7 @@ export default function PaymentPage() {
       // 결제 실패 처리 (POST /api/customer/payments/fail)
       const errorCode = err.response?.data?.error?.code ?? "UNKNOWN";
       const errorMessage = err.response?.data?.error?.message ?? "결제 중 오류가 발생했습니다.";
-      await failPayment(CURRENT_ORDER_ID, errorCode, errorMessage).catch(console.error);
+      await failPayment(orderId, errorCode, errorMessage).catch(console.error);
       setError(errorMessage);
     } finally {
       setPaying(false);
