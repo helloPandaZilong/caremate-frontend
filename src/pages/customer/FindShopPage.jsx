@@ -1,82 +1,11 @@
-import { useState } from "react";
-import { Search, Star, Clock, Phone, Navigation, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Star, Clock, Phone, Navigation, X, Loader2 } from "lucide-react";
 import { Badge } from "../../components/shared.jsx";
+import { getRepairShops, getShopOperatingHours } from "../../api/customerService";
 
-const BRANDS = ["전체", "Apple", "Samsung", "Google", "LG"];
-
-const SHOPS = [
-  {
-    id: 1,
-    name: "강남 스마트케어",
-    rating: 4.9,
-    reviews: 312,
-    distance: "0.4km",
-    queue: "available",
-    address: "강남구 테헤란로 152",
-    phone: "02-1234-5678",
-    hours: "09:00–20:00",
-    lat: 37.498,
-    lng: 127.028,
-  },
-  {
-    id: 2,
-    name: "서초 아이폰 전문점",
-    rating: 4.7,
-    reviews: 218,
-    distance: "1.2km",
-    queue: "busy",
-    address: "서초구 서초대로 301",
-    phone: "02-2345-6789",
-    hours: "10:00–19:00",
-    lat: 37.495,
-    lng: 127.025,
-  },
-  {
-    id: 3,
-    name: "역삼 갤럭시 수리",
-    rating: 4.6,
-    reviews: 154,
-    distance: "1.8km",
-    queue: "available",
-    address: "강남구 역삼로 168",
-    phone: "02-3456-7890",
-    hours: "09:00–21:00",
-    lat: 37.501,
-    lng: 127.034,
-  },
-  {
-    id: 4,
-    name: "선릉 올폰 서비스",
-    rating: 4.5,
-    reviews: 98,
-    distance: "2.3km",
-    queue: "available",
-    address: "강남구 선릉로 433",
-    phone: "02-4567-8901",
-    hours: "10:00–18:00",
-    lat: 37.504,
-    lng: 127.049,
-  },
-  {
-    id: 5,
-    name: "삼성 공식 서비스센터",
-    rating: 4.8,
-    reviews: 521,
-    distance: "2.9km",
-    queue: "busy",
-    address: "강남구 봉은사로 114",
-    phone: "1588-3366",
-    hours: "09:00–18:00",
-    lat: 37.51,
-    lng: 127.038,
-  },
-];
-
-// Simple CSS map grid
 function MapBackground() {
   return (
     <div className="absolute inset-0 overflow-hidden">
-      {/* Road grid */}
       <svg
         className="absolute inset-0 w-full h-full opacity-20"
         xmlns="http://www.w3.org/2000/svg"
@@ -122,7 +51,6 @@ function MapBackground() {
         </defs>
         <rect width="100%" height="100%" fill="url(#roads)" />
       </svg>
-      {/* Blocks */}
       {Array.from({ length: 12 }).map((_, i) => (
         <div
           key={i}
@@ -139,34 +67,31 @@ function MapBackground() {
   );
 }
 
-function MapPin({ shop, active, onClick }) {
+function MapPin({ shop, index, active, onClick }) {
   const positions = [
     { left: "38%", top: "42%" },
     { left: "28%", top: "60%" },
     { left: "55%", top: "32%" },
     { left: "68%", top: "55%" },
     { left: "50%", top: "70%" },
+    { left: "42%", top: "25%" },
+    { left: "62%", top: "40%" },
+    { left: "35%", top: "75%" },
   ];
-  const pos = positions[shop.id - 1];
+  const pos = positions[index % positions.length];
   return (
     <button
       onClick={onClick}
       style={{ left: pos.left, top: pos.top }}
       className={`absolute -translate-x-1/2 -translate-y-full transition-all z-10 ${active ? "scale-125" : "hover:scale-110"}`}
     >
-      <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md border-2 border-card ${
-          shop.queue === "available" ? "bg-accent" : "bg-amber-500"
-        }`}
-      >
-        <span className="text-white text-[10px] font-bold">{shop.id}</span>
+      <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-md border-2 border-card bg-accent">
+        <span className="text-white text-[10px] font-bold">{index + 1}</span>
       </div>
       <div
-        className="w-2 h-2 mx-auto -mt-1 border-4 border-transparent"
+        className="w-2 h-2 mx-auto -mt-1"
         style={{
-          borderTopColor:
-            shop.queue === "available" ? "var(--accent)" : "#f59e0b",
-          borderTop: `6px solid ${shop.queue === "available" ? "var(--accent)" : "#f59e0b"}`,
+          borderTop: "6px solid var(--accent)",
           borderLeft: "5px solid transparent",
           borderRight: "5px solid transparent",
           width: 0,
@@ -177,21 +102,24 @@ function MapPin({ shop, active, onClick }) {
   );
 }
 
-function InfoPopup({ shop, onClose }) {
+const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+
+function InfoPopup({ shop, hours, onClose }) {
+  const today = new Date().getDay();
+  const todayHours = hours?.find((h) => h.dayOfWeek === today);
+  const hoursText = todayHours
+    ? todayHours.isClosed
+      ? "오늘 휴무"
+      : `${todayHours.openTime} - ${todayHours.closeTime}`
+    : null;
+
   return (
     <div className="absolute top-4 right-4 z-20 bg-card border border-border rounded-2xl shadow-xl p-4 w-64">
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
-          <p className="text-sm font-semibold text-foreground">{shop.name}</p>
-          <div className="flex items-center gap-1 mt-0.5">
-            <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-            <span className="text-xs font-medium text-foreground">
-              {shop.rating}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              ({shop.reviews})
-            </span>
-          </div>
+          <p className="text-sm font-semibold text-foreground">
+            {shop.shopName}
+          </p>
         </div>
         <button
           onClick={onClose}
@@ -201,16 +129,37 @@ function InfoPopup({ shop, onClose }) {
         </button>
       </div>
       <div className="flex flex-col gap-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-2">
-          <Clock className="w-3.5 h-3.5 shrink-0" />
-          {shop.hours}
-        </span>
-        <span className="flex items-center gap-2">
-          <Phone className="w-3.5 h-3.5 shrink-0" />
-          {shop.phone}
-        </span>
+        {hoursText && (
+          <span className="flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            {hoursText}
+          </span>
+        )}
+        {shop.phone && (
+          <span className="flex items-center gap-2">
+            <Phone className="w-3.5 h-3.5 shrink-0" />
+            {shop.phone}
+          </span>
+        )}
+        {hours && hours.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-border/40 flex flex-col gap-1">
+            {hours.map((h) => (
+              <div key={h.dayOfWeek} className="flex justify-between text-[11px]">
+                <span className={h.dayOfWeek === today ? "font-semibold text-foreground" : ""}>
+                  {DAY_NAMES[h.dayOfWeek]}
+                </span>
+                <span>
+                  {h.isClosed ? "휴무" : `${h.openTime} - ${h.closeTime}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-      <button className="mt-3 w-full py-2 text-xs font-semibold bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors">
+      <button
+        onClick={() => (window.location.href = "/customer/request")}
+        className="mt-3 w-full py-2 text-xs font-semibold bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors"
+      >
         A/S 예약하기
       </button>
     </div>
@@ -219,12 +168,45 @@ function InfoPopup({ shop, onClose }) {
 
 export default function FindShopPage() {
   const [query, setQuery] = useState("");
-  const [brand, setBrand] = useState("전체");
   const [activeShop, setActiveShop] = useState(null);
+  const [activeHours, setActiveHours] = useState(null);
 
-  const filtered = SHOPS.filter((s) =>
-    s.name.toLowerCase().includes(query.toLowerCase()),
+  const [shops, setShops] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getRepairShops()
+      .then(({ data }) => setShops(data.data ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleShopClick = async (shop) => {
+    if (activeShop?.id === shop.id) {
+      setActiveShop(null);
+      setActiveHours(null);
+      return;
+    }
+    setActiveShop(shop);
+    try {
+      const { data } = await getShopOperatingHours(shop.id);
+      setActiveHours(data.data ?? []);
+    } catch {
+      setActiveHours([]);
+    }
+  };
+
+  const filtered = shops.filter((s) =>
+    (s.shopName || "").toLowerCase().includes(query.toLowerCase()),
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-accent" />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -233,7 +215,6 @@ export default function FindShopPage() {
     >
       {/* Left sidebar */}
       <aside className="w-[400px] flex-shrink-0 border-r border-border flex flex-col bg-background overflow-hidden">
-        {/* Search */}
         <div className="p-4 border-b border-border bg-card">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -244,25 +225,8 @@ export default function FindShopPage() {
               className="w-full pl-9 pr-4 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
             />
           </div>
-          {/* Brand filter chips */}
-          <div className="flex gap-2 mt-3 flex-wrap">
-            {BRANDS.map((b) => (
-              <button
-                key={b}
-                onClick={() => setBrand(b)}
-                className={`px-3 py-1 text-xs font-medium rounded-full border transition-all ${
-                  brand === b
-                    ? "bg-accent text-white border-accent"
-                    : "bg-card text-muted-foreground border-border hover:border-accent/40"
-                }`}
-              >
-                {b}
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* Shop list */}
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
           <p className="text-xs text-muted-foreground px-1 mb-1">
             검색 결과 {filtered.length}개
@@ -270,9 +234,7 @@ export default function FindShopPage() {
           {filtered.map((shop) => (
             <div
               key={shop.id}
-              onClick={() =>
-                setActiveShop(activeShop?.id === shop.id ? null : shop)
-              }
+              onClick={() => handleShopClick(shop)}
               className={`bg-card border rounded-2xl p-4 cursor-pointer transition-all ${
                 activeShop?.id === shop.id
                   ? "border-accent shadow-md"
@@ -281,36 +243,26 @@ export default function FindShopPage() {
             >
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      {shop.name}
-                    </span>
-                    <Badge
-                      variant={shop.queue === "available" ? "green" : "yellow"}
-                    >
-                      {shop.queue === "available" ? "예약 가능" : "혼잡"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                    <span className="text-xs font-medium text-foreground">
-                      {shop.rating}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      ({shop.reviews})
-                    </span>
-                    <span className="text-muted-foreground">·</span>
-                    <Navigation className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      {shop.distance}
-                    </span>
-                  </div>
+                  <span className="text-sm font-semibold text-foreground">
+                    {shop.shopName}
+                  </span>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
+              <p className="text-xs text-muted-foreground mb-1">
                 {shop.address}
               </p>
-              <button className="w-full py-2 text-xs font-semibold bg-accent/10 text-accent rounded-xl hover:bg-accent/15 transition-colors border border-accent/20">
+              {shop.phone && (
+                <p className="text-xs text-muted-foreground mb-3">
+                  {shop.phone}
+                </p>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.location.href = "/customer/request";
+                }}
+                className="w-full py-2 text-xs font-semibold bg-accent/10 text-accent rounded-xl hover:bg-accent/15 transition-colors border border-accent/20"
+              >
                 A/S 예약
               </button>
             </div>
@@ -321,28 +273,29 @@ export default function FindShopPage() {
       {/* Right map */}
       <div className="flex-1 relative bg-secondary overflow-hidden">
         <MapBackground />
-        {SHOPS.map((shop) => (
+        {filtered.map((shop, i) => (
           <MapPin
             key={shop.id}
             shop={shop}
+            index={i}
             active={activeShop?.id === shop.id}
-            onClick={() =>
-              setActiveShop(activeShop?.id === shop.id ? null : shop)
-            }
+            onClick={() => handleShopClick(shop)}
           />
         ))}
         {activeShop && (
-          <InfoPopup shop={activeShop} onClose={() => setActiveShop(null)} />
+          <InfoPopup
+            shop={activeShop}
+            hours={activeHours}
+            onClose={() => {
+              setActiveShop(null);
+              setActiveHours(null);
+            }}
+          />
         )}
-        {/* Map label */}
         <div className="absolute bottom-4 left-4 flex items-center gap-3 text-xs text-muted-foreground bg-card/80 backdrop-blur-sm px-3 py-2 rounded-xl border border-border">
           <span className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-accent" />
-            예약 가능
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            혼잡
+            수리점
           </span>
         </div>
       </div>
