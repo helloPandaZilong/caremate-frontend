@@ -30,6 +30,7 @@ import {
   CreditCard as Pay,
   Award,
   Store, // 수리점 가입 승인 메뉴 아이콘
+  Users, // 회원 관리 메뉴 아이콘
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
 
@@ -45,12 +46,13 @@ const CUSTOMER_NAV = [
   { label: "대시보드", href: "/customer/dashboard", icon: LayoutDashboard },
   { label: "A/S 접수", href: "/customer/request", icon: FileText },
   { label: "보험 관리", href: "/customer/insurance", icon: Shield },
-  { label: "결제·청구", href: "/customer/payment", icon: CreditCard },
+  { label: "결제·청구", href: "/customer/payment/1", icon: CreditCard },
   { label: "서비스 센터 찾기", href: "customer/find-shop", icon: MapPin },
 ];
 
 const SHOP_NAV = [
   { label: "대시보드", href: "/shop/dashboard", icon: Calendar },
+  { label: "주문 접수", href: "/shop/orders", icon: FileText },
   { label: "수리 리포트", href: "/shop/report", icon: Wrench },
   { label: "LMS 교육", href: "/shop/lms", icon: GraduationCap },
   { label: "월말 정산", href: "/shop/settlement", icon: Receipt },
@@ -58,7 +60,8 @@ const SHOP_NAV = [
 
 const ADMIN_NAV = [
   { label: "통합 대시보드", href: "/admin/dashboard", icon: BarChart2 },
-  { label: "수리점 가입 승인", href: "/admin/shop-approvals", icon: Store }, // 신규 수리점 승인 관리
+  { label: "수리점 가입 승인", href: "/admin/shop-approvals", icon: Store },
+  { label: "회원 관리", href: "/admin/members", icon: Users }, // 고객·수리점 차단/해제
   { label: "보험 약관 관리", href: "/admin/policies", icon: BookOpen },
   { label: "수수료 청구 관리", href: "/admin/settlements", icon: Package },
   { label: "LMS 관리", href: "/admin/lms", icon: GraduationCap },
@@ -74,6 +77,7 @@ function getNavConfig(path) {
       roleColorDark:
         "text-amber-300 bg-amber-900/40 border border-amber-700/40",
       profileHref: "/shop/profile",
+      profileLabel: "매장 프로필",
     };
   if (path.startsWith("/admin"))
     return {
@@ -82,6 +86,7 @@ function getNavConfig(path) {
       roleColorLight: "text-red-700 bg-red-100 border border-red-200",
       roleColorDark: "text-red-300 bg-red-900/40 border border-red-700/40",
       profileHref: "/admin/profile",
+      profileLabel: "마이페이지",
     };
   return {
     items: CUSTOMER_NAV,
@@ -89,6 +94,7 @@ function getNavConfig(path) {
     roleColorLight: "text-blue-700 bg-blue-100 border border-blue-200",
     roleColorDark: "text-blue-300 bg-blue-900/40 border border-blue-700/40",
     profileHref: "/customer/profile",
+    profileLabel: "마이페이지",
   };
 }
 
@@ -214,34 +220,6 @@ function DarkModeToggle({ dark, toggle }) {
         )}
       </span>
     </button>
-  );
-}
-
-// ── Role switcher ─────────────────────────────────────────────────────────────
-
-function RoleSwitcher() {
-  const loc = useLocation();
-  const active = loc.pathname.startsWith("/shop")
-    ? "수리점"
-    : loc.pathname.startsWith("/admin")
-      ? "관리자"
-      : "고객";
-  return (
-    <div className="flex items-center gap-1 bg-secondary rounded-lg p-0.5">
-      {[
-        { label: "고객", href: "/customer/dashboard" },
-        { label: "수리점", href: "/shop/dashboard" },
-        { label: "관리자", href: "/admin/dashboard" },
-      ].map((r) => (
-        <Link
-          key={r.label}
-          to={r.href}
-          className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${active === r.label ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-        >
-          {r.label}
-        </Link>
-      ))}
-    </div>
   );
 }
 
@@ -452,7 +430,7 @@ function LMSGate({ onNavigate }) {
 function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
   const loc = useLocation();
   const nav = useNavigate();
-  const { items, role, roleColorLight, roleColorDark, profileHref } =
+  const { items, role, roleColorLight, roleColorDark, profileHref, profileLabel } =
     getNavConfig(loc.pathname);
   const roleColor = dark ? roleColorDark : roleColorLight;
 
@@ -517,7 +495,7 @@ function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
           className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/55 hover:text-white hover:bg-white/10 transition-all"
         >
           <User className="w-4 h-4 shrink-0" />
-          {!collapsed && <span>마이페이지</span>}
+          {!collapsed && <span>{profileLabel}</span>}
         </button>
         {/* 로그아웃 버튼 — API 호출 후 인증 정보 초기화 */}
         <button
@@ -543,7 +521,7 @@ function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
 
 function MobileTopNav({ dark, toggleDark, onLogout }) {
   const loc = useLocation();
-  const { items, role, roleColorLight, roleColorDark, profileHref } =
+  const { items, role, roleColorLight, roleColorDark, profileHref, profileLabel } =
     getNavConfig(loc.pathname);
   const roleColor = dark ? roleColorDark : roleColorLight;
   const [open, setOpen] = useState(false);
@@ -624,33 +602,6 @@ function MobileTopNav({ dark, toggleDark, onLogout }) {
               <DarkModeToggle dark={dark} toggle={toggleDark} />
             </div>
 
-            <div className="px-5 py-3 border-b border-white/10">
-              <p className="text-[10px] text-white/30 uppercase tracking-wider mb-2">
-                포털 전환
-              </p>
-              <div className="flex gap-1 bg-white/10 rounded-lg p-0.5">
-                {[
-                  { label: "고객", href: "/customer/dashboard" },
-                  { label: "수리점", href: "/shop/dashboard" },
-                  { label: "관리자", href: "/admin/dashboard" },
-                ].map((r) => {
-                  const isActive = loc.pathname.startsWith(
-                    `/${r.label === "고객" ? "customer" : r.label === "수리점" ? "shop" : "admin"}`,
-                  );
-                  return (
-                    <Link
-                      key={r.label}
-                      to={r.href}
-                      onClick={() => setOpen(false)}
-                      className={`flex-1 text-center py-1.5 text-xs font-medium rounded-md transition-all ${isActive ? "bg-white text-[#1A1D2E]" : "text-white/60 hover:text-white"}`}
-                    >
-                      {r.label}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-
             <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
               {items.map((item) => {
                 const Icon = item.icon;
@@ -679,7 +630,7 @@ function MobileTopNav({ dark, toggleDark, onLogout }) {
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/60 hover:text-white hover:bg-white/10 transition-all"
               >
                 <User className="w-4 h-4" />
-                <span>마이페이지</span>
+                <span>{profileLabel}</span>
               </Link>
               {/* 로그아웃 버튼 — API 호출 후 인증 정보 초기화 */}
               <button
@@ -711,7 +662,6 @@ function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
       className="hidden lg:flex fixed top-0 right-0 h-16 bg-background/90 backdrop-blur-md border-b border-border z-30 items-center justify-end px-6 gap-3 transition-all duration-300"
       style={{ left: collapsed ? "4rem" : "15rem" }}
     >
-      <RoleSwitcher />
       <DarkModeToggle dark={dark} toggle={toggleDark} />
       <BellButton path={loc.pathname} />
       <Link

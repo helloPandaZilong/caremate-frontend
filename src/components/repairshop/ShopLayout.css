@@ -1,0 +1,366 @@
+/* ══════════════════════════════════════════════════════════
+   ShopLayout — Figma 시안 기준
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Layout shell ─────────────────────────────────────────── */
+.shop-layout {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f6fa;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────── */
+.shop-sidebar {
+  width: 228px;
+  min-height: 100vh;
+  background: #1b2235;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: width 0.2s ease;
+}
+
+.shop-sidebar--collapsed {
+  width: 62px;
+}
+
+/* Logo */
+.shop-sidebar__logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 22px 18px 16px;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+}
+
+.shop-sidebar__logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(6, 214, 160, 0.15);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+/* Partner badge */
+.shop-sidebar__badge {
+  margin: 0 14px 20px;
+  display: inline-block;
+  background: #ff6b8a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  width: fit-content;
+  letter-spacing: 0.2px;
+}
+
+/* Nav */
+.shop-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+  flex: 1;
+}
+
+.shop-sidebar__nav-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #7d8db5;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shop-sidebar__nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #c5cfe8;
+}
+
+.shop-sidebar__nav-item--active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.shop-sidebar__nav-item--active .shop-sidebar__nav-icon {
+  color: #06d6a0;
+}
+
+.shop-sidebar__nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.shop-sidebar__nav-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Footer */
+.shop-sidebar__footer {
+  padding: 12px 8px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.shop-sidebar__footer-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  color: #7d8db5;
+  font-size: 13.5px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.shop-sidebar__footer-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #c5cfe8;
+}
+
+.shop-sidebar__collapse-btn {
+  margin-top: 4px;
+}
+
+/* ── Main area ────────────────────────────────────────────── */
+.shop-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.shop-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  height: 56px;
+  background: #fff;
+  border-bottom: 1px solid #edf0f7;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.shop-header__left {
+  flex: 1;
+}
+
+.shop-header__right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Role tabs */
+.shop-header__role-tabs {
+  display: flex;
+  gap: 2px;
+  background: #f4f5f8;
+  border-radius: 10px;
+  padding: 3px;
+  margin-right: 4px;
+}
+
+.shop-header__role-tab {
+  padding: 5px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #9299b0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  line-height: 1.4;
+}
+
+.shop-header__role-tab:hover {
+  color: #555d7a;
+}
+
+.shop-header__role-tab--active {
+  background: #fff;
+  color: #111827;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Icon buttons */
+.shop-header__icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: #f4f5f8;
+  border: none;
+  border-radius: 10px;
+  color: #555d7a;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.shop-header__icon-btn:hover {
+  background: #eaecf4;
+  color: #1b2235;
+}
+
+/* Bell badge */
+.shop-header__bell {
+  position: relative;
+}
+
+.shop-header__bell-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #fff;
+  line-height: 1;
+}
+
+/* Avatar */
+.shop-header__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #1b2235;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Content ──────────────────────────────────────────────── */
+.shop-content {
+  padding: 32px 28px;
+  flex: 1;
+}
+
+/* ── Shared: Page title ───────────────────────────────────── */
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 4px;
+  letter-spacing: -0.3px;
+}
+
+.page-subtitle {
+  font-size: 13.5px;
+  color: #9299b0;
+  margin-bottom: 28px;
+}
+
+/* ── Shared: Card ─────────────────────────────────────────── */
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 6px rgba(0, 0, 0, 0.04);
+}
+
+/* ── Shared: Buttons ──────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s, background 0.15s;
+  font-family: inherit;
+}
+
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn:not(:disabled):active { transform: scale(0.97); }
+.btn--sm { padding: 6px 14px; font-size: 13px; border-radius: 8px; }
+
+.btn--primary { background: #3b82f6; color: #fff; }
+.btn--primary:not(:disabled):hover { background: #2563eb; }
+
+.btn--success { background: #10b981; color: #fff; }
+.btn--success:not(:disabled):hover { background: #059669; }
+
+.btn--danger { background: #ef4444; color: #fff; }
+.btn--danger:not(:disabled):hover { background: #dc2626; }
+
+.btn--ghost { background: #f4f5f8; color: #374151; border: 1px solid #e5e7eb; }
+.btn--ghost:not(:disabled):hover { background: #eaecf4; }
+
+/* ── Shared: Status badges ────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge--received   { background: #eff6ff; color: #2563eb; }
+.badge--accepted   { background: #fefce8; color: #ca8a04; }
+.badge--rejected   { background: #fef2f2; color: #dc2626; }
+.badge--no-show    { background: #faf5ff; color: #7c3aed; }
+.badge--in-repair  { background: #f0fdf4; color: #16a34a; }
+.badge--repair-done { background: #eff6ff; color: #1d4ed8; }
+.badge--payment-completed { background: #ecfdf5; color: #059669; }
+.badge--claim-requested   { background: #fff7ed; color: #c2410c; }
+.badge--claim-completed   { background: #f0fdf4; color: #15803d; }

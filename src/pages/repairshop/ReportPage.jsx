@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   ChevronRight,
   CheckCircle2,
@@ -7,8 +7,14 @@ import {
   ArrowLeft,
   Clock,
   FileText,
+  Play,
+  Plus,
+  X as XIcon,
+  Sparkles,
+  Info,
 } from "lucide-react";
-import { Button, Card, Badge, UploadZone } from "../../components/shared";
+import { Button, Card, Badge } from "../../components/shared";
+import { getOrders, startRepair, completeRepair } from "../../api/repairshopApi";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -91,17 +97,75 @@ const STATUS_CONFIG = {
 
 const PAGE_SIZE = 4;
 
+// 백엔드 status → 화면 status 매핑
+const BE_STATUS_MAP = {
+  ACCEPTED: "pending",       // 수리 시작 전
+  IN_REPAIR: "in_progress",  // 수리 중
+  REPAIR_DONE: "completed",
+  PAYMENT_COMPLETED: "completed",
+  CLAIM_REQUESTED: "completed",
+  CLAIM_COMPLETED: "completed",
+};
+
+function fmtDate(s) {
+  if (!s) return "-";
+  const d = new Date(s);
+  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`;
+}
+
 function ReportList({ onSelect }) {
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState("all");
+  const [items, setItems] = useState(REPORT_ITEMS);
+  const [startingId, setStartingId] = useState(null);
 
-  const filtered = REPORT_ITEMS.filter(
+  const loadOrders = useCallback(() => {
+    getOrders({ size: 100 })
+      .then((data) => {
+        const raw = data?.content ?? data ?? [];
+        if (!raw.length) return;
+        const mapped = raw
+          .filter((o) => BE_STATUS_MAP[o.status])   // RECEIVED는 대시보드에서 처리
+          .map((o) => ({
+            id: o.id,
+            orderNo: o.orderNo,
+            customer: o.customerName,
+            device: null,
+            issue: o.damageDescription ?? null,
+            receivedAt: fmtDate(o.createdAt),
+            visitAt: fmtDate(o.reservedVisitAt) + (o.reservedVisitAt ? " " + String(new Date(o.reservedVisitAt).getHours()).padStart(2,"0") + ":00" : ""),
+            status: BE_STATUS_MAP[o.status],
+            hasReport: ["REPAIR_DONE","PAYMENT_COMPLETED","CLAIM_REQUESTED","CLAIM_COMPLETED"].includes(o.status),
+            rawStatus: o.status,
+          }));
+        setItems(mapped);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => { loadOrders(); }, [loadOrders]);
+
+  async function handleStartRepair(e, item) {
+    e.stopPropagation();
+    if (!window.confirm("수리를 시작하시겠습니까?")) return;
+    setStartingId(item.id);
+    try {
+      await startRepair(item.id);
+      loadOrders();
+    } catch {
+      alert("처리 중 오류가 발생했습니다.");
+    } finally {
+      setStartingId(null);
+    }
+  }
+
+  const filtered = items.filter(
     (r) => filter === "all" || r.status === filter,
   );
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
-  const pendingCount = REPORT_ITEMS.filter(
+  const pendingCount = items.filter(
     (r) => r.status !== "completed",
   ).length;
 
@@ -188,7 +252,20 @@ function ReportList({ onSelect }) {
                     <span>방문 예약: {item.visitAt}</span>
                   </div>
                 </div>
-                <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 mt-1" />
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  {/* ACCEPTED 상태 → 수리 시작 버튼 (4번 담당) */}
+                  {item.status === "pending" && (
+                    <button
+                      onClick={(e) => handleStartRepair(e, item)}
+                      disabled={startingId === item.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-all"
+                    >
+                      <Play className="w-3 h-3" />
+                      {startingId === item.id ? "처리 중..." : "수리 시작"}
+                    </button>
+                  )}
+                  <ChevronRight className="w-5 h-5 text-muted-foreground mt-1" />
+                </div>
               </div>
             </Card>
           );
@@ -258,18 +335,49 @@ function CurrencyInput({ label, value, onChange }) {
   );
 }
 
+const REPAIR_RESULT_OPTIONS = [
+  { value: "success", label: "정상 완료" },
+  { value: "partial", label: "부분 완료" },
+  { value: "fail",    label: "수리 불가" },
+];
+const WARRANTY_OPTIONS = ["없음", "1개월", "3개월", "6개월", "1년"];
+
 function ReportDetail({ item, onBack }) {
   const [repairStatus, setRepairStatus] = useState("repairing");
-  const [partCost, setPartCost] = useState("");
   const [laborCost, setLaborCost] = useState("");
-  const [log, setLog] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [aiDraft, setAiDraft] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
 
-  const total = (Number(partCost) || 0) + (Number(laborCost) || 0);
+  // 정비 내용 구조화 상태
+  const [diagnosis, setDiagnosis] = useState("");
+  const [repairRows, setRepairRows] = useState([{ item: "", part: "", qty: "1", unitPrice: "" }]);
+  const [repairResult, setRepairResult] = useState("");
+  const [warranty, setWarranty] = useState("3개월");
+  const [remarks, setRemarks] = useState("");
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+  const addRow = () => setRepairRows((r) => [...r, { item: "", part: "", qty: "1", unitPrice: "" }]);
+  const removeRow = (i) => setRepairRows((r) => r.filter((_, idx) => idx !== i));
+  const updateRow = (i, field, val) =>
+    setRepairRows((r) => r.map((row, idx) => (idx === i ? { ...row, [field]: val } : row)));
+
+  const partCost = repairRows.reduce((sum, row) => sum + (Number(row.qty) || 0) * (Number(row.unitPrice) || 0), 0);
+  const total = partCost + (Number(laborCost) || 0);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      if (repairStatus === "completed" && item.rawStatus === "IN_REPAIR") {
+        await completeRepair(item.id);
+      }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch {
+      alert("처리 중 오류가 발생했습니다.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -342,28 +450,212 @@ function ReportDetail({ item, onBack }) {
         </div>
       </Card>
 
+      {/* AI 초안 배너 */}
+      {aiDraft && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-700/50 animate-in fade-in slide-in-from-top-2 duration-300">
+          <Info className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-violet-700 dark:text-violet-300">AI 초안이 작성됐어요.</p>
+            <p className="text-xs text-violet-600 dark:text-violet-400 mt-0.5">내용을 검토하고 필요한 부분을 수정한 뒤 저장해주세요.</p>
+          </div>
+          <button onClick={() => setAiDraft(false)} className="text-violet-400 hover:text-violet-600 transition-colors">
+            <XIcon className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Order info */}
-      <div className="flex items-center gap-3 p-3 bg-secondary rounded-xl text-xs text-muted-foreground">
+      <div className="flex items-center gap-3 p-3 bg-secondary rounded-xl text-xs text-muted-foreground flex-wrap">
         <span className="font-mono font-medium text-foreground">
           {item.orderNo}
         </span>
         <span>·</span>
-        <span>
-          {item.customer} · {item.device}
-        </span>
-        <span>·</span>
-        <span>{item.issue}</span>
+        <span>{item.customer}</span>
+        {item.device && item.device !== "-" && <><span>·</span><span>{item.device}</span></>}
+        {item.issue && item.issue !== "-" && <><span>·</span><span>{item.issue}</span></>}
       </div>
+
+      {/* 정비 내용 기록 */}
+      <Card className="p-5 flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">정비 내용 기록</h3>
+          <button
+            type="button"
+            disabled={aiGenerating}
+            onClick={async () => {
+              setAiGenerating(true);
+              // TODO: 실제 AI 호출로 교체
+              await new Promise((r) => setTimeout(r, 1000));
+              setAiGenerating(false);
+              setAiDraft(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-60 transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            {aiGenerating ? "생성 중..." : "AI 리포트 생성"}
+          </button>
+        </div>
+
+        {/* 고장 진단 결과 */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-muted-foreground">고장 진단 결과</label>
+          <textarea
+            value={diagnosis}
+            onChange={(e) => setDiagnosis(e.target.value)}
+            placeholder="점검 후 확인된 고장 원인 및 상태를 기입하세요."
+            rows={3}
+            className="w-full px-3.5 py-3 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none transition-all"
+          />
+        </div>
+
+        {/* 수리 내역 테이블 */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-muted-foreground">수리 내역</label>
+          <div className="rounded-xl border border-border overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-secondary">
+                <tr>
+                  {["수리 항목", "부품명", "수량", "단가 (원)", ""].map((h) => (
+                    <th key={h} className="px-3 py-2 text-left font-medium text-muted-foreground">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {repairRows.map((row, i) => {
+                  const amount = (Number(row.qty) || 0) * (Number(row.unitPrice) || 0);
+                  return (
+                    <tr key={i} className="border-t border-border">
+                      <td className="px-2 py-1.5">
+                        <input
+                          value={row.item}
+                          onChange={(e) => updateRow(i, "item", e.target.value)}
+                          placeholder="예: 액정 교체"
+                          className="w-full px-2 py-1 bg-transparent text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <input
+                          value={row.part}
+                          onChange={(e) => updateRow(i, "part", e.target.value)}
+                          placeholder="예: LCD 패널"
+                          className="w-full px-2 py-1 bg-transparent text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 w-14">
+                        <input
+                          value={row.qty}
+                          onChange={(e) => updateRow(i, "qty", e.target.value)}
+                          type="number" min="1"
+                          className="w-full px-2 py-1 bg-transparent text-foreground text-center focus:outline-none"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 w-28">
+                        <input
+                          value={row.unitPrice}
+                          onChange={(e) => updateRow(i, "unitPrice", e.target.value.replace(/[^0-9]/g, ""))}
+                          placeholder="0"
+                          className="w-full px-2 py-1 bg-transparent text-foreground text-right focus:outline-none placeholder:text-muted-foreground/50"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 w-8 text-center">
+                        <button
+                          type="button"
+                          onClick={() => removeRow(i)}
+                          disabled={repairRows.length === 1}
+                          className="p-1 rounded text-muted-foreground hover:text-red-500 disabled:opacity-30 transition-colors"
+                        >
+                          <XIcon className="w-3 h-3" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <button
+            type="button"
+            onClick={addRow}
+            className="flex items-center gap-1.5 text-xs text-accent hover:text-accent/80 font-medium w-fit transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            항목 추가
+          </button>
+        </div>
+
+        {/* 수리 결과 + 보증 기간 */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-muted-foreground">수리 결과</label>
+            <div className="flex gap-1.5">
+              {REPAIR_RESULT_OPTIONS.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setRepairResult(value)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-all ${
+                    repairResult === value
+                      ? value === "success" ? "bg-green-500 text-white border-green-500"
+                        : value === "partial" ? "bg-amber-500 text-white border-amber-500"
+                        : "bg-red-500 text-white border-red-500"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-muted-foreground">품질 보증 기간</label>
+            <div className="flex gap-1.5 flex-wrap">
+              {WARRANTY_OPTIONS.map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => setWarranty(w)}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
+                    warranty === w
+                      ? "bg-accent text-white border-accent"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {w}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 비고 */}
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-muted-foreground">비고</label>
+          <textarea
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            placeholder="고객 전달 사항, 추가 점검 권고 항목 등을 입력하세요."
+            rows={2}
+            className="w-full px-3.5 py-3 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none transition-all"
+          />
+        </div>
+      </Card>
 
       {/* Cost inputs */}
       <Card className="p-5 flex flex-col gap-5">
         <h3 className="text-sm font-semibold text-foreground">비용 입력</h3>
         <div className="grid grid-cols-2 gap-4">
-          <CurrencyInput
-            label="부품비"
-            value={partCost}
-            onChange={setPartCost}
-          />
+          {/* 부품비: 수리 내역 테이블 누계 자동 반영 */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">부품비 (수리 내역 합계)</label>
+            <div className="relative">
+              <input
+                readOnly
+                value={partCost.toLocaleString("ko-KR")}
+                className="w-full pl-3.5 pr-10 py-2.5 text-sm bg-secondary/50 border border-border rounded-xl text-foreground text-right cursor-default"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">원</span>
+            </div>
+          </div>
           <CurrencyInput
             label="공임비"
             value={laborCost}
@@ -371,50 +663,8 @@ function ReportDetail({ item, onBack }) {
           />
         </div>
         <div className="flex justify-between items-center p-3.5 bg-secondary rounded-xl">
-          <span className="text-sm font-medium text-muted-foreground">
-            합계
-          </span>
-          <span className="text-base font-bold text-foreground">
-            {total.toLocaleString("ko-KR")}원
-          </span>
-        </div>
-      </Card>
-
-      {/* Log */}
-      <Card className="p-5 flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">
-          정비 내용 기록
-        </h3>
-        <textarea
-          value={log}
-          onChange={(e) => setLog(e.target.value)}
-          placeholder="수행한 수리 내용을 상세히 기술해주세요."
-          rows={5}
-          className="w-full px-3.5 py-3 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 resize-none transition-all"
-        />
-      </Card>
-
-      {/* Uploads */}
-      <Card className="p-5 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">
-            증빙 서류 업로드
-          </h3>
-          <span className="text-xs text-red-500 font-medium">* 필수</span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          보험 청구 패키지 생성을 위해 공식 수리 영수증과 결제 확인서를
-          업로드하세요.
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <UploadZone
-            label="공식 수리 영수증 (PDF)"
-            sublabel="PDF · 최대 10MB"
-          />
-          <UploadZone
-            label="결제 확인서 이미지"
-            sublabel="JPG, PNG · 최대 5MB"
-          />
+          <span className="text-sm font-medium text-muted-foreground">합계</span>
+          <span className="text-base font-bold text-foreground">{total.toLocaleString("ko-KR")}원</span>
         </div>
       </Card>
 
@@ -428,9 +678,9 @@ function ReportDetail({ item, onBack }) {
         ) : (
           <div />
         )}
-        <Button variant="accent" size="md" onClick={handleSave}>
+        <Button variant="accent" size="md" onClick={handleSave} disabled={saving}>
           <Save className="w-4 h-4" />
-          리포트 저장 및 고객 알림 발송
+          {saving ? "처리 중..." : "AI 리포트 저장 및 고객 알림 발송"}
         </Button>
       </div>
     </div>
