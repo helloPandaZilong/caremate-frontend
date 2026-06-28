@@ -14,7 +14,7 @@ export const updateAdminProfile = (data) =>
 export const changeAdminPassword = (data) =>
   apiClient.patch('/admin/profile/password', data)
 
-// 최근 접속 이력 조회 (최대 20건, 최신순) → [{ ipAddress, userAgent, loginAt }]
+// 최근 접속 이력 조회 (최대 20건, 최신순)
 export const getAdminLoginHistory = () =>
   apiClient.get('/admin/profile/login-history')
 
@@ -71,3 +71,18 @@ export const updateInsuranceProduct = (productId, data) =>
 // 보험 상품 삭제
 export const deleteInsuranceProduct = (productId) =>
   apiClient.delete(`/admin/insurance-products/${productId}`)
+
+// ── LMS 수료 관리 API ────────────────────────────────────────────────────────
+
+// 수리점 LMS 수료 현황 목록 조회 (keyword: 이름 검색, page/size: 페이징)
+// → { content: [{ memberId, shopName, email, memberStatus, repairReportGuide, platformProcessGuide, allCompleted }], ... }
+export const getShopsLmsStatus = (params) =>
+  apiClient.get('/admin/lms', { params })
+
+// 특정 가이드 수료 기록 삭제 (guideType: REPAIR_REPORT_GUIDE | PLATFORM_PROCESS_GUIDE)
+export const deleteLmsGuide = (memberId, guideType) =>
+  apiClient.delete(`/admin/lms/${memberId}/guides/${guideType}`)
+
+// 수리점 전체 수료 기록 삭제
+export const deleteAllLmsGuides = (memberId) =>
+  apiClient.delete(`/admin/lms/${memberId}/guides`)
