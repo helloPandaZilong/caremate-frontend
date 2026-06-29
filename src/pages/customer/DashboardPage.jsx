@@ -34,7 +34,7 @@ const NOTIFICATIONS = [
     id: 2,
     msg: "담당 기사님이 배정되었습니다. 박기술 기사 (010-1234-5678)",
     time: "1시간 전",
-    dot: "bg-teal-500",
+    dot: "bg-accent",
     read: false,
   },
   {
@@ -67,7 +67,7 @@ function StatusStepper() {
         {/* Connecting line */}
         <div className="absolute top-5 left-6 right-6 h-0.5 bg-secondary z-0" />
         <div
-          className="absolute top-5 left-6 h-0.5 bg-teal-500 z-0 transition-all duration-500"
+          className="absolute top-5 left-6 h-0.5 bg-accent z-0 transition-all duration-500"
           style={{
             width: `${((CURRENT_STAGE - 1) / (STAGES.length - 1)) * 100}%`,
           }}
@@ -85,18 +85,18 @@ function StatusStepper() {
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
                   done
-                    ? "bg-teal-500 border-teal-500"
+                    ? "bg-accent border-accent"
                     : active
-                      ? "bg-card border-teal-500 shadow-lg shadow-teal-500/20"
+                      ? "bg-card border-accent shadow-lg shadow-accent/20"
                       : "bg-card border-secondary"
                 }`}
               >
                 <Icon
-                  className={`w-4 h-4 ${done ? "text-white" : active ? "text-teal-500" : "text-muted-foreground/40"}`}
+                  className={`w-4 h-4 ${done ? "text-white" : active ? "text-accent" : "text-muted-foreground/40"}`}
                 />
               </div>
               <span
-                className={`text-xs font-medium ${active ? "text-teal-600" : done ? "text-foreground" : "text-muted-foreground/50"}`}
+                className={`text-xs font-medium ${active ? "text-accent" : done ? "text-foreground" : "text-muted-foreground/50"}`}
               >
                 {stage.label}
               </span>
@@ -116,7 +116,7 @@ function ASRequestCard() {
         <h3 className="text-sm font-semibold text-foreground">
           진행 중인 A/S 요청
         </h3>
-        <Badge variant="teal">수리중</Badge>
+        <Badge variant="yellow">수리중</Badge>
       </div>
 
       <div className="flex items-center gap-3 bg-secondary rounded-xl p-3">

@@ -4,7 +4,7 @@ import {
   getOrderDetail, getStatusHistories,
   acceptOrder, rejectOrder, startRepair, manualNoShow,
 } from '../../api/repairshopApi.js'
-import './OrderDetail.css'
+import './css/OrderDetail.css'
 
 const STATUS_LABEL = {
   RECEIVED:'접수 대기', ACCEPTED:'확정', REJECTED:'반려',

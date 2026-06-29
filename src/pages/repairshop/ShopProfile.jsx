@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import ShopLayout from '../../components/repairshop/ShopLayout.jsx'
 import { getShopProfile, updateShopProfile, getOperatingHours, updateOperatingHours } from '../../api/repairshopApi.js'
-import './ShopProfile.css'
+import './css/ShopProfile.css'
 
 const DAYS_KO = ['일', '월', '화', '수', '목', '금', '토']
 

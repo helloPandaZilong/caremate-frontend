@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════════════
-   Dashboard — Figma 시안 기준
+   Dashboard — Amber/Slate 테마 적용
    ══════════════════════════════════════════════════════════ */
 
 /* ── Page header ──────────────────────────────────────────── */
@@ -17,11 +17,11 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #666;
-  background: #fff;
+  color: var(--muted-foreground);
+  background: var(--card);
   padding: 8px 16px;
   border-radius: 10px;
-  border: 1px solid #edf0f7;
+  border: 1px solid var(--border);
 }
 
 .db-legend-dot {
@@ -30,9 +30,9 @@
   border-radius: 50%;
   display: inline-block;
 }
-.db-legend-dot--blue   { background: #3b82f6; }
-.db-legend-dot--yellow { background: #f59e0b; }
-.db-legend-text { color: #555; font-weight: 500; margin-right: 8px; }
+.db-legend-dot--blue   { background: #3b82f6; }    /* 예약 — semantic blue */
+.db-legend-dot--yellow { background: #f59e0b; }     /* 작업중 — semantic amber */
+.db-legend-text { color: var(--muted-foreground); font-weight: 500; margin-right: 8px; }
 .db-legend-text:last-child { margin-right: 0; }
 
 /* ── Summary (stat) cards ─────────────────────────────────── */
@@ -43,14 +43,23 @@
   margin-bottom: 24px;
 }
 
+@media (max-width: 640px) {
+  .db-summary-cards { grid-template-columns: 1fr; }
+}
+@media (min-width: 641px) and (max-width: 900px) {
+  .db-summary-cards { grid-template-columns: repeat(2, 1fr); }
+}
+
 .db-stat-card {
   display: flex;
   align-items: center;
   gap: 18px;
-  background: #fff;
+  background: var(--card);
   border-radius: 16px;
   padding: 22px 24px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.04);
+  border: 1px solid var(--border);
+  transition: background 0.3s, border-color 0.3s;
 }
 
 .db-stat-icon {
@@ -62,9 +71,10 @@
   border-radius: 14px;
   flex-shrink: 0;
 }
-.db-stat-icon--blue   { background: #eff6ff; color: #3b82f6; }
-.db-stat-icon--orange { background: #fff7ed; color: #f97316; }
-.db-stat-icon--teal   { background: #f0fdfa; color: #0d9488; }
+/* Accent (amber) for the primary stat */
+.db-stat-icon--blue   { background: var(--accent-subtle); color: var(--accent); }
+.db-stat-icon--orange { background: rgba(249,115,22,0.10); color: #f97316; }
+.db-stat-icon--teal   { background: rgba(13,148,136,0.10); color: #0d9488; }
 
 .db-stat-body {
   display: flex;
@@ -74,20 +84,20 @@
 
 .db-stat-label {
   font-size: 13px;
-  color: #9299b0;
+  color: var(--muted-foreground);
   font-weight: 500;
 }
 
 .db-stat-value {
   font-size: 28px;
   font-weight: 800;
-  color: #111827;
+  color: var(--foreground);
   line-height: 1.1;
 }
 .db-stat-value em {
   font-size: 14px;
   font-weight: 500;
-  color: #9299b0;
+  color: var(--muted-foreground);
   font-style: normal;
   margin-left: 3px;
 }
@@ -107,6 +117,10 @@
 /* ── Calendar card ────────────────────────────────────────── */
 .db-calendar-card {
   padding: 22px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 
 .db-cal-header {
@@ -120,7 +134,7 @@
 .db-cal-title {
   font-size: 16px;
   font-weight: 700;
-  color: #111827;
+  color: var(--foreground);
   min-width: 130px;
   text-align: center;
 }
@@ -131,14 +145,14 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  background: #f5f6fa;
+  background: var(--secondary);
   border: none;
   border-radius: 8px;
-  color: #555;
+  color: var(--muted-foreground);
   cursor: pointer;
   transition: background 0.15s;
 }
-.db-cal-nav-btn:hover { background: #eaecf4; }
+.db-cal-nav-btn:hover { background: var(--muted); }
 
 /* Grid */
 .db-cal-grid {
@@ -147,7 +161,7 @@
 }
 
 .db-cal-grid--header {
-  border-bottom: 2px solid #f0f2f5;
+  border-bottom: 2px solid var(--border);
   margin-bottom: 0;
 }
 
@@ -156,23 +170,23 @@
   padding: 10px 4px;
   font-size: 12px;
   font-weight: 700;
-  color: #9299b0;
+  color: var(--muted-foreground);
   letter-spacing: 0.3px;
 }
 .db-cal-day-header--sun { color: #ef4444; }
-.db-cal-day-header--sat { color: #3b82f6; }
+.db-cal-day-header--sat { color: #3b82f6; } /* Semantic Saturday blue */
 
 .db-cal-cell {
   min-height: 108px;
   padding: 8px 6px 6px;
-  border-right: 1px solid #f0f2f5;
-  border-bottom: 1px solid #f0f2f5;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
   vertical-align: top;
   position: relative;
 }
 .db-cal-cell:nth-child(7n) { border-right: none; }
-.db-cal-cell--empty { background: #fafbfc; }
-.db-cal-cell--today { background: #f8fbff; }
+.db-cal-cell--empty { background: var(--secondary); opacity: 0.5; }
+.db-cal-cell--today { background: var(--accent-muted); }
 
 .db-cal-date {
   display: inline-flex;
@@ -182,14 +196,14 @@
   height: 26px;
   font-size: 13px;
   font-weight: 600;
-  color: #374151;
+  color: var(--foreground);
   margin-bottom: 4px;
   border-radius: 50%;
 }
 .db-cal-date--sun   { color: #ef4444; }
-.db-cal-date--sat   { color: #3b82f6; }
+.db-cal-date--sat   { color: #3b82f6; } /* Semantic Saturday blue */
 .db-cal-date--today {
-  background: #3b82f6;
+  background: var(--accent);
   color: #fff !important;
   font-weight: 700;
 }
@@ -217,23 +231,23 @@
   line-height: 1.5;
 }
 .db-cal-event:hover { filter: brightness(0.93); }
-.db-cal-event--blue   { background: #dbeafe; color: #1d4ed8; }
-.db-cal-event--yellow { background: #fef3c7; color: #92400e; }
+.db-cal-event--blue   { background: #dbeafe; color: #1d4ed8; } /* 예약 */
+.db-cal-event--yellow { background: #fef3c7; color: #92400e; } /* 작업중 */
 
 .db-cal-more {
   font-size: 11px;
-  color: #9299b0;
+  color: var(--muted-foreground);
   padding: 2px 6px;
   font-weight: 500;
 }
 
 /* ── Today panel ──────────────────────────────────────────── */
 .db-today-panel {
-  background: #fff;
+  background: var(--card);
   border-radius: 16px;
   padding: 22px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 2px 8px rgba(0,0,0,0.04);
-  /* match calendar card height roughly */
+  border: 1px solid var(--border);
 }
 
 .db-today-header {
@@ -246,12 +260,12 @@
 .db-today-title {
   font-size: 16px;
   font-weight: 700;
-  color: #111827;
+  color: var(--foreground);
 }
 
 .db-today-count {
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--accent-subtle);
+  color: var(--accent);
   font-size: 12px;
   font-weight: 700;
   padding: 3px 10px;
@@ -265,7 +279,7 @@
   justify-content: center;
   gap: 10px;
   padding: 40px 0;
-  color: #bbb;
+  color: var(--muted-foreground);
   font-size: 13px;
 }
 
@@ -280,7 +294,7 @@
   align-items: center;
   gap: 12px;
   padding: 14px 0;
-  border-bottom: 1px solid #f5f6fa;
+  border-bottom: 1px solid var(--border);
   cursor: pointer;
   transition: background 0.12s;
   border-radius: 8px;
@@ -289,7 +303,7 @@
   padding-right: 4px;
 }
 .db-today-item:last-child { border-bottom: none; }
-.db-today-item:hover { background: #f8f9fc; }
+.db-today-item:hover { background: var(--secondary); }
 
 .db-today-time-block {
   display: flex;
@@ -297,7 +311,7 @@
   justify-content: center;
   min-width: 46px;
   height: 40px;
-  background: #f5f6fa;
+  background: var(--secondary);
   border-radius: 10px;
   flex-shrink: 0;
 }
@@ -305,7 +319,7 @@
 .db-today-time {
   font-size: 13px;
   font-weight: 700;
-  color: #374151;
+  color: var(--foreground);
 }
 
 .db-today-info {
@@ -319,7 +333,7 @@
 .db-today-name {
   font-size: 14px;
   font-weight: 600;
-  color: #111827;
+  color: var(--foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -327,8 +341,14 @@
 
 .db-today-order-no {
   font-size: 11px;
-  color: #9299b0;
+  color: var(--muted-foreground);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ── Dark mode — calendar event colors adjust ────────────── */
+.dark .db-cal-event--blue   { background: rgba(59,130,246,0.18); color: #93c5fd; }
+.dark .db-cal-event--yellow { background: rgba(245,158,11,0.18); color: #fcd34d; }
+.dark .db-cal-cell--empty   { background: var(--secondary); opacity: 0.3; }
+.dark .db-cal-cell--today   { background: var(--accent-subtle); }
