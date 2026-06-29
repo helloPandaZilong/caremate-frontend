@@ -135,7 +135,7 @@ const CUSTOMER_NOTIFS = [
     time: "어제",
     read: true,
     icon: CheckCircle2,
-    color: "text-teal-500",
+    color: "text-green-500",
   },
 ];
 
@@ -205,8 +205,8 @@ function DarkModeToggle({ dark, toggle }) {
       title={dark ? "라이트 모드" : "다크 모드"}
       className="relative w-12 h-6 rounded-full border transition-all duration-300 focus:outline-none shrink-0"
       style={{
-        background: dark ? "#3B82F6" : "#EEF1F8",
-        borderColor: dark ? "#3B82F6" : "rgba(26,29,46,0.15)",
+        background: dark ? "#D97706" : "#E8EDF3",
+        borderColor: dark ? "#D97706" : "rgba(30,41,59,0.15)",
       }}
     >
       <span
@@ -214,7 +214,7 @@ function DarkModeToggle({ dark, toggle }) {
         style={{ transform: dark ? "translateX(24px)" : "translateX(0px)" }}
       >
         {dark ? (
-          <Moon className="w-2.5 h-2.5 text-blue-600" />
+          <Moon className="w-2.5 h-2.5 text-amber-600" />
         ) : (
           <Sun className="w-2.5 h-2.5 text-amber-500" />
         )}
@@ -437,11 +437,11 @@ function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
   return (
     <aside
       className={`hidden lg:flex fixed top-0 left-0 h-screen flex-col transition-all duration-300 z-40 ${collapsed ? "w-16" : "w-60"}`}
-      style={{ background: "#1A1D2E" }}
+      style={{ background: "#1E293B" }}
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-4 h-16 border-b border-white/10 shrink-0">
-        <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center shrink-0">
           <Shield className="w-4 h-4 text-white" />
         </div>
         {!collapsed && (
@@ -449,7 +449,7 @@ function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
             className="text-base font-semibold text-white tracking-tight whitespace-nowrap"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
-            Care<span className="text-blue-400">Mate</span>
+            Care<span className="text-amber-400">Mate</span>
           </span>
         )}
       </div>
@@ -530,17 +530,17 @@ function MobileTopNav({ dark, toggleDark, onLogout }) {
     <>
       <header
         className="lg:hidden fixed top-0 left-0 right-0 z-50 h-14 flex items-center justify-between px-4 border-b border-white/10"
-        style={{ background: "#1A1D2E" }}
+        style={{ background: "#1E293B" }}
       >
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-amber-600 flex items-center justify-center shrink-0">
             <Shield className="w-3.5 h-3.5 text-white" />
           </div>
           <span
             className="text-sm font-semibold text-white tracking-tight"
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
-            Care<span className="text-blue-400">Mate</span>
+            Care<span className="text-amber-400">Mate</span>
           </span>
           <span
             className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ml-1 ${roleColor}`}
@@ -567,18 +567,18 @@ function MobileTopNav({ dark, toggleDark, onLogout }) {
           />
           <div
             className="lg:hidden fixed top-0 right-0 bottom-0 w-72 z-50 flex flex-col shadow-2xl animate-in slide-in-from-right duration-200"
-            style={{ background: "#1A1D2E" }}
+            style={{ background: "#1E293B" }}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-500 flex items-center justify-center">
+                <div className="w-7 h-7 rounded-lg bg-amber-600 flex items-center justify-center">
                   <Shield className="w-3.5 h-3.5 text-white" />
                 </div>
                 <span
                   className="text-sm font-semibold text-white"
                   style={{ fontFamily: "'DM Sans', sans-serif" }}
                 >
-                  Care<span className="text-blue-400">Mate</span>
+                  Care<span className="text-amber-400">Mate</span>
                 </span>
               </div>
               <button

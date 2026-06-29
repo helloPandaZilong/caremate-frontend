@@ -12,9 +12,10 @@ import {
   X as XIcon,
   Sparkles,
   Info,
+  Upload,
 } from "lucide-react";
 import { Button, Card, Badge } from "../../components/shared";
-import { getOrders, startRepair, completeRepair } from "../../api/repairshopApi";
+import { getOrders, startRepair, completeRepair, parseRepairFile, submitReportFeedback } from "../../api/repairshopApi";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -349,6 +350,7 @@ function ReportDetail({ item, onBack }) {
   const [saving, setSaving] = useState(false);
   const [aiDraft, setAiDraft] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiSnapshot, setAiSnapshot] = useState(null); // AI 원본 결과 보존 (피드백용)
 
   // 정비 내용 구조화 상태
   const [diagnosis, setDiagnosis] = useState("");
@@ -371,6 +373,24 @@ function ReportDetail({ item, onBack }) {
       if (repairStatus === "completed" && item.rawStatus === "IN_REPAIR") {
         await completeRepair(item.id);
       }
+
+      // AI를 사용한 경우에만 피드백 저장
+      if (aiSnapshot) {
+        const finalData = {
+          diagnosis,
+          repairRows,
+          repairResult,
+          warranty,
+          laborCost: Number(laborCost) || 0,
+          remarks,
+        };
+        submitReportFeedback({
+          orderId: item.id,
+          aiDraft: aiSnapshot,
+          finalData,
+        }).catch(() => {});
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -479,21 +499,55 @@ function ReportDetail({ item, onBack }) {
       <Card className="p-5 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground">정비 내용 기록</h3>
-          <button
-            type="button"
-            disabled={aiGenerating}
-            onClick={async () => {
-              setAiGenerating(true);
-              // TODO: 실제 AI 호출로 교체
-              await new Promise((r) => setTimeout(r, 1000));
-              setAiGenerating(false);
-              setAiDraft(true);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-60 transition-colors"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            {aiGenerating ? "생성 중..." : "AI 리포트 생성"}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* 파일 업로드 버튼 */}
+            <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-violet-300 text-violet-600 hover:bg-violet-50 cursor-pointer transition-colors">
+              <Upload className="w-3.5 h-3.5" />
+              파일 첨부
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setAiGenerating(true);
+                  try {
+                    const result = await parseRepairFile(file, {
+                      customer: item.customer,
+                      device: item.device,
+                      issue: item.issue,
+                    });
+                    if (result.diagnosis)   setDiagnosis(result.diagnosis);
+                    if (result.repairRows?.length) setRepairRows(result.repairRows.map((r) => ({
+                      item: r.item ?? "",
+                      part: r.part ?? "",
+                      qty: String(r.qty ?? 1),
+                      unitPrice: String(r.unitPrice ?? ""),
+                    })));
+                    if (result.repairResult) setRepairResult(result.repairResult);
+                    if (result.warranty)    setWarranty(result.warranty);
+                    if (result.laborCost)   setLaborCost(String(result.laborCost));
+                    if (result.remarks)     setRemarks(result.remarks);
+                    setAiSnapshot(result); // AI 원본 보존 (피드백용)
+                    setAiDraft(true);
+                  } catch {
+                    alert("파일 분석 중 오류가 발생했습니다. 파일 형식을 확인해주세요.");
+                  } finally {
+                    setAiGenerating(false);
+                    e.target.value = "";
+                  }
+                }}
+              />
+            </label>
+            {/* AI 생성 상태 표시 */}
+            {aiGenerating && (
+              <span className="flex items-center gap-1.5 text-xs text-violet-500 font-medium">
+                <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                AI 분석 중...
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 고장 진단 결과 */}
