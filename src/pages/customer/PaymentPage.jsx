@@ -21,18 +21,30 @@ import {
   failPayment,
   fetchReceipt,
 } from "../../api/payment";
+// 5번(청구) API 추가
+import { getClaimEstimates, requestClaimPackage } from "../../api/claim";
 
 function fmt(n) {
-  return Number(n).toLocaleString("ko-KR") + "원";
+  return Number(n ?? 0).toLocaleString("ko-KR") + "원";
 }
 
-// ── Post-Payment: Claim Package Screen ───────────────────────────────────────
+// 청구 완료 여부 (CALCULATED = 아직 청구 안 함)
+const isClaimed = (claim) => claim.status !== "CALCULATED";
 
-function ClaimPackageScreen({ paymentId, confirmData }) {
+// ── Post-Payment: Claim Package Screen ───────────────────────────────────────
+// orderId 추가로 받음 (청구 API에 필요). claims 는 confirmData 대신 조회.
+function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
   const navigate = useNavigate();
   const [receipt, setReceipt] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // claims 를 API로 조회 (status·상품정보·제출링크 포함)
+  const [claims, setClaims] = useState([]);
+  const [downloading, setDownloading] = useState(false);
+  const [claimError, setClaimError] = useState(null);
+  const [showWarning, setShowWarning] = useState(false);
+
+  // 영수증 조회 (협업자 코드 그대로)
   useEffect(() => {
     if (!paymentId) return;
     fetchReceipt(paymentId)
@@ -40,6 +52,63 @@ function ClaimPackageScreen({ paymentId, confirmData }) {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [paymentId]);
+
+  // 예상 내역 조회 (재사용 위해 함수로)
+  const reloadEstimates = async () => {
+    const data = await getClaimEstimates(orderId);
+    setClaims(data);
+  };
+
+  useEffect(() => {
+    if (!orderId) return;
+    reloadEstimates().catch(() =>
+      setClaimError("청구 내역을 불러오지 못했습니다."),
+    );
+  }, [orderId]);
+
+  const anyClaimed = claims.some(isClaimed);
+
+  // 청구하기 = zip 다운로드 + 재조회
+  const handleClaim = async () => {
+    if (downloading) return;
+    setShowWarning(false);
+    setDownloading(true);
+    setClaimError(null);
+    try {
+      const blob = await requestClaimPackage(orderId); // 200 = 청구 완료
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `보험청구패키지.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      await reloadEstimates(); // status 갱신 → 제출버튼 활성화
+    } catch (e) {
+      setClaimError(
+        "청구 서류 생성 실패: " +
+          (e.response?.data?.error?.message ?? e.message ?? "알 수 없는 오류"),
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  // 제출 버튼 → 미리 받은 링크로 이동
+  const handleSubmit = (claim) => {
+    if (!isClaimed(claim)) return;
+    if (claim.claimChannelType === "WEBSITE") {
+      window.open(claim.claimChannelValue, "_blank", "noopener");
+    } else {
+      alert(
+        `${claim.providerName} 제출 채널: ${claim.claimChannelValue}\n` +
+          `카카오톡에서 해당 채널로 서류를 제출하세요.`,
+      );
+    }
+  };
 
   if (loading) {
     return (
@@ -50,8 +119,13 @@ function ClaimPackageScreen({ paymentId, confirmData }) {
   }
 
   const total = receipt?.totalPaidAmount ?? confirmData?.totalPaidAmount ?? 0;
-  const expectedRefund = receipt?.expectedRefundAmount ?? confirmData?.expectedRefundAmount ?? 0;
-  const claims = confirmData?.claims ?? [];
+
+  // 총 예상환급액 = 보험사별 claims 합산 (화면의 카드 합과 일치).
+  // claims 가 아직 안 불러와졌을 때만 payment 에 기록된 총액으로 대체.
+  const claimsLoaded = claims.length > 0;
+  const expectedRefund = claimsLoaded
+    ? claims.reduce((a, c) => a + (c.expectedAmount ?? 0), 0)
+    : (receipt?.expectedRefundAmount ?? confirmData?.expectedRefundAmount ?? 0);
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
@@ -69,8 +143,8 @@ function ClaimPackageScreen({ paymentId, confirmData }) {
             지급되었습니다.
           </p>
           <p className="text-xs text-green-600 dark:text-green-400 mt-1.5 leading-relaxed">
-            아래에서 보험사별 청구 패키지를 다운로드하고, 해당 보험사 제출
-            페이지로 이동하여 서류를 제출하세요.
+            예상 보험 환급금을 확인하고, 제출용 서류를 청구한 뒤 보험사에
+            제출하세요.
           </p>
         </div>
       </div>
@@ -94,7 +168,9 @@ function ClaimPackageScreen({ paymentId, confirmData }) {
           <div className="flex justify-between py-2.5">
             <span className="text-muted-foreground">결제 일시</span>
             <span className="font-medium text-foreground">
-              {receipt?.paidAt ? new Date(receipt.paidAt).toLocaleString("ko-KR") : "-"}
+              {receipt?.paidAt
+                ? new Date(receipt.paidAt).toLocaleString("ko-KR")
+                : "-"}
             </span>
           </div>
           <div className="flex justify-between py-3 font-semibold text-base">
@@ -122,12 +198,12 @@ function ClaimPackageScreen({ paymentId, confirmData }) {
         <div className="flex items-center gap-2">
           <FileText className="w-4 h-4 text-foreground" />
           <h3 className="text-sm font-semibold text-foreground">
-            보험사별 청구 패키지
+            보험사별 예상 환급금
           </h3>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          CareMate가 보험사별 제출 서류 패키지를 자동 생성했습니다. 각 보험사
-          패키지를 다운로드한 후 제출 사이트 링크로 이동하여 직접 제출해 주세요.
+          통신사 보험 적용 후 남은 금액에 카드사 보험이 적용됩니다. 서류를
+          청구한 뒤 각 보험사 제출 페이지로 이동하여 직접 제출해 주세요.
         </p>
 
         <div className="p-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700/50 rounded-xl flex items-start gap-2 text-xs text-amber-700 dark:text-amber-400">
@@ -148,86 +224,130 @@ function ClaimPackageScreen({ paymentId, confirmData }) {
           </span>
         </div>
 
-        {/* 보험사별 청구 내역 */}
-        {claims.length > 0 ? (
-          claims.map((claim) => (
-            <Card key={claim.claimId} className="p-5 flex flex-col gap-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {claim.providerType === "TELECOM" ? "통신사 보험" : "카드사 보험"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    청구 순서 {claim.claimOrder}순위
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">예상 환급액</p>
-                  <p className="text-base font-bold text-accent">
-                    ≈ {fmt(claim.expectedAmount)}
-                  </p>
-                </div>
-              </div>
+        {claimError && (
+          <p className="text-xs text-red-600 py-1">{claimError}</p>
+        )}
 
-              {/* 패키지 포함 서류 — 5번 API 완성 후 실제 다운로드 연결 예정 */}
-              <div className="bg-secondary rounded-xl p-3 flex flex-col gap-2">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  패키지 포함 서류
-                </p>
-                {[
-                  "결제 영수증 (CareMate 발행)",
-                  "정형 수리 리포트 (수리점 작성)",
-                  "파손 사진 증빙 (A4 편집본)",
-                ].map((doc) => (
-                  <div
-                    key={doc}
-                    className="flex items-center gap-2 text-xs text-foreground"
-                  >
-                    <CheckCircle2 className="w-3 h-3 text-green-500 shrink-0" />
-                    {doc}
+        {/* 보험사별 청구 내역 (API 조회 결과) */}
+        {claims.length > 0
+          ? claims.map((claim) => (
+              <Card key={claim.claimId} className="p-5 flex flex-col gap-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {claim.providerName}
+                      <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                        {claim.providerType === "TELECOM" ? "통신사" : "카드사"}
+                      </span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {claim.productName}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {claim.selfPayType === "RATE"
+                        ? `자기부담 ${claim.selfPayRate}% (최소 ${fmt(claim.minSelfPayAmount)})`
+                        : `자기부담 ${fmt(claim.selfPayAmount)}`}
+                    </p>
                   </div>
-                ))}
-              </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs text-muted-foreground">예상 환급액</p>
+                    <p className="text-base font-bold text-accent">
+                      ≈ {fmt(claim.expectedAmount)}
+                    </p>
+                  </div>
+                </div>
 
-              {/* Actions — 5번 claim-request, package, submission-link API 완성 후 연결 예정 */}
-              <div className="flex gap-2">
+                {/* 제출 버튼 — 항상 표시, status 로 활성/비활성 */}
                 <button
-                  disabled
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border bg-secondary text-muted-foreground border-border cursor-not-allowed"
-                >
-                  <Download className="w-4 h-4" />
-                  패키지 다운로드 (준비 중)
-                </button>
-                <button
-                  disabled
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border border-border text-muted-foreground cursor-not-allowed"
+                  onClick={() => handleSubmit(claim)}
+                  disabled={!isClaimed(claim)}
+                  className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                    isClaimed(claim)
+                      ? "border-border text-foreground hover:bg-secondary cursor-pointer"
+                      : "border-border text-muted-foreground bg-secondary cursor-not-allowed"
+                  }`}
                 >
                   <ExternalLink className="w-4 h-4" />
-                  제출 사이트 (준비 중)
+                  {isClaimed(claim)
+                    ? `${claim.providerName} 제출하러 가기`
+                    : "청구 후 제출 가능"}
                 </button>
-              </div>
-            </Card>
-          ))
-        ) : (
-          <Card className="p-5 text-center text-sm text-muted-foreground">
-            청구 내역이 없습니다. 원클릭 청구 요청 후 다시 확인해주세요.
-          </Card>
-        )}
+              </Card>
+            ))
+          : !claimError && (
+              <Card className="p-5 text-center text-sm text-muted-foreground">
+                산출된 예상 환급금이 없습니다.
+              </Card>
+            )}
+
+        {/* 청구하기 / 다시 다운로드 (주문당 1개) */}
+        {claims.length > 0 &&
+          (!anyClaimed ? (
+            <Button
+              variant="accent"
+              size="lg"
+              onClick={() => setShowWarning(true)}
+              disabled={downloading}
+            >
+              {downloading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {downloading ? "서류 생성 중…" : "보험 제출용 서류 청구하기"}
+            </Button>
+          ) : (
+            <div className="flex flex-col gap-2 p-4 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700/50 rounded-2xl">
+              <span className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
+                <CheckCircle2 className="w-4 h-4" />
+                청구가 완료되었습니다. 각 보험사 제출 버튼으로 서류를
+                제출하세요.
+              </span>
+              <button
+                onClick={() => setShowWarning(true)}
+                disabled={downloading}
+                className="self-start flex items-center gap-1.5 text-xs text-accent hover:underline font-medium"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {downloading ? "다운로드 중…" : "청구 서류 다시 다운로드"}
+              </button>
+            </div>
+          ))}
       </div>
 
       {/* Guide */}
       <Card className="p-5 flex flex-col gap-3">
-        <h3 className="text-sm font-semibold text-foreground">청구 절차 안내</h3>
+        <h3 className="text-sm font-semibold text-foreground">
+          청구 절차 안내
+        </h3>
         <div className="flex flex-col gap-3">
           {[
-            { step: "01", label: "패키지 다운로드", desc: "보험사별 청구 패키지를 PDF로 다운로드합니다." },
-            { step: "02", label: "보험사 제출 사이트 이동", desc: "위 '제출 사이트' 버튼을 클릭하여 해당 보험사 청구 페이지로 이동합니다." },
-            { step: "03", label: "서류 제출", desc: "다운로드한 패키지 파일을 첨부하여 보험 청구를 제출합니다." },
-            { step: "04", label: "심사 대기", desc: "보험사 심사 결과는 각 보험사 앱/홈페이지에서 직접 확인하세요." },
+            {
+              step: "01",
+              label: "서류 청구",
+              desc: "‘서류 청구하기’로 제출용 패키지(zip)를 다운로드합니다.",
+            },
+            {
+              step: "02",
+              label: "보험사 제출 사이트 이동",
+              desc: "각 보험사 ‘제출하러 가기’ 버튼으로 청구 페이지로 이동합니다.",
+            },
+            {
+              step: "03",
+              label: "서류 제출",
+              desc: "다운로드한 패키지 파일을 첨부하여 보험 청구를 제출합니다.",
+            },
+            {
+              step: "04",
+              label: "심사 대기",
+              desc: "보험사 심사 결과는 각 보험사 앱/홈페이지에서 직접 확인하세요.",
+            },
           ].map((g) => (
             <div key={g.step} className="flex gap-3 text-sm">
-              <span className="text-lg font-bold text-border leading-none shrink-0 w-8"
-                style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <span
+                className="text-lg font-bold text-border leading-none shrink-0 w-8"
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
                 {g.step}
               </span>
               <div>
@@ -239,9 +359,69 @@ function ClaimPackageScreen({ paymentId, confirmData }) {
         </div>
       </Card>
 
-      <Button variant="secondary" size="md" className="self-start" onClick={() => navigate("/customer/dashboard")}>
+      <Button
+        variant="secondary"
+        size="md"
+        className="self-start"
+        onClick={() => navigate("/customer/dashboard")}
+      >
         대시보드로 돌아가기
       </Button>
+
+      {/* 경고 모달 — 처음 청구 vs 재다운로드 */}
+      {showWarning && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowWarning(false)}
+        >
+          <div
+            className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <h4 className="text-base font-semibold text-foreground mb-3">
+              {anyClaimed ? "재다운로드 확인" : "청구 전 확인"}
+            </h4>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-5">
+              {anyClaimed ? (
+                <>
+                  이미 청구 서류를 다운로드하셨습니다. 다시
+                  다운로드하시겠습니까?
+                  <br />
+                  보험 제출용 서류(zip)가 다운로드됩니다.
+                </>
+              ) : (
+                <>
+                  청구를 진행하면{" "}
+                  <b className="text-foreground">
+                    이 결제는 환불받을 수 없습니다.
+                  </b>{" "}
+                  그래도 진행하시겠습니까?
+                  <br />
+                  보험 제출용 서류(zip)가 다운로드됩니다.
+                </>
+              )}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex-1"
+                onClick={() => setShowWarning(false)}
+              >
+                취소
+              </Button>
+              <Button
+                variant={anyClaimed ? "accent" : "danger"}
+                size="sm"
+                className="flex-1"
+                onClick={handleClaim}
+              >
+                {anyClaimed ? "다시 다운로드" : "청구하고 다운로드"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -296,7 +476,8 @@ export default function PaymentPage() {
     } catch (err) {
       // 결제 실패 처리 (POST /api/customer/payments/fail)
       const errorCode = err.response?.data?.error?.code ?? "UNKNOWN";
-      const errorMessage = err.response?.data?.error?.message ?? "결제 중 오류가 발생했습니다.";
+      const errorMessage =
+        err.response?.data?.error?.message ?? "결제 중 오류가 발생했습니다.";
       await failPayment(orderId, errorCode, errorMessage).catch(console.error);
       setError(errorMessage);
     } finally {
@@ -305,7 +486,13 @@ export default function PaymentPage() {
   };
 
   if (paid) {
-    return <ClaimPackageScreen paymentId={paymentId} confirmData={confirmData} />;
+    return (
+      <ClaimPackageScreen
+        orderId={orderId}
+        paymentId={paymentId}
+        confirmData={confirmData}
+      />
+    );
   }
 
   if (loading) {
@@ -387,7 +574,9 @@ export default function PaymentPage() {
           </div>
 
           <div className="flex flex-col gap-2 pt-2 border-t border-border/40">
-            <p className="text-xs font-medium text-muted-foreground">결제 수단</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              결제 수단
+            </p>
             {PAYMENT_METHODS.map(({ id, label, icon: Icon }) => (
               <label
                 key={id}
@@ -406,7 +595,9 @@ export default function PaymentPage() {
                   className="accent-accent w-4 h-4"
                 />
                 <Icon className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">{label}</span>
+                <span className="text-sm font-medium text-foreground">
+                  {label}
+                </span>
               </label>
             ))}
           </div>
@@ -421,8 +612,8 @@ export default function PaymentPage() {
             </h3>
           </div>
           <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
-            결제 완료 후 보험 약관에 따라 예상 환급액이 산출됩니다.
-            실제 수령액은 보험사 심사 결과에 따라 다를 수 있습니다.
+            결제 완료 후 보험 약관에 따라 예상 환급액이 산출됩니다. 실제
+            수령액은 보험사 심사 결과에 따라 다를 수 있습니다.
           </p>
           <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
             결제 완료 후 예상 환급액이 표시됩니다.
