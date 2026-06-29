@@ -33,6 +33,7 @@ import {
   Users, // 회원 관리 메뉴 아이콘
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
+import NotificationBell from "./notification/NotificationBell";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -47,7 +48,8 @@ const CUSTOMER_NAV = [
   { label: "A/S 접수", href: "/customer/request", icon: FileText },
   { label: "보험 관리", href: "/customer/insurance", icon: Shield },
   { label: "결제·청구", href: "/customer/payment/1", icon: CreditCard },
-  { label: "서비스 센터 찾기", href: "customer/find-shop", icon: MapPin },
+  { label: "진행 모니터링", href: "/customer/repair-orders/status", icon: Clock },
+  { label: "서비스 센터 찾기", href: "/customer/find-shop", icon: MapPin },
 ];
 
 const SHOP_NAV = [
@@ -663,7 +665,7 @@ function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
       style={{ left: collapsed ? "4rem" : "15rem" }}
     >
       <DarkModeToggle dark={dark} toggle={toggleDark} />
-      <BellButton path={loc.pathname} />
+      <NotificationBell />
       <Link
         to={profileHref}
         title={user?.name}
