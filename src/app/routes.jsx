@@ -1,11 +1,10 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter,Navigate } from "react-router";
 import AppShell from "../components/AppShell";
 import ProtectedRoute from "../components/ProtectedRoute";
 import LandingPage from "../pages/LandingPage";
 import AuthPage from "../pages/AuthPage";
 import OAuthCallbackPage from "../pages/OAuthCallbackPage"; // Google OAuth2 콜백 처리
 import NotificationPage from "../pages/NotificationPage";
-import RepairOrderStatusPage from "../pages/customer/RepairOrderStatusPage";
 
 // 수리 고객용 import
 import CustomerDashboard from "../pages/customer/DashboardPage";
@@ -60,8 +59,8 @@ export const router = createBrowserRouter([
       { path: "/customer/payment/:orderId", Component: CustomerPayment   }, // 결제·청구
       { path: "/customer/find-shop",  Component: CustomerFindShop  }, // 서비스 센터 찾기
       { path: "/customer/profile",    Component: CustomerProfile   }, // 프로필
-      { path: "/customer/repair-orders/status", Component: RepairOrderStatusPage }, // 최근/직접 입력 주문 상태 타임라인
-      { path: "/customer/repair-orders/:orderId/status", Component: RepairOrderStatusPage }, // 주문 상태 타임라인
+      { path: "/customer/repair-orders/status", element: <Navigate to="/customer/dashboard" replace /> },
+      { path: "/customer/repair-orders/:orderId/status", element: <Navigate to="/customer/dashboard" replace /> },
 
       // 역할 공통
       { path: "/notifications", Component: NotificationPage },

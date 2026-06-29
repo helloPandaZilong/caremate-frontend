@@ -63,9 +63,9 @@ function SummaryAction({ order }) {
   }
 
   return (
-      <Link to={`/customer/repair-orders/${order.id}/status`} className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline">
-        <FileText className="w-4 h-4" /> 상세 타임라인 보기
-      </Link>
+      <a href="#repair-status-section" className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline">
+        <FileText className="w-4 h-4" /> 상태 타임라인 보기
+      </a>
   );
 }
 
@@ -203,10 +203,10 @@ export default function CustomerDashboard() {
               </Card>
 
               {timeline && (
-                  <>
+                  <section id="repair-status-section" className="scroll-mt-24 flex flex-col gap-6">
                     <RepairStatusStepper milestones={timeline.milestones} currentStatus={timeline.currentStatus} />
                     <OrderStatusHistoryList histories={timeline.histories} />
-                  </>
+                  </section>
               )}
             </>
         ) : (
