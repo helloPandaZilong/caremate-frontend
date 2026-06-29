@@ -72,17 +72,16 @@ export const updateInsuranceProduct = (productId, data) =>
 export const deleteInsuranceProduct = (productId) =>
   apiClient.delete(`/admin/insurance-products/${productId}`)
 
-// ── LMS 수료 관리 API ────────────────────────────────────────────────────────
+// ── LMS 수료 관리 API ────────────────────────────────────────────────────────────
 
-// 수리점 LMS 수료 현황 목록 조회 (keyword: 이름 검색, page/size: 페이징)
-// → { content: [{ memberId, shopName, email, memberStatus, repairReportGuide, platformProcessGuide, allCompleted }], ... }
+// 수리점 LMS 수료 현황 조회 (keyword: 수리점명 검색, page/size: 페이징)
 export const getShopsLmsStatus = (params) =>
   apiClient.get('/admin/lms', { params })
 
-// 특정 가이드 수료 기록 삭제 (guideType: REPAIR_REPORT_GUIDE | PLATFORM_PROCESS_GUIDE)
+// 특정 가이드 수료 기록 삭제 (guideType: "REPAIR_REPORT_GUIDE" | "PLATFORM_PROCESS_GUIDE")
 export const deleteLmsGuide = (memberId, guideType) =>
   apiClient.delete(`/admin/lms/${memberId}/guides/${guideType}`)
 
-// 수리점 전체 수료 기록 삭제
+// 전체 가이드 수료 기록 삭제
 export const deleteAllLmsGuides = (memberId) =>
   apiClient.delete(`/admin/lms/${memberId}/guides`)

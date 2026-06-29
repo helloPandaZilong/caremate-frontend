@@ -65,7 +65,7 @@ const KPI_CARDS = [
     change: "+18.3%",
     up: true,
     icon: DollarSign,
-    color: "#2563EB",
+    color: "#D97706",
     sparkData: [48, 52, 45, 61, 78, 97],
   },
   {
@@ -201,7 +201,7 @@ export default function AdminDashboard() {
               <Bar
                 dataKey="fee"
                 name="플랫폼수수료"
-                fill="#2563EB"
+                fill="#D97706"
                 radius={[4, 4, 0, 0]}
               />
               <Bar
@@ -247,7 +247,7 @@ export default function AdminDashboard() {
                 type="monotone"
                 dataKey="generated"
                 name="생성된청구"
-                stroke="#2563EB"
+                stroke="#D97706"
                 strokeWidth={2}
                 dot={{ r: 3 }}
                 activeDot={{ r: 5 }}
