@@ -31,7 +31,7 @@ export const manualNoShow = (orderId) =>
 export const completeRepair = (orderId) =>
   apiClient.patch(`/shop/orders/${orderId}/complete-repair`).then((r) => r.data.data)
 
-// ─── AI Report Parse ──────────────────────────────────────
+// ─── AI Report Parse & Feedback ───────────────────────────
 export const parseRepairFile = (file, orderContext = {}) => {
   const form = new FormData()
   form.append('file', file)
@@ -40,8 +40,13 @@ export const parseRepairFile = (file, orderContext = {}) => {
   if (orderContext.issue)    form.append('damageDesc',   orderContext.issue)
   return apiClient.post('/shop/reports/parse-file', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000, // Gemini 처리 시간 고려해 60초로 확장
   }).then((r) => JSON.parse(r.data.data))
 }
+
+// aiDraft(x)와 최종 제출값(y)을 서버에 저장 — 프롬프트 개선용 피드백
+export const submitReportFeedback = ({ orderId, aiDraft, finalData }) =>
+  apiClient.post('/shop/reports/feedback', { orderId, aiDraft, finalData })
 
 // ─── Shop Profile ─────────────────────────────────────────
 export const getShopProfile = () =>

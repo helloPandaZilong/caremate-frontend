@@ -15,7 +15,7 @@ import {
   Upload,
 } from "lucide-react";
 import { Button, Card, Badge } from "../../components/shared";
-import { getOrders, startRepair, completeRepair, parseRepairFile } from "../../api/repairshopApi";
+import { getOrders, startRepair, completeRepair, parseRepairFile, submitReportFeedback } from "../../api/repairshopApi";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -350,6 +350,7 @@ function ReportDetail({ item, onBack }) {
   const [saving, setSaving] = useState(false);
   const [aiDraft, setAiDraft] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiSnapshot, setAiSnapshot] = useState(null); // AI 원본 결과 보존 (피드백용)
 
   // 정비 내용 구조화 상태
   const [diagnosis, setDiagnosis] = useState("");
@@ -372,6 +373,24 @@ function ReportDetail({ item, onBack }) {
       if (repairStatus === "completed" && item.rawStatus === "IN_REPAIR") {
         await completeRepair(item.id);
       }
+
+      // AI를 사용한 경우에만 피드백 저장
+      if (aiSnapshot) {
+        const finalData = {
+          diagnosis,
+          repairRows,
+          repairResult,
+          warranty,
+          laborCost: Number(laborCost) || 0,
+          remarks,
+        };
+        submitReportFeedback({
+          orderId: item.id,
+          aiDraft: aiSnapshot,
+          finalData,
+        }).catch(() => {});
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -510,6 +529,7 @@ function ReportDetail({ item, onBack }) {
                     if (result.warranty)    setWarranty(result.warranty);
                     if (result.laborCost)   setLaborCost(String(result.laborCost));
                     if (result.remarks)     setRemarks(result.remarks);
+                    setAiSnapshot(result); // AI 원본 보존 (피드백용)
                     setAiDraft(true);
                   } catch {
                     alert("파일 분석 중 오류가 발생했습니다. 파일 형식을 확인해주세요.");
