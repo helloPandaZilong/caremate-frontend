@@ -53,15 +53,22 @@ function formatDateTime(value) {
 
 function getDetailHref(notification, role) {
   if (notification?.repairOrderId) {
-    if (role === "REPAIR_SHOP") return `/shop/orders/${notification.repairOrderId}`;
+    if (role === "REPAIR_SHOP") {
+      if (notification.type === "NO_SHOW_WARNING") {
+        return "/shop/orders";
+      }
+
+      return `/shop/orders/${notification.repairOrderId}`;
+    }
+
     if (role === "ADMIN") return "/admin/dashboard";
     return `/customer/repair-orders/${notification.repairOrderId}/status`;
   }
+
   return "/notifications";
 }
 
-function NotificationRow({ notification, onRead, compact = false, role }) {
-  const meta = TYPE_META[notification.type] ?? {
+function NotificationRow({ notification, onRead, onNavigate, compact = false, role }) {  const meta = TYPE_META[notification.type] ?? {
     label: notification.type ?? "알림",
     icon: Bell,
     color: "text-muted-foreground",
@@ -72,7 +79,10 @@ function NotificationRow({ notification, onRead, compact = false, role }) {
   return (
       <Link
           to={getDetailHref(notification, role)}
-          onClick={() => onRead?.(notification)}
+          onClick={() => {
+            onRead?.(notification);
+            onNavigate?.();
+          }}
           className={`flex gap-3 px-4 py-3 border-b border-border last:border-0 transition-colors ${read ? "opacity-60 hover:opacity-90" : "hover:bg-secondary"}`}
       >
         <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${read ? "bg-muted" : "bg-secondary"}`}>
@@ -98,8 +108,7 @@ function NotificationRow({ notification, onRead, compact = false, role }) {
   );
 }
 
-export function NotificationList({ items, onRead, compact = false, role }) {
-  if (!items?.length) {
+export function NotificationList({ items, onRead, onNavigate, compact = false, role }) {  if (!items?.length) {
     return (
         <div className="py-10 text-center text-sm text-muted-foreground">
           수신된 알림이 없습니다.
@@ -112,6 +121,7 @@ export function NotificationList({ items, onRead, compact = false, role }) {
           key={notification.id}
           notification={notification}
           onRead={onRead}
+          onNavigate={onNavigate}
           compact={compact}
           role={role}
       />
@@ -220,7 +230,13 @@ export default function NotificationBell() {
               )}
 
               <div className="max-h-80 overflow-y-auto">
-                <NotificationList items={items} onRead={handleRead} compact role={user?.role} />
+                <NotificationList
+                    items={items}
+                    onRead={handleRead}
+                    onNavigate={() => setOpen(false)}
+                    compact
+                    role={user?.role}
+                />
               </div>
 
               <div className="px-4 py-2.5 border-t border-border">
