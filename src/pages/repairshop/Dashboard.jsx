@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import ShopLayout from '../../components/repairshop/ShopLayout.jsx'
 import { getDashboard } from '../../api/repairshopApi.js'
-import './Dashboard.css'
+import './css/Dashboard.css'
 
 /* ── helpers ─────────────────────────────────────────────── */
 const DAYS = ['일', '월', '화', '수', '목', '금', '토']

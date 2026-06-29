@@ -87,7 +87,7 @@ export default function ShopLayout({ children, notificationCount = 2 }) {
           <div className="shop-sidebar__logo-icon">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"
-                fill="#06d6a0" stroke="none"/>
+                fill="#D97706" stroke="none"/>
               <path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>

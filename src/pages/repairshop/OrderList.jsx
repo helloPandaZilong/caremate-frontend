@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router'
 import { getOrders, acceptOrder, rejectOrder, startRepair, manualNoShow } from '../../api/repairshopApi.js'
-import './OrderList.css'
+import './css/OrderList.css'
 
 const STATUS_TABS = [
   { label:'전체',    value:'' },
