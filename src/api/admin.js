@@ -14,7 +14,7 @@ export const updateAdminProfile = (data) =>
 export const changeAdminPassword = (data) =>
   apiClient.patch('/admin/profile/password', data)
 
-// 최근 접속 이력 조회 (최대 20건, 최신순) → [{ ipAddress, userAgent, loginAt }]
+// 최근 접속 이력 조회 (최대 20건, 최신순)
 export const getAdminLoginHistory = () =>
   apiClient.get('/admin/profile/login-history')
 

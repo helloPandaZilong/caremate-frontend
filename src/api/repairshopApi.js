@@ -31,6 +31,18 @@ export const manualNoShow = (orderId) =>
 export const completeRepair = (orderId) =>
   apiClient.patch(`/shop/orders/${orderId}/complete-repair`).then((r) => r.data.data)
 
+// ─── AI Report Parse ──────────────────────────────────────
+export const parseRepairFile = (file, orderContext = {}) => {
+  const form = new FormData()
+  form.append('file', file)
+  if (orderContext.customer) form.append('customerName', orderContext.customer)
+  if (orderContext.device)   form.append('deviceModel',  orderContext.device)
+  if (orderContext.issue)    form.append('damageDesc',   orderContext.issue)
+  return apiClient.post('/shop/reports/parse-file', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((r) => JSON.parse(r.data.data))
+}
+
 // ─── Shop Profile ─────────────────────────────────────────
 export const getShopProfile = () =>
   apiClient.get('/shop/profile').then((r) => r.data.data)
