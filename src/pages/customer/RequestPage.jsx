@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import {
   CheckCircle2,
   ChevronRight,
@@ -18,8 +18,8 @@ import {
 } from "../../api/customerService";
 
 const STEPS = [
-  "파손 설명",
   "사진·영상 업로드",
+  "파손 설명",
   "서비스 센터 선택",
   "보험 선택",
 ];
@@ -83,13 +83,15 @@ function StepIndicator({ current }) {
 
 export default function RequestPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const preselectedShop = location.state?.selectedShop ?? null;
   const [step, setStep] = useState(0);
   const [damage, setDamage] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0],
   );
-  const [selectedShop, setSelectedShop] = useState(null);
+  const [selectedShop, setSelectedShop] = useState(preselectedShop);
   const [selectedPolicies, setSelectedPolicies] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -105,9 +107,14 @@ export default function RequestPage() {
     getRepairShops()
       .then(({ data }) => {
         const list = data.data ?? [];
-        setShops(list.length > 0 ? list : DEMO_SHOPS);
+        const base = list.length > 0 ? list : DEMO_SHOPS;
+        const merged =
+          preselectedShop && !base.some((s) => s.id === preselectedShop.id)
+            ? [preselectedShop, ...base]
+            : base;
+        setShops(merged);
       })
-      .catch(() => setShops(DEMO_SHOPS))
+      .catch(() => setShops(preselectedShop ? [preselectedShop, ...DEMO_SHOPS] : DEMO_SHOPS))
       .finally(() => setLoadingShops(false));
     getInsurancePolicies()
       .then(({ data }) => {
@@ -189,43 +196,8 @@ export default function RequestPage() {
 
       <StepIndicator current={step} />
 
-      {/* Step 0: Damage description */}
+      {/* Step 0: Media upload */}
       {step === 0 && (
-        <Card className="p-6 flex flex-col gap-5">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold text-foreground">
-              파손 상황 설명
-            </label>
-            <p className="text-xs text-muted-foreground">
-              어떤 상황에서, 어떤 부분이 파손되었는지 자세히 기술해주세요.
-            </p>
-          </div>
-          <textarea
-            value={damage}
-            onChange={(e) => setDamage(e.target.value)}
-            placeholder="예: 핸드폰을 떨어뜨려 전면 유리가 깨졌습니다. 터치는 일부 작동하지만 우측 하단에서 미인식 구간이 발생하고 있습니다."
-            rows={6}
-            className="w-full px-3.5 py-3 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 resize-none transition-all"
-          />
-
-          <div className="flex flex-wrap gap-2">
-            {["액정 파손", "침수", "배터리 불량", "카메라 파손", "분실"].map(
-              (t) => (
-                <button
-                  key={t}
-                  onClick={() => setDamage((d) => (d ? d + ", " + t : t))}
-                  className="px-3 py-1 text-xs font-medium bg-card border border-border rounded-full hover:border-accent/40 hover:text-accent transition-all"
-                >
-                  + {t}
-                </button>
-              ),
-            )}
-          </div>
-        </Card>
-      )}
-
-      {/* Step 1: Media upload */}
-      {step === 1 && (
         <Card className="p-6 flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-semibold text-foreground">
@@ -281,6 +253,41 @@ export default function RequestPage() {
               ))}
             </div>
           )}
+        </Card>
+      )}
+
+      {/* Step 1: Damage description */}
+      {step === 1 && (
+        <Card className="p-6 flex flex-col gap-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-foreground">
+              파손 상황 설명
+            </label>
+            <p className="text-xs text-muted-foreground">
+              어떤 상황에서, 어떤 부분이 파손되었는지 자세히 기술해주세요.
+            </p>
+          </div>
+          <textarea
+            value={damage}
+            onChange={(e) => setDamage(e.target.value)}
+            placeholder="예: 핸드폰을 떨어뜨려 전면 유리가 깨졌습니다. 터치는 일부 작동하지만 우측 하단에서 미인식 구간이 발생하고 있습니다."
+            rows={6}
+            className="w-full px-3.5 py-3 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 resize-none transition-all"
+          />
+
+          <div className="flex flex-wrap gap-2">
+            {["액정 파손", "침수", "배터리 불량", "카메라 파손", "분실"].map(
+              (t) => (
+                <button
+                  key={t}
+                  onClick={() => setDamage((d) => (d ? d + ", " + t : t))}
+                  className="px-3 py-1 text-xs font-medium bg-card border border-border rounded-full hover:border-accent/40 hover:text-accent transition-all"
+                >
+                  + {t}
+                </button>
+              ),
+            )}
+          </div>
         </Card>
       )}
 

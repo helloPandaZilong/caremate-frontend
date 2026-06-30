@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router";
 import { Search, Clock, Phone, X, Loader2 } from "lucide-react";
 import { getRepairShops, getShopOperatingHours } from "../../api/customerService";
 
@@ -40,7 +41,7 @@ function loadKakaoSDK() {
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
-function InfoPopup({ shop, hours, onClose }) {
+function InfoPopup({ shop, hours, onClose, onReserve }) {
   return (
     <div className="absolute top-4 right-4 z-20 bg-card border border-border rounded-2xl shadow-xl p-4 w-72">
       <div className="flex items-start justify-between gap-2 mb-3">
@@ -78,7 +79,10 @@ function InfoPopup({ shop, hours, onClose }) {
         </div>
       )}
 
-      <button className="mt-1 w-full py-2 text-xs font-semibold bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors">
+      <button
+        onClick={() => onReserve(shop)}
+        className="mt-1 w-full py-2 text-xs font-semibold bg-accent text-white rounded-xl hover:bg-accent/90 transition-colors"
+      >
         A/S 예약하기
       </button>
     </div>
@@ -86,6 +90,7 @@ function InfoPopup({ shop, hours, onClose }) {
 }
 
 export default function FindShopPage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [activeShop, setActiveShop] = useState(null);
   const [activeHours, setActiveHours] = useState(null);
@@ -232,6 +237,10 @@ export default function FindShopPage() {
     }
   };
 
+  const handleReserve = (shop) => {
+    navigate("/customer/request", { state: { selectedShop: shop } });
+  };
+
   const filtered = shops.filter((s) =>
     (s.shopName || "").toLowerCase().includes(query.toLowerCase()),
   );
@@ -318,7 +327,13 @@ export default function FindShopPage() {
                   <Phone className="w-3 h-3" /> {shop.phone}
                 </p>
               )}
-              <button className="w-full py-2 text-xs font-semibold bg-accent/10 text-accent rounded-xl hover:bg-accent/15 transition-colors border border-accent/20">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleReserve(shop);
+                }}
+                className="w-full py-2 text-xs font-semibold bg-accent/10 text-accent rounded-xl hover:bg-accent/15 transition-colors border border-accent/20"
+              >
                 A/S 예약
               </button>
             </div>
@@ -342,6 +357,7 @@ export default function FindShopPage() {
               setActiveShop(null);
               setActiveHours(null);
             }}
+            onReserve={handleReserve}
           />
         )}
       </div>
