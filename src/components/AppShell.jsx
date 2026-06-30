@@ -34,8 +34,8 @@ import {
   Sparkles, // AI 정확도 현황 메뉴 아이콘
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
+import { getGuides } from "../api/lmsService";
 import { getRepairOrders } from "../api/customerService";
-
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -371,7 +371,20 @@ function BellButton({ path }) {
 
 // ── LMS Gate overlay ──────────────────────────────────────────────────────────
 
-function LMSGate({ onNavigate }) {
+const LMS_GATE_GUIDE_META = [
+  {
+    guideType: "REPAIR_REPORT_GUIDE",
+    desc: "필수 입력 항목, 사진 요건, 금지 사항",
+    icon: FileText,
+  },
+  {
+    guideType: "PLATFORM_PROCESS_GUIDE",
+    desc: "전체 절차, 부정 처리 금지",
+    icon: Shield,
+  },
+];
+
+function LMSGate({ guides, onNavigate }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] gap-8 max-w-md mx-auto text-center">
       <div className="w-20 h-20 rounded-3xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
@@ -394,22 +407,13 @@ function LMSGate({ onNavigate }) {
         </p>
       </div>
       <div className="flex flex-col gap-3 w-full">
-        {[
-          {
-            title: "수리 리포트 작성 기준",
-            desc: "필수 입력 항목, 사진 요건, 금지 사항",
-            icon: FileText,
-          },
-          {
-            title: "플랫폼 A/S 처리 절차 및 준수 안내",
-            desc: "전체 절차, 부정 처리 금지",
-            icon: Shield,
-          },
-        ].map((g) => {
-          const Icon = g.icon;
+        {LMS_GATE_GUIDE_META.map((meta) => {
+          const Icon = meta.icon;
+          const guide = guides?.find((g) => g.guideType === meta.guideType);
+          const completed = guide?.completed ?? false;
           return (
             <div
-              key={g.title}
+              key={meta.guideType}
               className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left"
             >
               <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
@@ -417,13 +421,19 @@ function LMSGate({ onNavigate }) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  {g.title}
+                  {guide?.title ?? meta.guideType}
                 </p>
-                <p className="text-xs text-muted-foreground">{g.desc}</p>
+                <p className="text-xs text-muted-foreground">{meta.desc}</p>
               </div>
               <div className="ml-auto">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border font-medium">
-                  미수료
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                    completed
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50"
+                      : "bg-secondary text-muted-foreground border-border"
+                  }`}
+                >
+                  {completed ? "수료 완료" : "미수료"}
                 </span>
               </div>
             </div>
@@ -790,20 +800,33 @@ export default function AppShell() {
     }
   };
 
-  // LMS gate state for shop — re-check on navigation AND on custom "lms-completed" event
-  const [shopLMSDone, setShopLMSDone] = useState(isShopLMSDone);
-  useEffect(() => {
-    setShopLMSDone(isShopLMSDone());
-  }, [loc.pathname]);
-  useEffect(() => {
-    const handler = () => setShopLMSDone(true);
-    window.addEventListener("lms-completed", handler);
-    return () => window.removeEventListener("lms-completed", handler);
-  }, []);
-
+  // LMS gate state for shop — 서버의 실제 수료 상태를 직접 확인 (localStorage는 신뢰하지 않음)
   const isShopRoute = loc.pathname.startsWith("/shop");
   const isLMSPage = loc.pathname === "/shop/lms";
-  const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone;
+
+  const [shopLMSDone, setShopLMSDone] = useState(null); // null = 아직 확인 전
+  const [gateGuides, setGateGuides] = useState([]);
+
+  const checkLMSStatus = () => {
+    getGuides()
+      .then(({ data }) => {
+        setShopLMSDone(data.allCompleted ?? false);
+        setGateGuides(data.guides ?? []);
+        if (data.allCompleted) localStorage.setItem("caremate-shop-lms", "done");
+      })
+      .catch(() => setShopLMSDone(isShopLMSDone()));
+  };
+
+  useEffect(() => {
+    if (!isShopRoute) return;
+    checkLMSStatus();
+  }, [loc.pathname]);
+  useEffect(() => {
+    window.addEventListener("lms-completed", checkLMSStatus);
+    return () => window.removeEventListener("lms-completed", checkLMSStatus);
+  }, []);
+
+  const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone === false;
 
   return (
     <div
@@ -821,7 +844,7 @@ export default function AppShell() {
       <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} paymentOrderId={paymentOrderId} />
       <ContentArea collapsed={collapsed}>
         {showLMSGate ? (
-          <LMSGate onNavigate={() => nav("/shop/lms")} />
+          <LMSGate guides={gateGuides} onNavigate={() => nav("/shop/lms")} />
         ) : (
           <Outlet />
         )}
