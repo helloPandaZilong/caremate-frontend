@@ -65,7 +65,7 @@ const ADMIN_NAV = [
   { label: "보험 약관 관리", href: "/admin/policies", icon: BookOpen },
   { label: "수수료 청구 관리", href: "/admin/settlements", icon: Package },
   { label: "LMS 관리", href: "/admin/lms", icon: GraduationCap },
-  { label: "감사·DLQ", href: "/admin/audit", icon: AlertTriangle },
+  { label: "운영 감사", href: "/admin/audit", icon: AlertTriangle },
 ];
 
 function getNavConfig(path) {

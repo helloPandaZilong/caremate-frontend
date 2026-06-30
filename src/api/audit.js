@@ -30,3 +30,13 @@ export const getIntegrityLogs = (params) =>
 
 export const getTamperedCount = () =>
   apiClient.get('/admin/audit/integrity/count')
+
+// ── 정산 엔진 이력 API ──────────────────────────────────────────────────────────
+
+export const getSettlementLogs = (params) =>
+  apiClient.get('/admin/audit/settlement-logs', { params })
+
+// ── 로그인 접속 이력 API ────────────────────────────────────────────────────────
+
+export const getLoginHistory = (params) =>
+  apiClient.get('/admin/audit/login-history', { params })
