@@ -227,7 +227,8 @@ export default function CustomerDashboard() {
           const order = orders[0];
           setLatestOrder(order);
           const histRes = await getStatusHistories(order.id);
-          setHistories(histRes.data.data ?? []);
+          const histData = histRes.data.data?.histories;
+          setHistories(Array.isArray(histData) ? histData : []);
         }
       } catch (e) {
         setError(e.response?.data?.error?.message || "데이터를 불러올 수 없습니다.");

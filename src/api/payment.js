@@ -17,9 +17,11 @@ export const readyPayment = (orderId) =>
 /**
  * 결제 승인 콜백
  * POST /api/customer/payments/confirm
+ * tossOrderId: ready 단계에서 발급받아 토스 SDK에 전달했던 결제 시도 전용 주문ID
+ *              (= 토스 successUrl 리다이렉트 쿼리파라미터의 orderId)
  */
-export const confirmPayment = (orderId, paymentKey, amount) =>
-  apiClient.post('/customer/payments/confirm', { orderId, paymentKey, amount })
+export const confirmPayment = (orderId, paymentKey, tossOrderId, amount) =>
+  apiClient.post('/customer/payments/confirm', { orderId, paymentKey, tossOrderId, amount })
 
 /**
  * 결제 실패 처리
