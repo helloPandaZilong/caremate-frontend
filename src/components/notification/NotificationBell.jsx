@@ -52,17 +52,68 @@ function formatDateTime(value) {
 }
 
 function getDetailHref(notification, role) {
-  if (notification?.repairOrderId) {
-    if (role === "REPAIR_SHOP") {
-      if (notification.type === "NO_SHOW_WARNING") {
-        return "/shop/orders";
-      }
+  const type = notification?.type;
+  const orderId = notification?.repairOrderId;
 
-      return `/shop/orders/${notification.repairOrderId}`;
+  if (role === "CUSTOMER") {
+    switch (type) {
+      case "PAYMENT_REQUESTED":
+      case "PAYMENT_COMPLETED":
+      case "ESTIMATED_CLAIM_NOTICE":
+      case "CLAIM_DISPATCH_SUCCESS":
+      case "CLAIM_DISPATCH_FAILED":
+        return orderId ? `/customer/payment/${orderId}` : "/customer/dashboard";
+
+      case "ORDER_ACCEPTED":
+      case "ORDER_RECEIVED":
+      case "ORDER_REJECTED":
+      case "NO_SHOW":
+        return "/customer/dashboard";
+
+      default:
+        return orderId ? "/customer/dashboard" : "/notifications";
     }
+  }
 
-    if (role === "ADMIN") return "/admin/dashboard";
-    return `/customer/repair-orders/${notification.repairOrderId}/status`;
+  if (role === "REPAIR_SHOP") {
+    switch (type) {
+      case "NO_SHOW_WARNING":
+      case "NO_SHOW":
+      case "ORDER_RECEIVED":
+        return "/shop/orders";
+
+      case "BATCH_COMPLETED":
+        return "/shop/settlement";
+
+      case "REPAIR_SHOP_APPROVED":
+        return "/shop/profile";
+
+      case "ORDER_ACCEPTED":
+      case "ORDER_REJECTED":
+      case "PAYMENT_REQUESTED":
+      case "PAYMENT_COMPLETED":
+        return orderId ? `/shop/orders/${orderId}` : "/shop/orders";
+
+      default:
+        return orderId ? `/shop/orders/${orderId}` : "/shop/dashboard";
+    }
+  }
+
+  if (role === "ADMIN") {
+    switch (type) {
+      case "CLAIM_DISPATCH_FAILED":
+      case "BATCH_FAILED":
+        return "/admin/audit";
+
+      case "BATCH_COMPLETED":
+        return "/admin/settlements";
+
+      case "REPAIR_SHOP_APPROVED":
+        return "/admin/shop-approvals";
+
+      default:
+        return "/admin/dashboard";
+    }
   }
 
   return "/notifications";

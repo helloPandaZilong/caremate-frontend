@@ -13,6 +13,7 @@ import CustomerInsurance from "../pages/customer/InsurancePage";
 import CustomerPayment   from "../pages/customer/PaymentPage";
 import CustomerProfile   from "../pages/customer/ProfilePage";
 import CustomerFindShop  from "../pages/customer/FindShopPage";
+import RepairOrderStatusPage from "../pages/customer/RepairOrderStatusPage";
 
 // 수리점용 import
 import ShopDashboard  from "../pages/repairshop/DashboardPage";
@@ -59,8 +60,8 @@ export const router = createBrowserRouter([
       { path: "/customer/payment/:orderId", Component: CustomerPayment   }, // 결제·청구
       { path: "/customer/find-shop",  Component: CustomerFindShop  }, // 서비스 센터 찾기
       { path: "/customer/profile",    Component: CustomerProfile   }, // 프로필
-      { path: "/customer/repair-orders/status", element: <Navigate to="/customer/dashboard" replace /> },
-      { path: "/customer/repair-orders/:orderId/status", element: <Navigate to="/customer/dashboard" replace /> },
+      { path: "/customer/repair-orders/status", Component: RepairOrderStatusPage },
+      { path: "/customer/repair-orders/:orderId/status", Component: RepairOrderStatusPage },
 
       // 역할 공통
       { path: "/notifications", Component: NotificationPage },

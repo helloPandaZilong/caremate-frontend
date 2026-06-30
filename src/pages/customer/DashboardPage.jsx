@@ -33,6 +33,15 @@ const STATUS_BADGE = {
   NO_SHOW: "red",
 };
 
+const ACTIVE_STATUSES = new Set([
+  "RECEIVED",
+  "ACCEPTED",
+  "IN_REPAIR",
+  "REPAIR_DONE",
+  "PAYMENT_COMPLETED",
+  "CLAIM_REQUESTED",
+]);
+
 function toContent(data) {
   if (Array.isArray(data)) return data;
   return data?.content ?? [];
@@ -63,9 +72,9 @@ function SummaryAction({ order }) {
   }
 
   return (
-      <a href="#repair-status-section" className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline">
+      <Link to={`/customer/repair-orders/${order.id}/status`} className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline">
         <FileText className="w-4 h-4" /> 상태 타임라인 보기
-      </a>
+      </Link>
   );
 }
 
@@ -84,24 +93,37 @@ export default function CustomerDashboard() {
       const notificationPage = await getNotifications({ page: 0, size: 5 });
       setNotifications(toContent(notificationPage));
 
-      const savedOrderId = localStorage.getItem("caremate-current-order-id");
+      let selectedOrder = null;
+      let selectedOrderId = localStorage.getItem("caremate-current-order-id");
 
-      if (!savedOrderId) {
+      try {
+        const orderPage = await getCustomerRepairOrders({ page: 0, size: 10 });
+        const orders = toContent(orderPage);
+        selectedOrder = orders.find((order) => ACTIVE_STATUSES.has(order.status)) ?? orders[0] ?? null;
+        if (selectedOrder?.id) {
+          selectedOrderId = String(selectedOrder.id);
+          localStorage.setItem("caremate-current-order-id", selectedOrderId);
+        }
+      } catch {
+        // 접수 목록 API가 아직 미구현이어도, 테스트 러너/상태 화면에서 저장한 orderId로 조회를 계속 시도한다.
+      }
+
+      if (!selectedOrderId) {
         setLatestOrder(null);
         setTimeline(null);
         return;
       }
 
-      const statusData = await getOrderStatusHistories(savedOrderId);
+      const statusData = await getOrderStatusHistories(selectedOrderId);
       setTimeline(statusData);
 
       setLatestOrder({
-        id: savedOrderId,
-        orderNo: statusData.orderNo,
-        status: statusData.currentStatus,
-        reservedVisitAt: statusData.reservedVisitAt,
-        createdAt: statusData.createdAt,
-        damageDescription: statusData.damageDescription,
+        id: selectedOrderId,
+        orderNo: selectedOrder?.orderNo ?? statusData.orderNo,
+        status: statusData.currentStatus ?? selectedOrder?.status,
+        reservedVisitAt: selectedOrder?.reservedVisitAt ?? statusData.reservedVisitAt,
+        createdAt: selectedOrder?.createdAt ?? statusData.createdAt,
+        damageDescription: selectedOrder?.damageDescription ?? statusData.damageDescription,
       });
     } catch (e) {
       setError(
@@ -120,10 +142,30 @@ export default function CustomerDashboard() {
 
   const handleSseNotification = useCallback((notification) => {
     setNotifications((prev) => [notification, ...prev.filter((item) => item.id !== notification.id)].slice(0, 5));
-    if (notification.repairOrderId && latestOrder?.id && String(notification.repairOrderId) === String(latestOrder.id)) {
-      getOrderStatusHistories(latestOrder.id).then(setTimeline).catch(() => {});
+    setTimeout(() => {
+      getNotifications({ page: 0, size: 5 })
+          .then((page) => setNotifications(toContent(page)))
+          .catch(() => {});
+    }, 300);
+
+    if (notification.repairOrderId) {
+      localStorage.setItem("caremate-current-order-id", String(notification.repairOrderId));
+      getOrderStatusHistories(notification.repairOrderId)
+          .then((statusData) => {
+            setTimeline(statusData);
+            setLatestOrder((prev) => ({
+              ...(prev ?? {}),
+              id: String(notification.repairOrderId),
+              orderNo: prev?.orderNo ?? statusData.orderNo,
+              status: statusData.currentStatus,
+              reservedVisitAt: prev?.reservedVisitAt ?? statusData.reservedVisitAt,
+              createdAt: prev?.createdAt ?? statusData.createdAt,
+              damageDescription: prev?.damageDescription ?? statusData.damageDescription,
+            }));
+          })
+          .catch(() => {});
     }
-  }, [latestOrder?.id]);
+  }, []);
 
   const { connectionState } = useNotificationSse({
     enabled: true,
