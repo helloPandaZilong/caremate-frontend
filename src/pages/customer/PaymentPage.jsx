@@ -44,11 +44,12 @@ const TOSS_METHOD_MAP = {
 
 function getTossPayments() {
   if (!window.TossPayments) {
-    throw new Error("토스페이먼츠 SDK를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.");
+    throw new Error(
+      "토스페이먼츠 SDK를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.",
+    );
   }
   return window.TossPayments(TOSS_CLIENT_KEY);
 }
-
 
 // ── Post-Payment: Claim Package Screen ───────────────────────────────────────
 // orderId 추가로 받음 (청구 API에 필요). claims 는 confirmData 대신 조회.
@@ -120,14 +121,6 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
   const handleSubmit = (claim) => {
     if (!isClaimed(claim)) return;
     window.open(claim.claimChannelValue, "_blank", "noopener");
-    // if (claim.claimChannelType === "WEBSITE") {
-    //   window.open(claim.claimChannelValue, "_blank", "noopener");
-    // } else {
-    //   alert(
-    //     `${claim.providerName} 제출 채널: ${claim.claimChannelValue}\n` +
-    //       `카카오톡에서 해당 채널로 서류를 제출하세요.`,
-    //   );
-    // }
   };
 
   if (loading) {
@@ -473,21 +466,27 @@ export default function PaymentPage() {
       setPaying(true);
       setError(null);
       try {
-        const confirmRes = await confirmPayment(orderId, paymentKey, tossOrderId, amount);
+        const confirmRes = await confirmPayment(
+          orderId,
+          paymentKey,
+          tossOrderId,
+          amount,
+        );
         const confirmResult = confirmRes.data.data;
         setPaymentId(confirmResult.paymentId);
         setConfirmData(confirmResult);
         setPaid(true);
       } catch (err) {
         const errorMessage =
-          err.response?.data?.error?.message ?? "결제 승인 중 오류가 발생했습니다.";
+          err.response?.data?.error?.message ??
+          "결제 승인 중 오류가 발생했습니다.";
         setError(errorMessage);
       } finally {
         setPaying(false);
         setLoading(false);
       }
     },
-    [orderId]
+    [orderId],
   );
 
   // 진입 시 토스 리다이렉트(successUrl/failUrl) 쿼리파라미터 처리 또는 일반 진입 처리
@@ -521,11 +520,19 @@ export default function PaymentPage() {
         const code = err.response?.data?.error?.code;
         const message = err.response?.data?.error?.message;
         if (code === "INVALID_STATE_TRANSITION") {
-          setError((prev) => prev ?? "아직 결제할 수 없는 주문입니다. 수리 완료(리포트 작성) 이후에 결제가 가능합니다.");
+          setError(
+            (prev) =>
+              prev ??
+              "아직 결제할 수 없는 주문입니다. 수리 완료(리포트 작성) 이후에 결제가 가능합니다.",
+          );
         } else if (code === "RESOURCE_NOT_FOUND") {
-          setError((prev) => prev ?? "존재하지 않는 주문이거나 접근 권한이 없습니다.");
+          setError(
+            (prev) => prev ?? "존재하지 않는 주문이거나 접근 권한이 없습니다.",
+          );
         } else {
-          setError((prev) => prev ?? message ?? "결제 정보를 불러오지 못했습니다.");
+          setError(
+            (prev) => prev ?? message ?? "결제 정보를 불러오지 못했습니다.",
+          );
         }
         // eslint-disable-next-line no-console
         console.error("[결제 정보 조회 실패]", code, message, err);
@@ -543,7 +550,8 @@ export default function PaymentPage() {
     try {
       // 1. 결제 준비 (POST /api/customer/payments/ready)
       const readyRes = await readyPayment(orderId);
-      const { tossOrderId, orderName, customerKey, amount } = readyRes.data.data;
+      const { tossOrderId, orderName, customerKey, amount } =
+        readyRes.data.data;
 
       // 2. 토스 결제창 호출 — 성공/실패 시 동일 페이지(쿼리파라미터로 구분)로 리다이렉트
       const tossPayments = getTossPayments();
@@ -600,13 +608,12 @@ export default function PaymentPage() {
     { id: "mobile", label: "휴대폰 결제", icon: Smartphone },
   ];
 
-
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
       <div>
         <h1 className="text-xl font-semibold text-foreground">결제 센터</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          수리 대금을 결제하면 보험 청구 패키지가 자동 생성됩니다.
+          수리 대금을 결제하면 보험 청구 패키지를 생성할 수 있습니다.
         </p>
       </div>
 
@@ -614,7 +621,7 @@ export default function PaymentPage() {
       <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
         {[
           "수리 대금 전액 결제 (수리점 지급)",
-          "청구 패키지 자동 생성",
+          "청구 패키지 생성 하기",
           "보험사 서류 제출 안내",
         ].map((s, i, arr) => (
           <div key={s} className="flex items-center gap-2">
@@ -657,7 +664,9 @@ export default function PaymentPage() {
           </div>
 
           <div className="flex flex-col gap-2 pt-2 border-t border-border/40">
-            <p className="text-xs font-medium text-muted-foreground">결제 수단</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              결제 수단
+            </p>
             {PAYMENT_METHODS.map(({ id, label, icon: Icon }) => (
               <label
                 key={id}
@@ -713,7 +722,7 @@ export default function PaymentPage() {
       <div className="flex flex-col md:flex-row items-center gap-4 p-5 bg-card border border-border rounded-2xl">
         <div className="flex-1">
           <p className="text-sm font-semibold text-foreground">
-            결제 즉시 청구 패키지가 생성됩니다
+            결제 완료 후 보험 청구 패키지를 생성할 수 있습니다.
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             결제 금액은 수리점에 바로 지급됩니다. 이후 보험사 청구는 생성된
