@@ -362,17 +362,6 @@ function ReportDetail({ item, onBack }) {
   // 수리 사진 상태
   const [beforeImages, setBeforeImages] = useState([]); // { url, uploading }
   const [afterImages, setAfterImages] = useState([]);
-  const [imageLoadError, setImageLoadError] = useState(false);
-
-  // 기존 사진 조회
-  useEffect(() => {
-    getOrderImages(item.id)
-      .then((data) => {
-        setBeforeImages((data.beforeRepair ?? []).map((img) => ({ id: img.id, url: img.url, uploading: false })));
-        setAfterImages((data.afterRepair ?? []).map((img) => ({ id: img.id, url: img.url, uploading: false })));
-      })
-      .catch(() => setImageLoadError(true));
-  }, [item.id]);
 
   const handleImageUpload = async (file, type) => {
     if (!file) return;
@@ -814,10 +803,6 @@ function ReportDetail({ item, onBack }) {
           <Camera className="w-4 h-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold text-foreground">수리 사진</h3>
         </div>
-
-        {imageLoadError && (
-          <p className="text-xs text-amber-600 dark:text-amber-400">기존 사진을 불러오지 못했습니다.</p>
-        )}
 
         {[
           { label: "수리 전", type: "BEFORE_REPAIR", images: beforeImages },
