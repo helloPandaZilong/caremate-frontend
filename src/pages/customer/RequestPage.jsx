@@ -101,6 +101,7 @@ export default function RequestPage() {
   const [submitError, setSubmitError] = useState(null);
   const [diagnosing, setDiagnosing] = useState(false);
   const [aiDiagnosis, setAiDiagnosis] = useState(null);
+  const [diagnoseFailed, setDiagnoseFailed] = useState(false);
 
   const [shops, setShops] = useState([]);
   const [policies, setPolicies] = useState([]);
@@ -150,11 +151,12 @@ export default function RequestPage() {
     if (!imageFile) return;
     setDiagnosing(true);
     setAiDiagnosis(null);
+    setDiagnoseFailed(false);
     try {
       const { data } = await diagnoseImage(imageFile);
       setAiDiagnosis(data.data?.diagnosis ?? data.diagnosis ?? "진단 결과를 가져오지 못했습니다.");
     } catch {
-      setAiDiagnosis("AI 진단에 실패했습니다. 직접 입력해주세요.");
+      setDiagnoseFailed(true);
     } finally {
       setDiagnosing(false);
     }
@@ -301,6 +303,13 @@ export default function RequestPage() {
                   )}
                   {diagnosing ? "AI 분석 중..." : "AI로 파손 진단하기"}
                 </button>
+              )}
+
+              {/* AI 진단 실패 */}
+              {diagnoseFailed && (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">AI 진단에 실패했습니다.</p>
+                </div>
               )}
 
               {/* AI 진단 결과 */}
