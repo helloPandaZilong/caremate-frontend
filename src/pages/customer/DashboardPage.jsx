@@ -9,6 +9,8 @@ import {
   Package,
   Truck,
   Loader2,
+  ListFilter,
+  X as XIcon,
 } from "lucide-react";
 import { Card, Badge, Button } from "../../components/shared";
 import { getRepairOrders, getStatusHistories } from "../../api/customerService";
@@ -60,11 +62,15 @@ function StatusStepper({ currentStage }) {
         {/* Connecting line */}
         <div className="absolute top-5 left-6 right-6 h-0.5 bg-secondary z-0" />
         <div
-          className="absolute top-5 left-6 h-0.5 bg-accent z-0 transition-all duration-500"
-          style={{
-            width: `${((currentStage - 1) / (STAGES.length - 1)) * 100}%`,
-          }}
-        />
+          className="absolute top-5 left-6 right-6 h-0.5 z-0 overflow-hidden"
+        >
+          <div
+            className="h-full bg-accent transition-all duration-500"
+            style={{
+              width: `${((currentStage - 1) / (STAGES.length - 1)) * 100}%`,
+            }}
+          />
+        </div>
 
         {STAGES.map((stage) => {
           const Icon = stage.icon;
@@ -188,6 +194,72 @@ function ASRequestCard({ order }) {
   );
 }
 
+function OrderPickerModal({ orders, loading, selectedId, onSelect, onClose }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-5 border-b border-border shrink-0">
+          <h3 className="text-base font-semibold text-foreground">내 접수건</h3>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <XIcon className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+          {loading && (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
+            </div>
+          )}
+          {!loading && orders.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-10">
+              접수 내역이 없습니다.
+            </p>
+          )}
+          {!loading &&
+            orders.map((order) => (
+              <button
+                key={order.id}
+                onClick={() => onSelect(order)}
+                className={`flex flex-col gap-1.5 p-4 rounded-xl border text-left transition-all ${
+                  order.id === selectedId
+                    ? "border-accent bg-accent/10"
+                    : "border-border hover:border-accent/30 hover:bg-secondary"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-foreground">
+                    {order.orderNo}
+                  </span>
+                  <Badge variant={STATUS_VARIANT[order.status] || "muted"}>
+                    {STATUS_LABEL[order.status] || order.status}
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span>{order.shopName}</span>
+                  <span>
+                    {order.createdAt
+                      ? new Date(order.createdAt).toLocaleDateString("ko-KR")
+                      : "-"}
+                  </span>
+                </div>
+              </button>
+            ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NotificationFeed({ histories }) {
   return (
     <Card className="p-5 flex flex-col gap-4">
@@ -230,17 +302,29 @@ export default function CustomerDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // 내 접수건 모달
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [allOrders, setAllOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+
+  const loadHistoriesFor = async (order) => {
+    setLatestOrder(order);
+    try {
+      const histRes = await getStatusHistories(order.id);
+      const histData = histRes.data.data?.histories;
+      setHistories(Array.isArray(histData) ? histData : []);
+    } catch {
+      setHistories([]);
+    }
+  };
+
   useEffect(() => {
     async function load() {
       try {
         const { data } = await getRepairOrders(0, 1);
         const orders = data.data?.content ?? [];
         if (orders.length > 0) {
-          const order = orders[0];
-          setLatestOrder(order);
-          const histRes = await getStatusHistories(order.id);
-          const histData = histRes.data.data?.histories;
-          setHistories(Array.isArray(histData) ? histData : []);
+          await loadHistoriesFor(orders[0]);
         }
       } catch (e) {
         setError(e.response?.data?.error?.message || "데이터를 불러올 수 없습니다.");
@@ -250,6 +334,24 @@ export default function CustomerDashboard() {
     }
     load();
   }, []);
+
+  const openPicker = async () => {
+    setPickerOpen(true);
+    setOrdersLoading(true);
+    try {
+      const { data } = await getRepairOrders(0, 50);
+      setAllOrders(data.data?.content ?? []);
+    } catch {
+      setAllOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const handleSelectOrder = async (order) => {
+    setPickerOpen(false);
+    await loadHistoriesFor(order);
+  };
 
   if (loading) {
     return (
@@ -263,12 +365,31 @@ export default function CustomerDashboard() {
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
-      <div>
-        <h1 className="text-xl font-semibold text-foreground">대시보드</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {latestOrder ? "현재 진행 중인 A/S가 있습니다." : "현재 진행 중인 A/S가 없습니다."}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">대시보드</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {latestOrder ? "현재 진행 중인 A/S가 있습니다." : "현재 진행 중인 A/S가 없습니다."}
+          </p>
+        </div>
+        <button
+          onClick={openPicker}
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl text-foreground hover:bg-secondary transition-all shrink-0"
+        >
+          <ListFilter className="w-3.5 h-3.5" />
+          내 접수건
+        </button>
       </div>
+
+      {pickerOpen && (
+        <OrderPickerModal
+          orders={allOrders}
+          loading={ordersLoading}
+          selectedId={latestOrder?.id}
+          onSelect={handleSelectOrder}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
 
       {error && (
         <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl text-sm text-red-700 dark:text-red-400">
