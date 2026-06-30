@@ -1,24 +1,23 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import {
   Phone,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
-  Clock,
   Wrench,
   Package,
   Truck,
   Loader2,
 } from "lucide-react";
-import { Card, Badge } from "../../components/shared";
+import { Card, Badge, Button } from "../../components/shared";
 import { getRepairOrders, getStatusHistories } from "../../api/customerService";
 
 const STAGES = [
   { id: 1, label: "접수", icon: CheckCircle2 },
   { id: 2, label: "수리중", icon: Wrench },
   { id: 3, label: "수리완료", icon: Package },
-  { id: 4, label: "결제대기", icon: Clock },
-  { id: 5, label: "인도완료", icon: Truck },
+  { id: 4, label: "인도완료", icon: Truck },
 ];
 
 const STATUS_TO_STAGE = {
@@ -27,7 +26,7 @@ const STATUS_TO_STAGE = {
   IN_REPAIR: 2,
   REPAIR_DONE: 3,
   PAYMENT_COMPLETED: 4,
-  CLAIM_COMPLETED: 5,
+  CLAIM_COMPLETED: 4,
 };
 
 const STATUS_LABEL = {
@@ -69,8 +68,9 @@ function StatusStepper({ currentStage }) {
 
         {STAGES.map((stage) => {
           const Icon = stage.icon;
-          const done = stage.id < currentStage;
-          const active = stage.id === currentStage;
+          const isLastStage = stage.id === STAGES.length;
+          const done = stage.id < currentStage || (isLastStage && stage.id === currentStage);
+          const active = stage.id === currentStage && !done;
           return (
             <div
               key={stage.id}
@@ -103,6 +103,7 @@ function StatusStepper({ currentStage }) {
 }
 
 function ASRequestCard({ order }) {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
 
   if (!order) return null;
@@ -171,6 +172,17 @@ function ASRequestCard({ order }) {
             </div>
           )}
         </>
+      )}
+
+      {order.status === "REPAIR_DONE" && (
+        <Button
+          variant="accent"
+          size="sm"
+          className="self-end"
+          onClick={() => navigate(`/customer/payment/${order.id}`)}
+        >
+          결제하러 가기
+        </Button>
       )}
     </Card>
   );
