@@ -13,11 +13,18 @@ export async function getNotifications({ page = 0, size = 20 } = {}) {
 }
 
 export async function getUnreadCount() {
-  const page = await getNotifications({ page: 0, size: 100 });
+  try {
+    const response = await apiClient.get("/notifications/unread-count");
+    const data = unwrapApiResponse(response);
+    return Number(data?.unreadCount ?? data?.count ?? data ?? 0);
+  } catch (error) {
+    if (error.response?.status !== 404) throw error;
 
-  return getPageContent(page).filter((notification) => {
-    return !Boolean(notification.isRead ?? notification.read);
-  }).length;
+    const page = await getNotifications({ page: 0, size: 100 });
+    return getPageContent(page).filter((notification) => {
+      return !Boolean(notification.isRead ?? notification.read);
+    }).length;
+  }
 }
 
 export async function markNotificationRead(id) {

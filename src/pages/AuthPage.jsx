@@ -1,10 +1,162 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
-import { Shield, Eye, EyeOff, CheckCircle, Loader2, MapPin, Sun, Moon } from "lucide-react";
+import { Shield, Eye, EyeOff, CheckCircle, Loader2, MapPin, Sun, Moon, Search, X, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { login, signupCustomer, signupShop, checkEmail as apiCheckEmail, getGoogleAuthUrl } from "../api/auth";
 import { useAuth } from "../contexts/AuthContext";
 import { useDarkMode } from "../hooks/useDarkMode";
+
+// ── 주소 검색 (백엔드 프록시 경유 — API 키 서버 보관) ───────────────────────
+async function searchKakaoAddress(query) {
+  const res = await fetch(`/api/address/search?q=${encodeURIComponent(query)}`);
+  if (!res.ok) throw new Error("API_ERROR");
+  const data = await res.json();
+  // 백엔드 응답 구조: { data: { data: AddressResult[] } }
+  return data?.data ?? [];
+}
+
+function AddressSearchModal({ onSelect, onClose }) {
+  const [query, setQuery]     = useState("");
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const [error, setError]     = useState(null);
+  const inputRef = useRef(null);
+
+  const handleSearch = async () => {
+    const q = query.trim();
+    if (!q) return;
+    setLoading(true);
+    setError(null);
+    setSearched(false);
+    try {
+      const docs = await searchKakaoAddress(q);
+      setResults(docs);
+      setSearched(true);
+    } catch (e) {
+      setError("주소 검색 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSelect = (doc) => {
+    // 백엔드 AddressResult DTO: { roadAddress, jibunAddress, latitude, longitude }
+    const address = doc.roadAddress ?? doc.jibunAddress ?? "";
+    onSelect({ address, latitude: doc.latitude, longitude: doc.longitude });
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg mx-4 bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[80vh]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-accent" /> 주소 검색
+          </h3>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* 검색 입력 */}
+        <div className="px-5 py-4 border-b border-border/40">
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+              <input
+                ref={inputRef}
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="도로명, 지번, 건물명으로 검색 (예: 강남구 테헤란로 123)"
+                className="w-full pl-9 pr-3 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
+              />
+            </div>
+            <button
+              onClick={handleSearch}
+              disabled={loading || !query.trim()}
+              className="px-4 py-2.5 text-sm font-medium rounded-xl bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-all whitespace-nowrap flex items-center gap-1.5"
+            >
+              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+              검색
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground/60 mt-2 pl-1">
+            주소를 입력하고 검색 버튼을 누르거나 Enter를 입력하세요.
+          </p>
+        </div>
+
+        {/* 결과 목록 */}
+        <div className="flex-1 overflow-y-auto">
+          {error ? (
+            <div className="px-5 py-8 text-center">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto mb-3">
+                <X className="w-5 h-5 text-red-500" />
+              </div>
+              <p className="text-sm text-red-500 whitespace-pre-line">{error}</p>
+            </div>
+          ) : loading ? (
+            <div className="px-5 py-12 text-center text-muted-foreground">
+              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
+              <p className="text-sm">주소를 검색하는 중...</p>
+            </div>
+          ) : searched && results.length === 0 ? (
+            <div className="px-5 py-12 text-center text-muted-foreground">
+              <MapPin className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-medium">검색 결과가 없습니다</p>
+              <p className="text-xs mt-1 opacity-70">다른 검색어로 다시 시도해보세요.</p>
+            </div>
+          ) : results.length > 0 ? (
+            <ul className="divide-y divide-border/30">
+              {results.map((doc, idx) => {
+                // 백엔드 AddressResult DTO: { roadAddress, jibunAddress, latitude, longitude }
+                const primaryAddr   = doc.roadAddress ?? doc.jibunAddress ?? "";
+                const secondaryAddr = doc.roadAddress ? doc.jibunAddress : null;
+                return (
+                  <li key={idx}>
+                    <button
+                      onClick={() => handleSelect(doc)}
+                      className="w-full text-left px-5 py-3.5 hover:bg-secondary/60 transition-colors group flex items-start justify-between gap-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{primaryAddr}</p>
+                        {secondaryAddr && (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{secondaryAddr}</p>
+                        )}
+                        <p className="text-[11px] text-muted-foreground/50 mt-1 font-mono">
+                          위도 {doc.latitude} / 경도 {doc.longitude}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-accent transition-colors mt-0.5 shrink-0" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="px-5 py-12 text-center text-muted-foreground">
+              <Search className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">검색어를 입력하고 검색하세요.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // 로그인 성공 후 역할별 기본 이동 경로
 const ROLE_REDIRECT = {
@@ -46,6 +198,14 @@ export default function AuthPage() {
   const [emailDuplicated,   setEmailDuplicated]   = useState(false);
   const [emailCheckLoading, setEmailCheckLoading] = useState(false);
   const [geoLoading,        setGeoLoading]        = useState(false);
+
+  // ── 주소 검색 모달 상태 ───────────────────────────────────────────────────────
+  const [addrModalOpen, setAddrModalOpen] = useState(false);
+
+  // 주소 선택 시 form 에 address + 좌표 자동 기입
+  const handleAddressSelect = ({ address, latitude, longitude }) => {
+    setForm((prev) => ({ ...prev, address, latitude, longitude }));
+  };
 
   // 필드 값 변경 핸들러 — 이메일 변경 시 중복 확인 결과 초기화
   const set = (field) => (e) => {
@@ -267,6 +427,13 @@ export default function AuthPage() {
       className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-16"
       style={{ fontFamily: "'Noto Sans KR', 'DM Sans', sans-serif" }}
     >
+      {/* 주소 검색 모달 */}
+      {addrModalOpen && (
+        <AddressSearchModal
+          onSelect={handleAddressSelect}
+          onClose={() => setAddrModalOpen(false)}
+        />
+      )}
       {/* 다크모드 토글 — 우상단 고정 */}
       <button
         onClick={toggle}
@@ -447,21 +614,53 @@ export default function AuthPage() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium text-muted-foreground">주소</label>
-                <input type="text" value={form.address} onChange={set("address")} placeholder="서울시 강남구 테헤란로 123"
-                  className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all" />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={form.address}
+                    onChange={set("address")}
+                    placeholder="주소 검색 버튼으로 선택하세요"
+                    readOnly
+                    className="flex-1 min-w-0 px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/40 cursor-default focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAddrModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-medium rounded-xl bg-accent text-white hover:bg-accent/90 transition-all whitespace-nowrap shrink-0"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    주소 검색
+                  </button>
+                </div>
+                {form.address && (
+                  <button
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, address: "", latitude: "", longitude: "" }))}
+                    className="self-start flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <X className="w-3 h-3" /> 주소 초기화
+                  </button>
+                )}
               </div>
 
-              {/* 위치 좌표 */}
+              {/* 위치 좌표 — 주소 검색으로 자동 기입, 수동 보정 가능 */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-muted-foreground">위치 좌표</label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    위치 좌표
+                    {form.latitude && form.longitude && (
+                      <span className="ml-1.5 text-[10px] text-green-600 dark:text-green-400 font-normal">
+                        ✓ 자동 입력됨
+                      </span>
+                    )}
+                  </label>
                   <button type="button" onClick={handleGeolocate} disabled={geoLoading}
-                    className="flex items-center gap-1 text-xs text-accent hover:underline disabled:opacity-50 transition-opacity">
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-accent transition-colors disabled:opacity-50">
                     {geoLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <MapPin className="w-3 h-3" />}
                     현재 위치 사용
                   </button>
                 </div>
-                {/* 위도·경도를 2열 grid로 배치 — 각 열에 소형 레이블 추가로 잘림 방지 */}
+                {/* 위도·경도 2열 — 주소 검색 시 자동 기입, 직접 수정도 가능 */}
                 <div className="grid grid-cols-2 gap-2">
                   <div className="flex flex-col gap-1">
                     <span className="text-[11px] text-muted-foreground/70 pl-0.5">위도 (latitude)</span>
@@ -471,7 +670,11 @@ export default function AuthPage() {
                       onChange={set("latitude")}
                       placeholder="37.5665"
                       step="0.000001"
-                      className="w-full min-w-0 px-3 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className={`w-full min-w-0 px-3 py-2.5 text-sm border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+                        form.latitude
+                          ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-700/40"
+                          : "bg-secondary border-border"
+                      }`}
                     />
                   </div>
                   <div className="flex flex-col gap-1">
@@ -482,10 +685,17 @@ export default function AuthPage() {
                       onChange={set("longitude")}
                       placeholder="126.9780"
                       step="0.000001"
-                      className="w-full min-w-0 px-3 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className={`w-full min-w-0 px-3 py-2.5 text-sm border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none ${
+                        form.longitude
+                          ? "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-700/40"
+                          : "bg-secondary border-border"
+                      }`}
                     />
                   </div>
                 </div>
+                <p className="text-[11px] text-muted-foreground/50 pl-0.5">
+                  주소 검색 시 자동 입력됩니다. 필요시 직접 수정할 수 있습니다.
+                </p>
               </div>
             </div>
           )}
