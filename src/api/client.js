@@ -30,9 +30,7 @@ function flushQueue(newToken) {
 // ── 요청 인터셉터: Authorization 헤더 자동 주입 ───────────────────────────────
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY)
-  if (token && !config.url?.startsWith('/auth/')) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
+  if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
