@@ -48,6 +48,38 @@ export const parseRepairFile = (file, orderContext = {}) => {
 export const submitReportFeedback = ({ orderId, aiDraft, finalData }) =>
   apiClient.post('/shop/reports/feedback', { orderId, aiDraft, finalData })
 
+// ─── Order Images ─────────────────────────────────────────
+// type: 'BEFORE_REPAIR' | 'AFTER_REPAIR'
+export const uploadOrderImage = (orderId, type, file) => {
+  const form = new FormData()
+  form.append('file', file)
+  return apiClient.post(`/shop/orders/${orderId}/images?type=${type}`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }).then((r) => r.data.data)
+}
+
+export const getOrderImages = (orderId) =>
+  apiClient.get(`/shop/orders/${orderId}/images`).then((r) => r.data.data)
+
+export const deleteOrderImage = (orderId, imageId) =>
+  apiClient.delete(`/shop/orders/${orderId}/images/${imageId}`)
+
+// ─── Report Save & PDF ────────────────────────────────────
+export const saveReport = (orderId, data) =>
+  apiClient.post(`/shop/orders/${orderId}/report`, data)
+
+export const downloadReportPdf = async (orderId, customerName) => {
+  const res = await apiClient.get(`/shop/orders/${orderId}/report/pdf`, {
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `수리리포트_${customerName}_${orderId}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ─── Shop Profile ─────────────────────────────────────────
 export const getShopProfile = () =>
   apiClient.get('/shop/profile').then((r) => r.data.data)

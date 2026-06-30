@@ -13,9 +13,12 @@ import {
   Sparkles,
   Info,
   Upload,
+  Camera,
+  ImagePlus,
+  Download,
 } from "lucide-react";
 import { Button, Card, Badge } from "../../components/shared";
-import { getOrders, startRepair, completeRepair, parseRepairFile, submitReportFeedback } from "../../api/repairshopApi";
+import { getOrders, startRepair, completeRepair, parseRepairFile, submitReportFeedback, uploadOrderImage, getOrderImages, deleteOrderImage, saveReport, downloadReportPdf } from "../../api/repairshopApi";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -347,10 +350,39 @@ function ReportDetail({ item, onBack }) {
   const [repairStatus, setRepairStatus] = useState("repairing");
   const [laborCost, setLaborCost] = useState("");
   const [saved, setSaved] = useState(false);
+  // 이미 REPAIR_DONE인 경우 또는 이번 세션에서 전이 완료된 경우 재호출 방지
+  const [statusTransitioned, setStatusTransitioned] = useState(
+    item.rawStatus !== "IN_REPAIR"
+  );
   const [saving, setSaving] = useState(false);
   const [aiDraft, setAiDraft] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSnapshot, setAiSnapshot] = useState(null); // AI 원본 결과 보존 (피드백용)
+
+  // 수리 사진 상태
+  const [beforeImages, setBeforeImages] = useState([]); // { url, uploading }
+  const [afterImages, setAfterImages] = useState([]);
+
+  const handleImageUpload = async (file, type) => {
+    if (!file) return;
+    const placeholder = { url: URL.createObjectURL(file), uploading: true };
+    if (type === "BEFORE_REPAIR") setBeforeImages((prev) => [...prev, placeholder]);
+    else setAfterImages((prev) => [...prev, placeholder]);
+
+    try {
+      const { id, imageUrl } = await uploadOrderImage(item.id, type, file);
+      const replace = (prev) =>
+        prev.map((img) => (img.url === placeholder.url ? { id, url: imageUrl, uploading: false } : img));
+      if (type === "BEFORE_REPAIR") setBeforeImages(replace);
+      else setAfterImages(replace);
+    } catch {
+      // 업로드 실패 시 placeholder 제거
+      const remove = (prev) => prev.filter((img) => img.url !== placeholder.url);
+      if (type === "BEFORE_REPAIR") setBeforeImages(remove);
+      else setAfterImages(remove);
+      alert("사진 업로드에 실패했습니다. 다시 시도해주세요.");
+    }
+  };
 
   // 정비 내용 구조화 상태
   const [diagnosis, setDiagnosis] = useState("");
@@ -370,24 +402,35 @@ function ReportDetail({ item, onBack }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (repairStatus === "completed" && item.rawStatus === "IN_REPAIR") {
+      // 1. 리포트 DB 저장
+      await saveReport(item.id, {
+        troubleDescription: diagnosis,
+        repairRows: repairRows.map((r) => ({
+          item: r.item,
+          part: r.part,
+          qty: Number(r.qty) || 1,
+          unitPrice: Number(r.unitPrice) || 0,
+        })),
+        partsCost: partCost,
+        laborCost: Number(laborCost) || 0,
+        totalRepairCost: total,
+        repairResult: repairResult || "success",
+        warranty,
+        remarks,
+      });
+
+      // 2. 수리 완료 상태 전이 (아직 전이 안 된 경우에만)
+      if (repairStatus === "completed" && !statusTransitioned) {
         await completeRepair(item.id);
+        setStatusTransitioned(true);
       }
 
-      // AI를 사용한 경우에만 피드백 저장
+      // 3. AI 피드백 저장 (AI 사용한 경우에만)
       if (aiSnapshot) {
-        const finalData = {
-          diagnosis,
-          repairRows,
-          repairResult,
-          warranty,
-          laborCost: Number(laborCost) || 0,
-          remarks,
-        };
         submitReportFeedback({
           orderId: item.id,
           aiDraft: aiSnapshot,
-          finalData,
+          finalData: { diagnosis, repairRows, repairResult, warranty, laborCost: Number(laborCost) || 0, remarks },
         }).catch(() => {});
       }
 
@@ -397,6 +440,14 @@ function ReportDetail({ item, onBack }) {
       alert("처리 중 오류가 발생했습니다.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      await downloadReportPdf(item.id, item.customer);
+    } catch {
+      alert("PDF 다운로드에 실패했습니다. 리포트를 먼저 저장해주세요.");
     }
   };
 
@@ -518,6 +569,30 @@ function ReportDetail({ item, onBack }) {
                       device: item.device,
                       issue: item.issue,
                     });
+
+                    // 고객 이름 무결성 검사
+                    if (item.customer) {
+                      const parsedName = result.customerName?.trim() || null;
+                      if (!parsedName) {
+                        alert(
+                          `⚠️ 파일에 고객 이름이 없습니다\n\n` +
+                          `현재 주문 고객: ${item.customer}\n\n` +
+                          `파일을 확인해주세요.`
+                        );
+                        return;
+                      }
+                      const normalize = (s) => s.replace(/\s/g, "").toLowerCase();
+                      if (normalize(parsedName) !== normalize(item.customer)) {
+                        alert(
+                          `⚠️ 고객 이름이 다릅니다\n\n` +
+                          `현재 주문 고객: ${item.customer}\n` +
+                          `파일의 고객 이름: ${parsedName}\n\n` +
+                          `파일을 확인해주세요.`
+                        );
+                        return;
+                      }
+                    }
+
                     if (result.diagnosis)   setDiagnosis(result.diagnosis);
                     if (result.repairRows?.length) setRepairRows(result.repairRows.map((r) => ({
                       item: r.item ?? "",
@@ -722,20 +797,97 @@ function ReportDetail({ item, onBack }) {
         </div>
       </Card>
 
+      {/* 수리 사진 */}
+      <Card className="p-5 flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <Camera className="w-4 h-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold text-foreground">수리 사진</h3>
+        </div>
+
+        {[
+          { label: "수리 전", type: "BEFORE_REPAIR", images: beforeImages },
+          { label: "수리 후", type: "AFTER_REPAIR",  images: afterImages  },
+        ].map(({ label, type, images }) => (
+          <div key={type} className="flex flex-col gap-2">
+            <p className="text-xs font-medium text-muted-foreground">{label}</p>
+            <div className="flex flex-wrap gap-2">
+              {images.map((img, idx) => (
+                <div
+                  key={idx}
+                  className="relative w-20 h-20 rounded-xl overflow-hidden border border-border bg-secondary group"
+                >
+                  <img
+                    src={img.url}
+                    alt={`${label} ${idx + 1}`}
+                    className={`w-full h-full object-cover transition-opacity ${img.uploading ? "opacity-40" : "opacity-100"}`}
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                  {img.uploading && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-4 h-4 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {!img.uploading && (
+                    <button
+                      onClick={async () => {
+                        if (img.id) {
+                          try { await deleteOrderImage(item.id, img.id); } catch {}
+                        }
+                        const remove = (prev) => prev.filter((_, i) => i !== idx);
+                        if (type === "BEFORE_REPAIR") setBeforeImages(remove);
+                        else setAfterImages(remove);
+                      }}
+                      className="absolute top-1 right-1 w-5 h-5 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <XIcon className="w-3 h-3 text-white" />
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              {/* 추가 버튼 */}
+              <label className="w-20 h-20 rounded-xl border-2 border-dashed border-border hover:border-accent hover:bg-accent/5 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors">
+                <ImagePlus className="w-5 h-5 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground">추가</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file, type);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+          </div>
+        ))}
+      </Card>
+
       {/* Save */}
       <div className="flex items-center justify-between p-4 bg-card border border-border rounded-2xl">
         {saved ? (
           <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium animate-in fade-in">
             <CheckCircle2 className="w-4 h-4" />
-            저장 완료. 고객에게 알림이 발송되었습니다.
+            리포트가 저장되었습니다.
           </div>
         ) : (
           <div />
         )}
-        <Button variant="accent" size="md" onClick={handleSave} disabled={saving}>
-          <Save className="w-4 h-4" />
-          {saving ? "처리 중..." : "AI 리포트 저장 및 고객 알림 발송"}
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDownloadPdf}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+          >
+            <Download className="w-4 h-4" />
+            PDF 다운로드
+          </button>
+          <Button variant="accent" size="md" onClick={handleSave} disabled={saving}>
+            <Save className="w-4 h-4" />
+            {saving ? "처리 중..." : "리포트 저장 및 고객 알림 발송"}
+          </Button>
+        </div>
       </div>
     </div>
   );

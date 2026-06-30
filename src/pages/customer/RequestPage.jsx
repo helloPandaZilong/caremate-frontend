@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   CheckCircle2,
   ChevronRight,
@@ -7,8 +7,14 @@ import {
   MapPin,
   Shield,
   X,
+  Loader2,
 } from "lucide-react";
 import { Button, Card, UploadZone } from "../../components/shared";
+import {
+  getRepairShops,
+  getInsurancePolicies,
+  createRepairOrder,
+} from "../../api/customerService";
 
 const STEPS = [
   "파손 설명",
@@ -17,31 +23,15 @@ const STEPS = [
   "보험 선택",
 ];
 
-const INSURANCE_POLICIES = [
-  {
-    id: 1,
-    name: "Carrier Care",
-    provider: "통신사 보험",
-    coverage: "80%",
-    deductible: "30,000원",
-    active: true,
-  },
-  {
-    id: 2,
-    name: "프리미엄 카드 폰케어",
-    provider: "신한카드 부가서비스",
-    coverage: "60%",
-    deductible: "50,000원",
-    active: true,
-  },
-  {
-    id: 3,
-    name: "디지털 안심보험",
-    provider: "삼성화재",
-    coverage: "90%",
-    deductible: "20,000원",
-    active: false,
-  },
+const DEMO_SHOPS = [
+  { id: 901, shopName: "폰케어 강남점", address: "서울 강남구 테헤란로 152", phone: "02-555-1234" },
+  { id: 902, shopName: "스마트픽스 홍대점", address: "서울 마포구 양화로 160", phone: "02-332-5678" },
+  { id: 903, shopName: "닥터폰 건대입구점", address: "서울 광진구 아차산로 272", phone: "02-446-9012" },
+];
+
+const DEMO_POLICIES = [
+  { id: 801, productName: "삼성 갤럭시 케어+", providerName: "삼성화재", status: "ACTIVE", policyNumber: "SF-2025-001" },
+  { id: 802, productName: "SKT T다이렉트 보험", providerName: "SK텔레콤", status: "ACTIVE", policyNumber: "SK-2025-042" },
 ];
 
 const TIME_SLOTS = [
@@ -94,8 +84,37 @@ export default function RequestPage() {
   const [step, setStep] = useState(0);
   const [damage, setDamage] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
-  const [selectedDate, setSelectedDate] = useState("2024-06-15");
-  const [selectedPolicies, setSelectedPolicies] = useState([1]);
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
+  const [selectedShop, setSelectedShop] = useState(null);
+  const [selectedPolicies, setSelectedPolicies] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+
+  const [shops, setShops] = useState([]);
+  const [policies, setPolicies] = useState([]);
+  const [loadingShops, setLoadingShops] = useState(true);
+  const [loadingPolicies, setLoadingPolicies] = useState(true);
+
+  useEffect(() => {
+    getRepairShops()
+      .then(({ data }) => {
+        const list = data.data ?? [];
+        setShops(list.length > 0 ? list : DEMO_SHOPS);
+      })
+      .catch(() => setShops(DEMO_SHOPS))
+      .finally(() => setLoadingShops(false));
+    getInsurancePolicies()
+      .then(({ data }) => {
+        const list = data.data ?? [];
+        setPolicies(list.length > 0 ? list : DEMO_POLICIES);
+      })
+      .catch(() => setPolicies(DEMO_POLICIES))
+      .finally(() => setLoadingPolicies(false));
+  }, []);
 
   const togglePolicy = (id) => {
     setSelectedPolicies((prev) =>
@@ -103,8 +122,57 @@ export default function RequestPage() {
     );
   };
 
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setUploadedFiles((prev) => [...prev, ...files]);
+  };
+
+  const removeFile = (index) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedShop) { setSubmitError("서비스 센터를 선택해주세요."); return; }
+    if (!selectedSlot) { setSubmitError("방문 시간을 선택해주세요."); return; }
+    if (selectedPolicies.length === 0) { setSubmitError("보험을 1개 이상 선택해주세요."); return; }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const reservedVisitAt = `${selectedDate}T${selectedSlot}:00`;
+      await createRepairOrder({
+        repairShopId: selectedShop.id,
+        damageDescription: damage,
+        reservedVisitAt,
+        policyIds: selectedPolicies,
+        images: uploadedFiles,
+      });
+      setSubmitted(true);
+    } catch (e) {
+      setSubmitError(
+        e.response?.data?.error?.message || "접수에 실패했습니다. (백엔드에 해당 수리점/보험 데이터가 없을 수 있습니다)",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
   const prev = () => setStep((s) => Math.max(s - 1, 0));
+
+  if (submitted) {
+    return (
+      <div className="max-w-2xl">
+        <Card className="p-8 text-center flex flex-col items-center gap-4">
+          <CheckCircle2 className="w-12 h-12 text-accent" />
+          <h2 className="text-lg font-semibold text-foreground">접수가 완료되었습니다!</h2>
+          <p className="text-sm text-muted-foreground">대시보드에서 진행 상황을 확인하세요.</p>
+          <Button variant="accent" size="md" onClick={() => window.location.href = "/customer"}>
+            대시보드로 이동
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl">
@@ -162,14 +230,22 @@ export default function RequestPage() {
               파손 사진·영상 업로드
             </label>
             <p className="text-xs text-muted-foreground">
-              파손 부위가 잘 보이는 사진 또는 영상을 업로드해주세요. (최소 1장
-              이상)
+              파손 부위가 잘 보이는 사진 또는 영상을 업로드해주세요. (선택)
             </p>
           </div>
-          <UploadZone
-            label="파손 사진 / 영상 드래그 또는 클릭"
-            sublabel="JPG, PNG, MP4 · 장당 최대 50MB · S3 링크도 입력 가능"
-          />
+
+          <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-accent/40 transition-all">
+            <Image className="w-8 h-8 text-muted-foreground mb-2" />
+            <span className="text-sm text-muted-foreground">클릭하여 파일 선택</span>
+            <span className="text-xs text-muted-foreground/60 mt-1">JPG, PNG, MP4 · 장당 최대 50MB</span>
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </label>
 
           <div className="flex gap-4 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5">
@@ -181,23 +257,28 @@ export default function RequestPage() {
               영상: 30초 이내
             </span>
           </div>
-          {/* Mock uploaded images */}
-          <div className="flex gap-2">
-            {["파손1.jpg", "파손2.jpg"].map((f) => (
-              <div
-                key={f}
-                className="relative w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center group"
-              >
-                <Image className="w-6 h-6 text-muted-foreground" />
-                <p className="text-[10px] text-muted-foreground mt-1 absolute bottom-1 left-0 right-0 text-center">
-                  {f}
-                </p>
-                <button className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <X className="w-2.5 h-2.5" />
-                </button>
-              </div>
-            ))}
-          </div>
+
+          {uploadedFiles.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              {uploadedFiles.map((f, i) => (
+                <div
+                  key={i}
+                  className="relative w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center group"
+                >
+                  <Image className="w-6 h-6 text-muted-foreground" />
+                  <p className="text-[10px] text-muted-foreground mt-1 absolute bottom-1 left-0 right-0 text-center truncate px-1">
+                    {f.name}
+                  </p>
+                  <button
+                    onClick={() => removeFile(i)}
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
 
@@ -209,20 +290,32 @@ export default function RequestPage() {
               서비스 센터 선택
             </label>
           </div>
-          <div className="flex items-center gap-3 bg-secondary rounded-xl p-3.5 border border-border">
-            <MapPin className="w-4 h-4 text-accent shrink-0" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-foreground">
-                강남 스마트케어
-              </p>
-              <p className="text-xs text-muted-foreground">
-                서울 강남구 테헤란로 152 · 0.4km · ⭐ 4.9
-              </p>
+
+          {loadingShops ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
             </div>
-            <button className="text-xs text-accent font-medium hover:underline">
-              변경
-            </button>
-          </div>
+          ) : (
+            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+              {shops.map((shop) => (
+                <div
+                  key={shop.id}
+                  onClick={() => setSelectedShop(shop)}
+                  className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all ${
+                    selectedShop?.id === shop.id
+                      ? "border-accent bg-accent/10"
+                      : "border-border hover:border-accent/40"
+                  }`}
+                >
+                  <MapPin className="w-4 h-4 text-accent shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-foreground">{shop.shopName}</p>
+                    <p className="text-xs text-muted-foreground">{shop.address}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex flex-col gap-2">
             <label className="text-xs font-medium text-muted-foreground">
@@ -270,49 +363,62 @@ export default function RequestPage() {
               이번 수리에 적용할 보험을 선택하세요. 복수 선택 가능.
             </p>
           </div>
-          {INSURANCE_POLICIES.map((p) => {
-            const checked = selectedPolicies.includes(p.id);
-            return (
-              <div
-                key={p.id}
-                onClick={() => p.active && togglePolicy(p.id)}
-                className={`flex items-start gap-3 p-4 border rounded-xl transition-all ${
-                  !p.active
-                    ? "opacity-50 cursor-not-allowed bg-secondary"
-                    : checked
-                      ? "border-accent bg-accent/10 cursor-pointer"
-                      : "border-border hover:border-border/70 cursor-pointer"
-                }`}
-              >
+
+          {loadingPolicies ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
+            </div>
+          ) : (
+            policies.map((p) => {
+              const checked = selectedPolicies.includes(p.id);
+              const isActive = p.status === "ACTIVE";
+              return (
                 <div
-                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                    checked ? "bg-accent border-accent" : "border-border"
+                  key={p.id}
+                  onClick={() => isActive && togglePolicy(p.id)}
+                  className={`flex items-start gap-3 p-4 border rounded-xl transition-all ${
+                    !isActive
+                      ? "opacity-50 cursor-not-allowed bg-secondary"
+                      : checked
+                        ? "border-accent bg-accent/10 cursor-pointer"
+                        : "border-border hover:border-border/70 cursor-pointer"
                   }`}
                 >
-                  {checked && <CheckCircle2 className="w-3 h-3 text-white" />}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold text-foreground">
-                      {p.name}
-                    </p>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent font-medium">
-                      {p.coverage} 보장
-                    </span>
+                  <div
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
+                      checked ? "bg-accent border-accent" : "border-border"
+                    }`}
+                  >
+                    {checked && <CheckCircle2 className="w-3 h-3 text-white" />}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {p.provider}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    자기부담금: {p.deductible}
-                  </p>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-foreground">
+                        {p.productName}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {p.providerName}
+                    </p>
+                    {p.policyNumber && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        증권번호: {p.policyNumber}
+                      </p>
+                    )}
+                  </div>
+                  {!isActive && (
+                    <Shield className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                  )}
                 </div>
-                {!p.active && (
-                  <Shield className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                )}
-              </div>
-            );
-          })}
+              );
+            })
+          )}
+
+          {submitError && (
+            <div className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl p-3">
+              {submitError}
+            </div>
+          )}
         </Card>
       )}
 
@@ -335,9 +441,18 @@ export default function RequestPage() {
               다음 단계
             </Button>
           ) : (
-            <Button variant="accent" size="md">
-              <CheckCircle2 className="w-4 h-4" />
-              접수 제출 (RECEIVED)
+            <Button
+              variant="accent"
+              size="md"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              {submitting ? "접수 중..." : "접수 제출"}
             </Button>
           )}
         </div>
