@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import {
   CheckCircle2,
   ChevronRight,
@@ -81,6 +82,7 @@ function StepIndicator({ current }) {
 }
 
 export default function RequestPage() {
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [damage, setDamage] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
@@ -166,7 +168,7 @@ export default function RequestPage() {
           <CheckCircle2 className="w-12 h-12 text-accent" />
           <h2 className="text-lg font-semibold text-foreground">접수가 완료되었습니다!</h2>
           <p className="text-sm text-muted-foreground">대시보드에서 진행 상황을 확인하세요.</p>
-          <Button variant="accent" size="md" onClick={() => window.location.href = "/customer"}>
+          <Button variant="accent" size="md" onClick={() => navigate("/customer/dashboard")}>
             대시보드로 이동
           </Button>
         </Card>
