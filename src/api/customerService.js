@@ -26,8 +26,10 @@ export function createRepairOrder({ repairShopId, damageDescription, reservedVis
     })
 }
 
-export function getRepairOrders(page = 0, size = 10) {
-    return apiClient.get('/customer/repair-orders', { params: { page, size } })
+export function getRepairOrders(page = 0, size = 10, status) {
+    const params = { page, size }
+    if (status) params.status = status
+    return apiClient.get('/customer/repair-orders', { params })
 }
 
 export function getRepairOrder(orderId) {

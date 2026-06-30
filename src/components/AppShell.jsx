@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
 import { getGuides } from "../api/lmsService";
+import { getRepairOrders } from "../api/customerService";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -44,13 +45,25 @@ function isShopLMSDone() {
 
 // ── Nav config ────────────────────────────────────────────────────────────────
 
+// 결제 대기 주문 ID가 아직 동적으로 채워지기 전 사용하는 플레이스홀더 href.
+// 실제 클릭 가능한 href는 렌더링 시 resolveNavHref()로 치환된다.
+const PAYMENT_NAV_HREF = "/customer/payment";
+
 const CUSTOMER_NAV = [
   { label: "대시보드", href: "/customer/dashboard", icon: LayoutDashboard },
   { label: "A/S 접수", href: "/customer/request", icon: FileText },
   { label: "보험 관리", href: "/customer/insurance", icon: Shield },
-  { label: "결제·청구", href: "/customer/payment/1", icon: CreditCard },
+  { label: "결제·청구", href: PAYMENT_NAV_HREF, icon: CreditCard },
   { label: "서비스 센터 찾기", href: "customer/find-shop", icon: MapPin },
 ];
+
+// 사이드바 nav 항목의 실제 이동 경로를 계산한다.
+// "결제·청구"는 사용자마다 다른 주문(REPAIR_DONE 상태)으로 가야 하므로 고정 href가 없다.
+function resolveNavHref(item, paymentOrderId) {
+  if (item.href !== PAYMENT_NAV_HREF) return item.href;
+  return paymentOrderId ? `/customer/payment/${paymentOrderId}` : null; // null = 이동 불가(비활성화)
+}
+
 
 const SHOP_NAV = [
   { label: "대시보드", href: "/shop/dashboard", icon: Calendar },
@@ -67,8 +80,8 @@ const ADMIN_NAV = [
   { label: "보험 약관 관리", href: "/admin/policies", icon: BookOpen },
   { label: "수수료 청구 관리", href: "/admin/settlements", icon: Package },
   { label: "LMS 관리", href: "/admin/lms", icon: GraduationCap },
-  { label: "감사·DLQ", href: "/admin/audit", icon: AlertTriangle },
   { label: "AI 정확도 현황", href: "/admin/ai-accuracy", icon: Sparkles },
+  { label: "운영 감사", href: "/admin/audit", icon: AlertTriangle },
 ];
 
 function getNavConfig(path) {
@@ -440,7 +453,7 @@ function LMSGate({ guides, onNavigate }) {
 
 // ── Desktop Sidebar ───────────────────────────────────────────────────────────
 
-function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
+function DesktopSidebar({ collapsed, onToggle, dark, onLogout, paymentOrderId }) {
   const loc = useLocation();
   const nav = useNavigate();
   const { items, role, roleColorLight, roleColorDark, profileHref, profileLabel } =
@@ -482,11 +495,29 @@ function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
       <nav className="flex-1 px-2 py-4 flex flex-col gap-1 overflow-y-auto">
         {items.map((item) => {
           const Icon = item.icon;
-          const isActive = loc.pathname === item.href;
+          const href = resolveNavHref(item, paymentOrderId);
+          const isActive = href != null && loc.pathname === href;
+
+          if (href == null) {
+            // 결제 대기 중인 주문이 없음 — 비활성화 상태로 표시
+            return (
+              <span
+                key={item.href}
+                title="결제 대기 중인 주문이 없습니다."
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/25 cursor-not-allowed select-none"
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {!collapsed && (
+                  <span className="whitespace-nowrap">{item.label}</span>
+                )}
+              </span>
+            );
+          }
+
           return (
             <Link
               key={item.href}
-              to={item.href}
+              to={href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${isActive ? "bg-white/15 text-white" : "text-white/55 hover:text-white hover:bg-white/10"}`}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -532,7 +563,7 @@ function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
 
 // ── Mobile Top Nav ────────────────────────────────────────────────────────────
 
-function MobileTopNav({ dark, toggleDark, onLogout }) {
+function MobileTopNav({ dark, toggleDark, onLogout, paymentOrderId }) {
   const loc = useLocation();
   const { items, role, roleColorLight, roleColorDark, profileHref, profileLabel } =
     getNavConfig(loc.pathname);
@@ -618,11 +649,26 @@ function MobileTopNav({ dark, toggleDark, onLogout }) {
             <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
               {items.map((item) => {
                 const Icon = item.icon;
-                const isActive = loc.pathname === item.href;
+                const href = resolveNavHref(item, paymentOrderId);
+                const isActive = href != null && loc.pathname === href;
+
+                if (href == null) {
+                  return (
+                    <span
+                      key={item.href}
+                      title="결제 대기 중인 주문이 없습니다."
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/25 cursor-not-allowed select-none"
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </span>
+                  );
+                }
+
                 return (
                   <Link
                     key={item.href}
-                    to={item.href}
+                    to={href}
                     onClick={() => setOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${isActive ? "bg-white/15 text-white" : "text-white/60 hover:text-white hover:bg-white/10"}`}
                   >
@@ -722,6 +768,26 @@ export default function AppShell() {
   const nav = useNavigate();
   const { user, clearAuth } = useAuth();
 
+  // 사이드바 "결제·청구" 메뉴용 — 고객의 결제 대기(REPAIR_DONE) 주문을 동적으로 조회.
+  // 역할이 CUSTOMER일 때만 조회하고, 경로가 바뀔 때마다(예: 결제 완료 후 복귀) 다시 확인한다.
+  const [paymentOrderId, setPaymentOrderId] = useState(null);
+  useEffect(() => {
+    if (user?.role !== "CUSTOMER") return;
+    let cancelled = false;
+    getRepairOrders(0, 1, "REPAIR_DONE")
+      .then((res) => {
+        if (cancelled) return;
+        const orders = res.data?.data?.content ?? [];
+        setPaymentOrderId(orders[0]?.id ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setPaymentOrderId(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.role, loc.pathname]);
+
   // 로그아웃: 서버에 토큰 무효화 요청 후 클라이언트 인증 정보 초기화
   const handleLogout = async () => {
     try {
@@ -772,9 +838,10 @@ export default function AppShell() {
         onToggle={() => setCollapsed((v) => !v)}
         dark={dark}
         onLogout={handleLogout}
+        paymentOrderId={paymentOrderId}
       />
       <DesktopTopBar collapsed={collapsed} dark={dark} toggleDark={toggle} user={user} />
-      <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} />
+      <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} paymentOrderId={paymentOrderId} />
       <ContentArea collapsed={collapsed}>
         {showLMSGate ? (
           <LMSGate guides={gateGuides} onNavigate={() => nav("/shop/lms")} />
