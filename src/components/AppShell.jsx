@@ -734,28 +734,33 @@ export default function AppShell() {
     }
   };
 
-  // LMS gate state for shop — re-check on navigation AND on custom "lms-completed" event
-  const [shopLMSDone, setShopLMSDone] = useState(isShopLMSDone);
-  useEffect(() => {
-    setShopLMSDone(isShopLMSDone());
-  }, [loc.pathname]);
-  useEffect(() => {
-    const handler = () => setShopLMSDone(true);
-    window.addEventListener("lms-completed", handler);
-    return () => window.removeEventListener("lms-completed", handler);
-  }, []);
-
+  // LMS gate state for shop — 서버의 실제 수료 상태를 직접 확인 (localStorage는 신뢰하지 않음)
   const isShopRoute = loc.pathname.startsWith("/shop");
   const isLMSPage = loc.pathname === "/shop/lms";
-  const showLMSGate = isShopRoute && !isLMSPage && !shopLMSDone;
 
+  const [shopLMSDone, setShopLMSDone] = useState(null); // null = 아직 확인 전
   const [gateGuides, setGateGuides] = useState([]);
-  useEffect(() => {
-    if (!showLMSGate) return;
+
+  const checkLMSStatus = () => {
     getGuides()
-      .then(({ data }) => setGateGuides(data.guides ?? []))
-      .catch(() => setGateGuides([]));
-  }, [showLMSGate]);
+      .then(({ data }) => {
+        setShopLMSDone(data.allCompleted ?? false);
+        setGateGuides(data.guides ?? []);
+        if (data.allCompleted) localStorage.setItem("caremate-shop-lms", "done");
+      })
+      .catch(() => setShopLMSDone(isShopLMSDone()));
+  };
+
+  useEffect(() => {
+    if (!isShopRoute) return;
+    checkLMSStatus();
+  }, [loc.pathname]);
+  useEffect(() => {
+    window.addEventListener("lms-completed", checkLMSStatus);
+    return () => window.removeEventListener("lms-completed", checkLMSStatus);
+  }, []);
+
+  const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone === false;
 
   return (
     <div
