@@ -31,6 +31,7 @@ import {
   Award,
   Store, // 수리점 가입 승인 메뉴 아이콘
   Users, // 회원 관리 메뉴 아이콘
+  Sparkles, // AI 정확도 현황 메뉴 아이콘
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
 
@@ -66,6 +67,7 @@ const ADMIN_NAV = [
   { label: "수수료 청구 관리", href: "/admin/settlements", icon: Package },
   { label: "LMS 관리", href: "/admin/lms", icon: GraduationCap },
   { label: "감사·DLQ", href: "/admin/audit", icon: AlertTriangle },
+  { label: "AI 정확도 현황", href: "/admin/ai-accuracy", icon: Sparkles },
 ];
 
 function getNavConfig(path) {

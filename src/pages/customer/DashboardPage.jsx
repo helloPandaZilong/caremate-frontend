@@ -1,16 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Phone,
   ChevronDown,
   ChevronUp,
-  Bell,
   CheckCircle2,
   Clock,
   Wrench,
   Package,
   Truck,
+  Loader2,
 } from "lucide-react";
 import { Card, Badge } from "../../components/shared";
+import { getRepairOrders, getStatusHistories } from "../../api/customerService";
 
 const STAGES = [
   { id: 1, label: "접수", icon: CheckCircle2 },
@@ -20,47 +21,40 @@ const STAGES = [
   { id: 5, label: "인도완료", icon: Truck },
 ];
 
-const CURRENT_STAGE = 2;
+const STATUS_TO_STAGE = {
+  RECEIVED: 1,
+  ACCEPTED: 1,
+  IN_REPAIR: 2,
+  REPAIR_DONE: 3,
+  PAYMENT_COMPLETED: 4,
+  CLAIM_COMPLETED: 5,
+};
 
-const NOTIFICATIONS = [
-  {
-    id: 1,
-    msg: "수리 리포트가 도착했습니다. 견적을 확인해 주세요.",
-    time: "방금 전",
-    dot: "bg-accent",
-    read: false,
-  },
-  {
-    id: 2,
-    msg: "담당 기사님이 배정되었습니다. 박기술 기사 (010-1234-5678)",
-    time: "1시간 전",
-    dot: "bg-accent",
-    read: false,
-  },
-  {
-    id: 3,
-    msg: "A/S 접수가 완료되었습니다. 예약 번호: #AS-2024-0612",
-    time: "3시간 전",
-    dot: "bg-muted-foreground",
-    read: true,
-  },
-  {
-    id: 4,
-    msg: "보험 인증이 완료되었습니다. 'Carrier Care' 정책 적용 예정.",
-    time: "어제",
-    dot: "bg-muted-foreground",
-    read: true,
-  },
-  {
-    id: 5,
-    msg: "서비스 센터 도착 안내: 강남 스마트케어에서 기기를 수령했습니다.",
-    time: "어제",
-    dot: "bg-muted-foreground",
-    read: true,
-  },
-];
+const STATUS_LABEL = {
+  RECEIVED: "접수완료",
+  ACCEPTED: "접수수락",
+  IN_REPAIR: "수리중",
+  REPAIR_DONE: "수리완료",
+  PAYMENT_COMPLETED: "결제완료",
+  CLAIM_COMPLETED: "인도완료",
+  REJECTED: "반려됨",
+  CANCELLED: "취소됨",
+  NO_SHOW: "노쇼",
+};
 
-function StatusStepper() {
+const STATUS_VARIANT = {
+  RECEIVED: "accent",
+  ACCEPTED: "accent",
+  IN_REPAIR: "yellow",
+  REPAIR_DONE: "green",
+  PAYMENT_COMPLETED: "green",
+  CLAIM_COMPLETED: "green",
+  REJECTED: "red",
+  CANCELLED: "muted",
+  NO_SHOW: "red",
+};
+
+function StatusStepper({ currentStage }) {
   return (
     <div className="bg-card border border-border rounded-2xl p-5">
       <div className="flex items-center justify-between relative">
@@ -69,14 +63,14 @@ function StatusStepper() {
         <div
           className="absolute top-5 left-6 h-0.5 bg-accent z-0 transition-all duration-500"
           style={{
-            width: `${((CURRENT_STAGE - 1) / (STAGES.length - 1)) * 100}%`,
+            width: `${((currentStage - 1) / (STAGES.length - 1)) * 100}%`,
           }}
         />
 
         {STAGES.map((stage) => {
           const Icon = stage.icon;
-          const done = stage.id < CURRENT_STAGE;
-          const active = stage.id === CURRENT_STAGE;
+          const done = stage.id < currentStage;
+          const active = stage.id === currentStage;
           return (
             <div
               key={stage.id}
@@ -108,15 +102,30 @@ function StatusStepper() {
   );
 }
 
-function ASRequestCard() {
+function ASRequestCard({ order }) {
   const [expanded, setExpanded] = useState(false);
+
+  if (!order) return null;
+
+  const visitDate = order.reservedVisitAt
+    ? new Date(order.reservedVisitAt).toLocaleString("ko-KR", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "-";
+
   return (
     <Card className="p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">
           진행 중인 A/S 요청
         </h3>
-        <Badge variant="yellow">수리중</Badge>
+        <Badge variant={STATUS_VARIANT[order.status] || "muted"}>
+          {STATUS_LABEL[order.status] || order.status}
+        </Badge>
       </div>
 
       <div className="flex items-center gap-3 bg-secondary rounded-xl p-3">
@@ -125,88 +134,77 @@ function ASRequestCard() {
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-foreground">
-            iPhone 15 Pro · 실버 256GB
+            접수번호: {order.orderNo}
           </p>
-          <p className="text-xs text-muted-foreground">
-            접수번호: #AS-2024-0612
-          </p>
+          <p className="text-xs text-muted-foreground">{order.shopName}</p>
         </div>
       </div>
 
       <div className="flex flex-col gap-2 text-sm">
         <div className="flex justify-between">
           <span className="text-muted-foreground">담당 수리점</span>
-          <span className="font-medium text-foreground">강남 스마트케어</span>
+          <span className="font-medium text-foreground">{order.shopName}</span>
         </div>
         <div className="flex justify-between">
           <span className="text-muted-foreground">예약 일시</span>
-          <span className="font-medium text-foreground">2024.06.13 14:00</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">적용 보험</span>
-          <span className="font-medium text-accent">Carrier Care</span>
+          <span className="font-medium text-foreground">{visitDate}</span>
         </div>
       </div>
 
       {/* Expandable breakdown */}
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center justify-between py-2 px-3 bg-secondary rounded-xl text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors"
-      >
-        <span>초기 파손 상세 내역</span>
-        {expanded ? (
-          <ChevronUp className="w-4 h-4" />
-        ) : (
-          <ChevronDown className="w-4 h-4" />
-        )}
-      </button>
-      {expanded && (
-        <div className="flex flex-col gap-2 text-xs text-muted-foreground px-1 animate-in fade-in slide-in-from-top-1 duration-150">
-          <p>• 전면 유리 균열 (좌측 하단 ~ 우측 상단 대각선)</p>
-          <p>• 터치 일부 미인식 구간 발생</p>
-          <p>• 후면 카메라 렌즈 흠집 (기능 정상)</p>
-          <p>• 사이드 버튼 헐거움</p>
-        </div>
+      {order.damageDescription && (
+        <>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center justify-between py-2 px-3 bg-secondary rounded-xl text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors"
+          >
+            <span>파손 상세 내역</span>
+            {expanded ? (
+              <ChevronUp className="w-4 h-4" />
+            ) : (
+              <ChevronDown className="w-4 h-4" />
+            )}
+          </button>
+          {expanded && (
+            <div className="text-xs text-muted-foreground px-1 animate-in fade-in slide-in-from-top-1 duration-150 whitespace-pre-line">
+              {order.damageDescription}
+            </div>
+          )}
+        </>
       )}
     </Card>
   );
 }
 
-function NotificationFeed() {
+function NotificationFeed({ histories }) {
   return (
     <Card className="p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">실시간 알림</h3>
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-          <span className="text-xs text-muted-foreground">실시간 연결됨</span>
-        </div>
+        <h3 className="text-sm font-semibold text-foreground">상태 이력</h3>
       </div>
       <div className="flex flex-col divide-y divide-border/40">
-        {NOTIFICATIONS.map((n) => (
-          <div
-            key={n.id}
-            className={`flex gap-3 py-3 ${n.read ? "opacity-60" : ""}`}
-          >
+        {histories.length === 0 && (
+          <p className="text-xs text-muted-foreground py-3">아직 이력이 없습니다.</p>
+        )}
+        {histories.map((h, i) => (
+          <div key={i} className="flex gap-3 py-3">
             <div className="flex flex-col items-center gap-1 shrink-0 pt-1">
-              <div className={`w-2 h-2 rounded-full ${n.dot}`} />
-              {n.id < NOTIFICATIONS.length && (
+              <div className="w-2 h-2 rounded-full bg-accent" />
+              {i < histories.length - 1 && (
                 <div className="w-px flex-1 bg-border/40" />
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p
-                className={`text-xs leading-relaxed ${n.read ? "text-muted-foreground" : "text-foreground font-medium"}`}
-              >
-                {n.msg}
+              <p className="text-xs leading-relaxed text-foreground font-medium">
+                {STATUS_LABEL[h.previousStatus] || h.previousStatus} → {STATUS_LABEL[h.changedStatus] || h.changedStatus}
               </p>
+              {h.note && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">{h.note}</p>
+              )}
               <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                {n.time}
+                {new Date(h.changedAt).toLocaleString("ko-KR")}
               </p>
             </div>
-            {!n.read && (
-              <Bell className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5" />
-            )}
           </div>
         ))}
       </div>
@@ -215,21 +213,72 @@ function NotificationFeed() {
 }
 
 export default function CustomerDashboard() {
+  const [latestOrder, setLatestOrder] = useState(null);
+  const [histories, setHistories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const { data } = await getRepairOrders(0, 1);
+        const orders = data.data?.content ?? [];
+        if (orders.length > 0) {
+          const order = orders[0];
+          setLatestOrder(order);
+          const histRes = await getStatusHistories(order.id);
+          setHistories(histRes.data.data ?? []);
+        }
+      } catch (e) {
+        setError(e.response?.data?.error?.message || "데이터를 불러올 수 없습니다.");
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-6 h-6 animate-spin text-accent" />
+      </div>
+    );
+  }
+
+  const currentStage = latestOrder ? STATUS_TO_STAGE[latestOrder.status] ?? 1 : 0;
+
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
       <div>
         <h1 className="text-xl font-semibold text-foreground">대시보드</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          안녕하세요, 김민준 님. 현재 진행 중인 A/S가 있습니다.
+          {latestOrder ? "현재 진행 중인 A/S가 있습니다." : "현재 진행 중인 A/S가 없습니다."}
         </p>
       </div>
 
-      <StatusStepper />
+      {error && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl text-sm text-red-700 dark:text-red-400">
+          {error}
+        </div>
+      )}
 
-      <div className="grid md:grid-cols-2 gap-5">
-        <ASRequestCard />
-        <NotificationFeed />
-      </div>
+      {latestOrder && <StatusStepper currentStage={currentStage} />}
+
+      {latestOrder && (
+        <div className="grid md:grid-cols-2 gap-5">
+          <ASRequestCard order={latestOrder} />
+          <NotificationFeed histories={histories} />
+        </div>
+      )}
+
+      {!latestOrder && !error && (
+        <Card className="p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            A/S 접수 내역이 없습니다. 새로운 A/S를 접수해 보세요.
+          </p>
+        </Card>
+      )}
     </div>
   );
 }

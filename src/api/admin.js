@@ -85,3 +85,10 @@ export const deleteLmsGuide = (memberId, guideType) =>
 // 전체 가이드 수료 기록 삭제
 export const deleteAllLmsGuides = (memberId) =>
   apiClient.delete(`/admin/lms/${memberId}/guides`)
+
+// ── AI 정확도 현황 API ──────────────────────────────────────────────────────────
+
+// AI 파싱 정확도 통계 조회
+// → { totalCount, noCorrectionCount, accuracyRate, fieldCorrectionCounts, fieldCorrectionRates, recentLogs }
+export const getAiAccuracyStats = () =>
+  apiClient.get('/admin/ai-accuracy').then((r) => r.data.data)
