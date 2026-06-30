@@ -9,12 +9,14 @@ import {
   Shield,
   X,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { Button, Card, UploadZone } from "../../components/shared";
 import {
   getRepairShops,
   getInsurancePolicies,
   createRepairOrder,
+  diagnoseImage,
 } from "../../api/customerService";
 
 const STEPS = [
@@ -97,6 +99,9 @@ export default function RequestPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [aiDiagnosis, setAiDiagnosis] = useState(null);
+  const [diagnoseFailed, setDiagnoseFailed] = useState(false);
 
   const [shops, setShops] = useState([]);
   const [policies, setPolicies] = useState([]);
@@ -138,6 +143,28 @@ export default function RequestPage() {
 
   const removeFile = (index) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+    setAiDiagnosis(null);
+  };
+
+  const handleDiagnose = async () => {
+    const imageFile = uploadedFiles.find((f) => f.type.startsWith("image/"));
+    if (!imageFile) return;
+    setDiagnosing(true);
+    setAiDiagnosis(null);
+    setDiagnoseFailed(false);
+    try {
+      const { data } = await diagnoseImage(imageFile);
+      setAiDiagnosis(data.data?.diagnosis ?? data.diagnosis ?? "진단 결과를 가져오지 못했습니다.");
+    } catch {
+      setDiagnoseFailed(true);
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
+  const applyDiagnosis = () => {
+    if (aiDiagnosis) setDamage(aiDiagnosis);
+    setStep(1);
   };
 
   const handleSubmit = async () => {
@@ -233,25 +260,75 @@ export default function RequestPage() {
           </div>
 
           {uploadedFiles.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              {uploadedFiles.map((f, i) => (
-                <div
-                  key={i}
-                  className="relative w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center group"
-                >
-                  <Image className="w-6 h-6 text-muted-foreground" />
-                  <p className="text-[10px] text-muted-foreground mt-1 absolute bottom-1 left-0 right-0 text-center truncate px-1">
-                    {f.name}
-                  </p>
-                  <button
-                    onClick={() => removeFile(i)}
-                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            <>
+              <div className="flex gap-2 flex-wrap">
+                {uploadedFiles.map((f, i) => (
+                  <div
+                    key={i}
+                    className="relative w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center group"
                   >
-                    <X className="w-2.5 h-2.5" />
+                    {f.type.startsWith("image/") ? (
+                      <img
+                        src={URL.createObjectURL(f)}
+                        alt={f.name}
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                    ) : (
+                      <Image className="w-6 h-6 text-muted-foreground" />
+                    )}
+                    <p className="text-[10px] text-muted-foreground absolute bottom-1 left-0 right-0 text-center truncate px-1 bg-black/30 rounded-b-xl">
+                      {f.name}
+                    </p>
+                    <button
+                      onClick={() => removeFile(i)}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-2.5 h-2.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* AI 진단 버튼 */}
+              {uploadedFiles.some((f) => f.type.startsWith("image/")) && (
+                <button
+                  onClick={handleDiagnose}
+                  disabled={diagnosing}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent/10 border border-accent/30 text-accent text-sm font-medium hover:bg-accent/20 transition-all disabled:opacity-60"
+                >
+                  {diagnosing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  {diagnosing ? "AI 분석 중..." : "AI로 파손 진단하기"}
+                </button>
+              )}
+
+              {/* AI 진단 실패 */}
+              {diagnoseFailed && (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">AI 진단에 실패했습니다.</p>
+                </div>
+              )}
+
+              {/* AI 진단 결과 */}
+              {aiDiagnosis && (
+                <div className="flex flex-col gap-3 p-4 rounded-xl bg-accent/5 border border-accent/20">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-accent" />
+                    <span className="text-xs font-semibold text-accent">AI 진단 결과</span>
+                  </div>
+                  <p className="text-sm text-foreground leading-relaxed">{aiDiagnosis}</p>
+                  <button
+                    onClick={applyDiagnosis}
+                    className="self-start px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/90 transition-all"
+                  >
+                    이 내용으로 파손 설명 채우기 →
                   </button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </Card>
       )}

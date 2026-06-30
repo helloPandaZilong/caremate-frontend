@@ -127,7 +127,7 @@ function ReportList({ onSelect }) {
     getOrders({ size: 100 })
       .then((data) => {
         const raw = data?.content ?? data ?? [];
-        if (!raw.length) return;
+        if (!raw.length) { setItems([]); return; }
         const mapped = raw
           .filter((o) => BE_STATUS_MAP[o.status])   // RECEIVED는 대시보드에서 처리
           .map((o) => ({

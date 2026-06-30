@@ -102,8 +102,8 @@ function BookingDrawer({ booking, onClose, onAction }) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/20 z-40" onClick={onClose} />
-      <aside className="fixed right-0 top-0 h-full w-[380px] bg-card border-l border-border shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-250">
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] max-w-[95vw] max-h-[85vh] bg-card border border-border rounded-2xl shadow-2xl z-50 flex flex-col animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div>
             <p className="text-sm font-semibold text-foreground">예약 상세</p>
@@ -141,12 +141,22 @@ function BookingDrawer({ booking, onClose, onAction }) {
 
           <div className="flex flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground">첨부 이미지</p>
-            <div className="flex gap-2">
-              {[1, 2].map((i) => (
-                <div key={i} className="w-16 h-16 rounded-xl bg-secondary flex items-center justify-center border border-border">
-                  <Image className="w-6 h-6 text-muted-foreground/50" />
-                </div>
-              ))}
+            <div className="flex gap-2 flex-wrap">
+              {detail?.beforeRepairImageUrls?.length > 0
+                ? detail.beforeRepairImageUrls.map((url, i) => (
+                    <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={url}
+                        alt={`첨부 이미지 ${i + 1}`}
+                        className="w-16 h-16 rounded-xl object-cover border border-border"
+                      />
+                    </a>
+                  ))
+                : (
+                  <div className="w-16 h-16 rounded-xl bg-secondary flex items-center justify-center border border-border">
+                    <Image className="w-6 h-6 text-muted-foreground/50" />
+                  </div>
+                )}
             </div>
           </div>
 
@@ -202,7 +212,7 @@ function BookingDrawer({ booking, onClose, onAction }) {
             {loading ? "처리 중..." : decision === "accept" ? "승인 확정" : decision === "reject" ? "거절 전송" : decision === "start" ? "수리 시작" : decision === "noshow" ? "노쇼 처리" : "선택 필요"}
           </Button>
         </div>
-      </aside>
+      </div>
     </>
   );
 }

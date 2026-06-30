@@ -54,7 +54,7 @@ const CUSTOMER_NAV = [
   { label: "A/S 접수", href: "/customer/request", icon: FileText },
   { label: "보험 관리", href: "/customer/insurance", icon: Shield },
   { label: "결제·청구", href: PAYMENT_NAV_HREF, icon: CreditCard },
-  { label: "서비스 센터 찾기", href: "customer/find-shop", icon: MapPin },
+  { label: "서비스 센터 찾기", href: "/customer/find-shop", icon: MapPin },
 ];
 
 // 사이드바 nav 항목의 실제 이동 경로를 계산한다.
