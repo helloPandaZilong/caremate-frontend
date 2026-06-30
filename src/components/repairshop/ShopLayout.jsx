@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { NavLink, useNavigate } from 'react-router'
+import apiClient from '../../api/client.js'
 import './ShopLayout.css'
 
 const NAV_ITEMS = [
@@ -73,10 +74,78 @@ const FOOTER_ITEMS = [
   },
 ]
 
-export default function ShopLayout({ children, notificationCount = 2 }) {
+export default function ShopLayout({ children }) {
   const navigate = useNavigate()
   const [isDark, setIsDark] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  // ── 알림 state ─────────────────────────────────────────────
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState([])
+  const [showDropdown, setShowDropdown] = useState(false)
+  const dropdownRef = useRef(null)
+  const sseRef = useRef(null)
+
+  // 미읽음 수 초기 로드
+  useEffect(() => {
+    apiClient.get('/notifications/unread-count')
+      .then(r => setUnreadCount(r.data.data.unreadCount ?? 0))
+      .catch(() => {})
+  }, [])
+
+  // SSE 구독
+  useEffect(() => {
+    const token = localStorage.getItem('caremate_access_token')
+    if (!token) return
+    const es = new EventSource(`/api/notifications/subscribe?token=${token}`)
+    sseRef.current = es
+    es.addEventListener('notification', (e) => {
+      const payload = JSON.parse(e.data)
+      setUnreadCount(prev => prev + 1)
+      setNotifications(prev => [{ ...payload, isRead: false }, ...prev])
+    })
+    es.onerror = () => es.close()
+    return () => es.close()
+  }, [])
+
+  // 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleBellClick = () => {
+    if (!showDropdown) {
+      apiClient.get('/notifications?size=20')
+        .then(r => setNotifications(r.data.data.content ?? []))
+        .catch(() => {})
+    }
+    setShowDropdown(d => !d)
+  }
+
+  const handleMarkRead = (id, isRead) => {
+    if (isRead) return
+    apiClient.patch(`/notifications/${id}/read`)
+      .then(() => {
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+        setUnreadCount(prev => Math.max(0, prev - 1))
+      })
+      .catch(() => {})
+  }
+
+  const formatTime = (createdAt) => {
+    if (!createdAt) return ''
+    const diff = Math.floor((Date.now() - new Date(createdAt)) / 1000)
+    if (diff < 60) return '방금'
+    if (diff < 3600) return `${Math.floor(diff / 60)}분 전`
+    if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`
+    return `${Math.floor(diff / 86400)}일 전`
+  }
 
   return (
     <div className={`shop-layout${isDark ? ' shop-layout--dark' : ''}`}>
@@ -181,15 +250,57 @@ export default function ShopLayout({ children, notificationCount = 2 }) {
             </button>
 
             {/* Notification bell */}
-            <button className="shop-header__icon-btn shop-header__bell" title="알림">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-              </svg>
-              {notificationCount > 0 && (
-                <span className="shop-header__bell-badge">{notificationCount}</span>
+            <div style={{ position: 'relative' }} ref={dropdownRef}>
+              <button className="shop-header__icon-btn shop-header__bell" title="알림" onClick={handleBellClick}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="shop-header__bell-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
+              </button>
+
+              {/* 알림 드롭다운 */}
+              {showDropdown && (
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 8px)', right: 0,
+                  width: '320px', maxHeight: '400px', overflowY: 'auto',
+                  background: 'var(--color-surface, #fff)',
+                  border: '1px solid var(--color-border, #e5e7eb)',
+                  borderRadius: '10px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  zIndex: 1000,
+                }}>
+                  <div style={{ padding: '12px 16px', fontWeight: 600, fontSize: '14px', borderBottom: '1px solid var(--color-border, #e5e7eb)' }}>
+                    알림 {unreadCount > 0 && <span style={{ color: '#ef4444', fontSize: '12px' }}>({unreadCount})</span>}
+                  </div>
+                  {notifications.length === 0 ? (
+                    <div style={{ padding: '32px 16px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>
+                      새 알림이 없습니다
+                    </div>
+                  ) : (
+                    notifications.map(n => (
+                      <div
+                        key={n.id}
+                        onClick={() => handleMarkRead(n.id, n.isRead)}
+                        style={{
+                          padding: '12px 16px', borderBottom: '1px solid var(--color-border, #f3f4f6)',
+                          cursor: n.isRead ? 'default' : 'pointer',
+                          background: n.isRead ? 'transparent' : 'var(--color-primary-50, #fffbeb)',
+                          display: 'flex', gap: '10px', alignItems: 'flex-start',
+                        }}
+                      >
+                        <span style={{ marginTop: '3px', flexShrink: 0, width: '8px', height: '8px', borderRadius: '50%', background: n.isRead ? 'transparent' : '#f59e0b' }} />
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: '13px', lineHeight: '1.5', color: 'var(--color-text, #111)' }}>{n.message}</p>
+                          <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#9ca3af' }}>{formatTime(n.createdAt)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               )}
-            </button>
+            </div>
 
             {/* Avatar */}
             <div className="shop-header__avatar">김</div>
