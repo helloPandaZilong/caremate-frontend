@@ -1,66 +1,25 @@
-import { useState } from "react";
-import {
-  Plus,
-  X,
-  Shield,
-  ToggleLeft,
-  ToggleRight,
-  ChevronRight,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, X, Shield, ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { Button, Card, Badge } from "../../components/shared";
+import {
+  getInsurancePolicies,
+  createInsurancePolicy,
+  deleteInsurancePolicy,
+  getInsuranceProducts,
+} from "../../api/customerService";
 
-const POLICIES = [
-  {
-    id: 1,
-    name: "Carrier Care",
-    number: "CC-2024-9182-01",
-    carrier: "SKT",
-    coverage: 80,
-    deductible: "30,000원",
-    maxCap: "800,000원",
-    status: true,
-    expiry: "2025.01.15",
-    terms:
-      "본 보험은 스마트폰 파손, 침수, 분실에 대해 수리 비용의 80%를 보상합니다. 자기부담금은 30,000원이며, 연간 최대 보상 한도는 800,000원입니다. 가입 후 30일 이내 발생한 손해는 보상하지 않습니다. 고의적 파손, 전쟁, 천재지변으로 인한 손해는 면책 사항에 해당합니다.",
-  },
-  {
-    id: 2,
-    name: "프리미엄 카드 폰케어",
-    number: "SH-CARD-7736-02",
-    carrier: "신한카드",
-    coverage: 60,
-    deductible: "50,000원",
-    maxCap: "500,000원",
-    status: true,
-    expiry: "2024.12.31",
-    terms:
-      "신한카드 프리미엄 카드 소지자 대상 부가 서비스입니다. 스마트폰 파손·침수 시 수리 비용의 60%를 보상하며, 자기부담금은 50,000원입니다. 연간 최대 2회, 500,000원 한도 내에서 보상됩니다.",
-  },
-  {
-    id: 3,
-    name: "디지털 안심보험",
-    number: "SF-DIGIT-3341-03",
-    carrier: "삼성화재",
-    coverage: 90,
-    deductible: "20,000원",
-    maxCap: "1,200,000원",
-    status: false,
-    expiry: "2026.03.22",
-    terms:
-      "삼성화재 디지털 안심보험은 스마트폰을 포함한 디지털 기기 파손에 대해 최대 90%를 보상합니다. 자기부담금은 20,000원, 연간 한도는 1,200,000원입니다. 해외에서 발생한 손해도 보상됩니다.",
-  },
-];
-
-function TermsModal({ policy, onClose }) {
+function DetailsModal({ policy, onClose, onDelete }) {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div>
             <p className="text-sm font-semibold text-foreground">
-              {policy.name}
+              {policy.productName}
             </p>
-            <p className="text-xs text-muted-foreground">{policy.number}</p>
+            <p className="text-xs text-muted-foreground">
+              {policy.policyNumber}
+            </p>
           </div>
           <button
             onClick={onClose}
@@ -69,16 +28,51 @@ function TermsModal({ policy, onClose }) {
             <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
-        <div className="p-6 max-h-64 overflow-y-auto">
-          <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-            약관 전문
-          </h4>
-          <p className="text-sm text-foreground leading-relaxed">
-            {policy.terms}
-          </p>
-          <div className="mt-4 p-3 bg-secondary rounded-xl text-xs text-muted-foreground leading-relaxed">
-            ※ 본 약관은 요약본입니다. 전체 약관은 각 보험사 홈페이지에서
-            확인하실 수 있습니다.
+        <div className="p-6 flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">제공사</span>
+              <span className="font-medium text-foreground">
+                {policy.providerName}
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">상태</span>
+              <Badge
+                variant={policy.status === "ACTIVE" ? "green" : "muted"}
+                className="w-fit"
+              >
+                {policy.status === "ACTIVE" ? "활성화" : policy.status}
+              </Badge>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">가입일</span>
+              <span className="font-medium text-foreground">
+                {policy.startDate}
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">만료일</span>
+              <span className="font-medium text-foreground">
+                {policy.endDate}
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">
+                연간 청구 횟수
+              </span>
+              <span className="font-medium text-foreground">
+                {policy.annualClaimCount ?? 0}회
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-xs text-muted-foreground">
+                연간 청구 금액
+              </span>
+              <span className="font-medium text-foreground">
+                {(policy.annualClaimedAmount ?? 0).toLocaleString()}원
+              </span>
+            </div>
           </div>
         </div>
         <div className="px-6 pb-5 flex gap-2">
@@ -90,8 +84,14 @@ function TermsModal({ policy, onClose }) {
           >
             닫기
           </Button>
-          <Button variant="accent" size="sm" className="flex-1">
-            전체 약관 다운로드
+          <Button
+            variant="danger"
+            size="sm"
+            className="flex-1"
+            onClick={() => onDelete(policy.id)}
+          >
+            <Trash2 className="w-4 h-4" />
+            연동 해제
           </Button>
         </div>
       </div>
@@ -99,13 +99,161 @@ function TermsModal({ policy, onClose }) {
   );
 }
 
-function PolicyCard({ policy, onToggle, onView }) {
+function AddPolicyModal({ onClose, onCreated }) {
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [productId, setProductId] = useState("");
+  const [policyNumber, setPolicyNumber] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    getInsuranceProducts()
+      .then(({ data }) => setProducts(data.data ?? []))
+      .catch(() => setProducts([]))
+      .finally(() => setLoadingProducts(false));
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!productId || !policyNumber || !startDate || !endDate) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await createInsurancePolicy({
+        insuranceProductId: Number(productId),
+        policyNumber,
+        startDate,
+        endDate,
+      });
+      onCreated();
+    } catch (err) {
+      setError(
+        err.response?.data?.error?.message || "보험 등록에 실패했습니다.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <p className="text-sm font-semibold text-foreground">보험 연동하기</p>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-secondary transition-colors"
+          >
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-4">
+          {error && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl text-xs text-red-700 dark:text-red-400">
+              {error}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              보험 상품
+            </label>
+            {loadingProducts ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> 불러오는 중...
+              </div>
+            ) : (
+              <select
+                value={productId}
+                onChange={(e) => setProductId(e.target.value)}
+                required
+                className="px-3 py-2 text-sm rounded-xl border border-border bg-card text-foreground"
+              >
+                <option value="">선택하세요</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.providerName} - {p.productName}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-medium text-muted-foreground">
+              증권번호
+            </label>
+            <input
+              type="text"
+              value={policyNumber}
+              onChange={(e) => setPolicyNumber(e.target.value)}
+              required
+              className="px-3 py-2 text-sm rounded-xl border border-border bg-card text-foreground"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                가입일
+              </label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                required
+                className="px-3 py-2 text-sm rounded-xl border border-border bg-card text-foreground"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                만료일
+              </label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                required
+                className="px-3 py-2 text-sm rounded-xl border border-border bg-card text-foreground"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="flex-1"
+              onClick={onClose}
+            >
+              취소
+            </Button>
+            <Button
+              type="submit"
+              variant="accent"
+              size="sm"
+              className="flex-1"
+              disabled={submitting}
+            >
+              {submitting ? "등록 중..." : "등록하기"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function PolicyCard({ policy, onView }) {
   return (
     <Card
       onClick={onView}
       className="p-5 flex flex-col gap-4 cursor-pointer hover:border-accent/30 hover:shadow-md transition-all"
     >
-      {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
@@ -113,66 +261,43 @@ function PolicyCard({ policy, onToggle, onView }) {
           </div>
           <div>
             <p className="text-sm font-semibold text-foreground">
-              {policy.name}
+              {policy.productName}
             </p>
-            <p className="text-xs text-muted-foreground">{policy.carrier}</p>
+            <p className="text-xs text-muted-foreground">
+              {policy.providerName}
+            </p>
           </div>
         </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle();
-          }}
-          className="shrink-0"
-        >
-          {policy.status ? (
-            <ToggleRight className="w-9 h-9 text-accent" />
-          ) : (
-            <ToggleLeft className="w-9 h-9 text-muted-foreground/40" />
-          )}
-        </button>
+        <Badge variant={policy.status === "ACTIVE" ? "green" : "muted"}>
+          {policy.status === "ACTIVE" ? "활성화" : policy.status}
+        </Badge>
       </div>
 
-      {/* Policy number */}
-      <p className="text-xs text-muted-foreground font-mono">{policy.number}</p>
+      <p className="text-xs text-muted-foreground font-mono">
+        {policy.policyNumber}
+      </p>
 
-      {/* Coverage bar */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex justify-between text-xs">
-          <span className="text-muted-foreground">보장 비율</span>
-          <span className="font-semibold text-foreground">
-            {policy.coverage}%
-          </span>
-        </div>
-        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-          <div
-            className="h-full bg-accent rounded-full transition-all"
-            style={{ width: `${policy.coverage}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Details */}
       <div className="grid grid-cols-2 gap-3 text-xs">
         <div className="flex flex-col gap-0.5">
-          <span className="text-muted-foreground">자기부담금</span>
+          <span className="text-muted-foreground">가입일</span>
           <span className="font-medium text-foreground">
-            {policy.deductible}
+            {policy.startDate}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-muted-foreground">최대 보상</span>
-          <span className="font-medium text-foreground">{policy.maxCap}</span>
+          <span className="text-muted-foreground">만료일</span>
+          <span className="font-medium text-foreground">
+            {policy.endDate}
+          </span>
         </div>
       </div>
 
-      {/* Footer */}
       <div className="flex items-center justify-between pt-2 border-t border-border/40">
-        <Badge variant={policy.status ? "green" : "muted"}>
-          {policy.status ? "활성화" : "비활성화"}
-        </Badge>
+        <span className="text-xs text-muted-foreground">
+          연간 청구 {policy.annualClaimCount ?? 0}회
+        </span>
         <span className="text-xs text-muted-foreground flex items-center gap-1">
-          약관 보기 <ChevronRight className="w-3 h-3" />
+          상세 보기 <ChevronRight className="w-3 h-3" />
         </span>
       </div>
     </Card>
@@ -180,14 +305,41 @@ function PolicyCard({ policy, onToggle, onView }) {
 }
 
 export default function InsurancePage() {
-  const [policies, setPolicies] = useState(POLICIES);
-  const [modal, setModal] = useState(null);
+  const [policies, setPolicies] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [detailsModal, setDetailsModal] = useState(null);
+  const [addModal, setAddModal] = useState(false);
 
-  const toggle = (id) => {
-    setPolicies((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: !p.status } : p)),
-    );
+  const loadPolicies = () => {
+    setLoading(true);
+    getInsurancePolicies()
+      .then(({ data }) => setPolicies(data.data ?? []))
+      .catch((e) =>
+        setError(
+          e.response?.data?.error?.message || "보험 목록을 불러올 수 없습니다.",
+        ),
+      )
+      .finally(() => setLoading(false));
   };
+
+  useEffect(() => {
+    loadPolicies();
+  }, []);
+
+  const handleDelete = async (policyId) => {
+    try {
+      await deleteInsurancePolicy(policyId);
+      setDetailsModal(null);
+      loadPolicies();
+    } catch (e) {
+      setError(
+        e.response?.data?.error?.message || "보험 해제에 실패했습니다.",
+      );
+    }
+  };
+
+  const activeCount = policies.filter((p) => p.status === "ACTIVE").length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -200,24 +352,22 @@ export default function InsurancePage() {
             연동된 보험 정책을 한 곳에서 관리하세요.
           </p>
         </div>
-        <Button variant="accent" size="sm">
+        <Button variant="accent" size="sm" onClick={() => setAddModal(true)}>
           <Plus className="w-4 h-4" />
           보험 연동하기
         </Button>
       </div>
 
-      {/* Summary bar */}
-      <div className="grid grid-cols-3 gap-4">
+      {error && (
+        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl text-sm text-red-700 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4">
         {[
           { label: "연동된 보험", value: `${policies.length}개` },
-          {
-            label: "활성화된 보험",
-            value: `${policies.filter((p) => p.status).length}개`,
-          },
-          {
-            label: "평균 보장 비율",
-            value: `${Math.round(policies.filter((p) => p.status).reduce((a, p) => a + p.coverage, 0) / policies.filter((p) => p.status).length)}%`,
-          },
+          { label: "활성화된 보험", value: `${activeCount}개` },
         ].map((s) => (
           <div
             key={s.label}
@@ -231,19 +381,41 @@ export default function InsurancePage() {
         ))}
       </div>
 
-      {/* Policy grid */}
-      <div className="grid md:grid-cols-3 gap-4">
-        {policies.map((p) => (
-          <PolicyCard
-            key={p.id}
-            policy={p}
-            onToggle={() => toggle(p.id)}
-            onView={() => setModal(p)}
-          />
-        ))}
-      </div>
+      {loading ? (
+        <div className="flex items-center justify-center h-40">
+          <Loader2 className="w-6 h-6 animate-spin text-accent" />
+        </div>
+      ) : policies.length === 0 ? (
+        <Card className="p-8 text-center">
+          <p className="text-sm text-muted-foreground">
+            연동된 보험이 없습니다. 보험을 연동해 보세요.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid md:grid-cols-3 gap-4">
+          {policies.map((p) => (
+            <PolicyCard key={p.id} policy={p} onView={() => setDetailsModal(p)} />
+          ))}
+        </div>
+      )}
 
-      {modal && <TermsModal policy={modal} onClose={() => setModal(null)} />}
+      {detailsModal && (
+        <DetailsModal
+          policy={detailsModal}
+          onClose={() => setDetailsModal(null)}
+          onDelete={handleDelete}
+        />
+      )}
+
+      {addModal && (
+        <AddPolicyModal
+          onClose={() => setAddModal(false)}
+          onCreated={() => {
+            setAddModal(false);
+            loadPolicies();
+          }}
+        />
+      )}
     </div>
   );
 }

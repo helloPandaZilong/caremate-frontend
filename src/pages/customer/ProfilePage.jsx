@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User,
   Lock,
@@ -8,8 +8,10 @@ import {
   Eye,
   EyeOff,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { Card, Button, Input } from "../../components/shared";
+import { getProfile, updateProfile, getInsurancePolicies } from "../../api/customerService";
 
 const TABS = [
   { id: "profile", label: "프로필", icon: User },
@@ -41,30 +43,6 @@ const NOTIF_SETTINGS = [
   },
 ];
 
-const INSURANCE_HISTORY = [
-  {
-    name: "Carrier Care (SKT)",
-    number: "CC-2024-9182-01",
-    status: "ACTIVE",
-    start: "2024.01.15",
-    end: "2025.01.15",
-  },
-  {
-    name: "프리미엄 카드 폰케어",
-    number: "SH-CARD-7736-02",
-    status: "ACTIVE",
-    start: "2024.03.01",
-    end: "2024.12.31",
-  },
-  {
-    name: "구 통신사 보험",
-    number: "OLD-2022-1234",
-    status: "DELETED",
-    start: "2022.05.01",
-    end: "2024.01.14",
-  },
-];
-
 export default function CustomerProfilePage() {
   const [tab, setTab] = useState("profile");
   const [saved, setSaved] = useState(false);
@@ -76,9 +54,51 @@ export default function CustomerProfilePage() {
     marketing: false,
   });
 
+  const [profile, setProfile] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [name, setName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileError, setProfileError] = useState(null);
+
+  const [policies, setPolicies] = useState([]);
+  const [loadingPolicies, setLoadingPolicies] = useState(true);
+
+  useEffect(() => {
+    getProfile()
+      .then(({ data }) => {
+        setProfile(data.data);
+        setName(data.data.name ?? "");
+        setPhoneNumber(data.data.phoneNumber ?? "");
+      })
+      .catch(() => setProfileError("프로필 정보를 불러올 수 없습니다."))
+      .finally(() => setLoadingProfile(false));
+
+    getInsurancePolicies()
+      .then(({ data }) => setPolicies(data.data ?? []))
+      .catch(() => setPolicies([]))
+      .finally(() => setLoadingPolicies(false));
+  }, []);
+
   const handleSave = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
+  };
+
+  const handleSaveProfile = async () => {
+    setSavingProfile(true);
+    setProfileError(null);
+    try {
+      const { data } = await updateProfile({ name, phoneNumber });
+      setProfile(data.data);
+      handleSave();
+    } catch (e) {
+      setProfileError(
+        e.response?.data?.error?.message || "저장에 실패했습니다.",
+      );
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   return (
@@ -93,12 +113,14 @@ export default function CustomerProfilePage() {
       {/* Profile header card */}
       <Card className="p-6 flex items-center gap-5">
         <div className="w-16 h-16 rounded-full bg-accent/10 border-2 border-accent/20 flex items-center justify-center text-2xl font-bold text-accent shrink-0">
-          김
+          {(profile?.name || "?").slice(0, 1)}
         </div>
         <div className="flex-1">
-          <p className="text-base font-semibold text-foreground">김민준</p>
+          <p className="text-base font-semibold text-foreground">
+            {loadingProfile ? "불러오는 중..." : (profile?.name ?? "-")}
+          </p>
           <p className="text-sm text-muted-foreground">
-            mingun.kim@example.com
+            {profile?.email ?? "-"}
           </p>
           <div className="flex items-center gap-2 mt-1.5">
             <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent border border-accent/20 font-medium">
@@ -109,7 +131,6 @@ export default function CustomerProfilePage() {
             </span>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">가입일: 2024.01.10</p>
       </Card>
 
       {/* Tabs */}
@@ -137,24 +158,41 @@ export default function CustomerProfilePage() {
       {tab === "profile" && (
         <Card className="p-6 flex flex-col gap-5">
           <h3 className="text-sm font-semibold text-foreground">기본 정보</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            <Input label="이름" value="김민준" />
-            <Input label="이메일" value="mingun.kim@example.com" type="email" />
-            <Input label="연락처" value="010-1234-5678" />
-            <Input label="생년월일" value="1992-08-15" type="date" />
-          </div>
-          <div className="flex items-center justify-between pt-2 border-t border-border">
-            {saved && (
-              <span className="flex items-center gap-1.5 text-xs text-green-600 font-medium animate-in fade-in">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                저장 완료
-              </span>
-            )}
-            {!saved && <div />}
-            <Button variant="accent" size="sm" onClick={handleSave}>
-              변경사항 저장
-            </Button>
-          </div>
+          {loadingProfile ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
+            </div>
+          ) : (
+            <>
+              {profileError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl text-xs text-red-700 dark:text-red-400">
+                  {profileError}
+                </div>
+              )}
+              <div className="grid md:grid-cols-2 gap-4">
+                <Input label="이름" value={name} onChange={setName} />
+                <Input label="이메일" value={profile?.email ?? ""} type="email" />
+                <Input label="연락처" value={phoneNumber} onChange={setPhoneNumber} />
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                {saved && (
+                  <span className="flex items-center gap-1.5 text-xs text-green-600 font-medium animate-in fade-in">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    저장 완료
+                  </span>
+                )}
+                {!saved && <div />}
+                <Button
+                  variant="accent"
+                  size="sm"
+                  onClick={handleSaveProfile}
+                  disabled={savingProfile}
+                >
+                  {savingProfile ? "저장 중..." : "변경사항 저장"}
+                </Button>
+              </div>
+            </>
+          )}
         </Card>
       )}
 
@@ -288,35 +326,45 @@ export default function CustomerProfilePage() {
           <h3 className="text-sm font-semibold text-foreground">
             가입 보험 이력
           </h3>
-          <div className="flex flex-col gap-3">
-            {INSURANCE_HISTORY.map((ins) => (
-              <div
-                key={ins.number}
-                className={`flex items-center justify-between p-4 rounded-xl border ${ins.status === "DELETED" ? "opacity-50 bg-muted" : "bg-secondary"} border-border`}
-              >
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {ins.name}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                    {ins.number}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {ins.start} ~ {ins.end}
-                  </p>
-                </div>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
-                    ins.status === "ACTIVE"
-                      ? "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50"
-                      : "bg-muted text-muted-foreground border-border"
-                  }`}
+          {loadingPolicies ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
+            </div>
+          ) : policies.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-3">
+              가입된 보험이 없습니다.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {policies.map((ins) => (
+                <div
+                  key={ins.id}
+                  className={`flex items-center justify-between p-4 rounded-xl border ${ins.status !== "ACTIVE" ? "opacity-50 bg-muted" : "bg-secondary"} border-border`}
                 >
-                  {ins.status === "ACTIVE" ? "활성" : "해지됨"}
-                </span>
-              </div>
-            ))}
-          </div>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      {ins.productName} ({ins.providerName})
+                    </p>
+                    <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                      {ins.policyNumber}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {ins.startDate} ~ {ins.endDate}
+                    </p>
+                  </div>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full font-medium border ${
+                      ins.status === "ACTIVE"
+                        ? "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50"
+                        : "bg-muted text-muted-foreground border-border"
+                    }`}
+                  >
+                    {ins.status === "ACTIVE" ? "활성" : ins.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       )}
     </div>
