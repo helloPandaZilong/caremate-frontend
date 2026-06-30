@@ -80,7 +80,7 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `보험청구패키지.zip`;
+      a.download = `보험청구패키지_${receipt?.orderNo ?? orderId}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -100,14 +100,15 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
   // 제출 버튼 → 미리 받은 링크로 이동
   const handleSubmit = (claim) => {
     if (!isClaimed(claim)) return;
-    if (claim.claimChannelType === "WEBSITE") {
-      window.open(claim.claimChannelValue, "_blank", "noopener");
-    } else {
-      alert(
-        `${claim.providerName} 제출 채널: ${claim.claimChannelValue}\n` +
-          `카카오톡에서 해당 채널로 서류를 제출하세요.`,
-      );
-    }
+    window.open(claim.claimChannelValue, "_blank", "noopener");
+    // if (claim.claimChannelType === "WEBSITE") {
+    //   window.open(claim.claimChannelValue, "_blank", "noopener");
+    // } else {
+    //   alert(
+    //     `${claim.providerName} 제출 채널: ${claim.claimChannelValue}\n` +
+    //       `카카오톡에서 해당 채널로 서류를 제출하세요.`,
+    //   );
+    // }
   };
 
   if (loading) {
