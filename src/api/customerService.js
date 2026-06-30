@@ -40,6 +40,15 @@ export function cancelRepairOrder(orderId) {
     return apiClient.post(`/customer/repair-orders/${orderId}/cancel`)
 }
 
+export function diagnoseImage(imageFile) {
+    const formData = new FormData()
+    formData.append('image', imageFile)
+    return apiClient.post('/customer/repair-orders/diagnose', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+    })
+}
+
 export function getStatusHistories(orderId) {
     return apiClient.get(`/customer/repair-orders/${orderId}/status-histories`)
 }

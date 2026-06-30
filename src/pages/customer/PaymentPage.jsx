@@ -64,9 +64,12 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
   const [claimError, setClaimError] = useState(null);
   const [showWarning, setShowWarning] = useState(false);
 
-  // 영수증 조회 (협업자 코드 그대로)
+  // 영수증 조회 — paymentId가 없으면 로딩 즉시 해제
   useEffect(() => {
-    if (!paymentId) return;
+    if (!paymentId) {
+      setLoading(false);
+      return;
+    }
     fetchReceipt(paymentId)
       .then((res) => setReceipt(res.data.data))
       .catch(console.error)
@@ -515,7 +518,15 @@ export default function PaymentPage() {
 
     // 3) 일반 진입 — 결제 정보 조회 (GET /api/customer/payments/info/{orderId})
     fetchPaymentInfo(orderId)
-      .then((res) => setPaymentInfo(res.data.data))
+      .then((res) => {
+        const info = res.data.data;
+        setPaymentInfo(info);
+        // 이미 결제된 상태(PAYMENT_COMPLETED / CLAIM_COMPLETED)면 ClaimPackageScreen으로 바로 이동
+        if (info.status === 'PAYMENT_COMPLETED' || info.status === 'CLAIM_COMPLETED') {
+          setPaymentId(info.paymentId ?? null);
+          setPaid(true);
+        }
+      })
       .catch((err) => {
         const code = err.response?.data?.error?.code;
         const message = err.response?.data?.error?.message;
