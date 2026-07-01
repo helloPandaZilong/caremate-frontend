@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { Search, Clock, Phone, X, Loader2 } from "lucide-react";
+import { Search, Clock, Phone, X, Loader2, MapPin, Navigation } from "lucide-react";
 import { getRepairShops, getShopOperatingHours } from "../../api/customerService";
 
 const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
@@ -40,6 +40,24 @@ function loadKakaoSDK() {
 }
 
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 두 좌표 간 거리(km) — 하버사인 공식
+function distanceKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(km) {
+  if (km == null) return null;
+  return km < 1 ? `${Math.round(km * 1000)}m` : `${km.toFixed(1)}km`;
+}
 
 function InfoPopup({ shop, hours, onClose, onReserve }) {
   return (
@@ -97,12 +115,18 @@ export default function FindShopPage() {
   const [shops, setShops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [mapError, setMapError] = useState(null);
+  const [myPosition, setMyPosition] = useState(null); // { lat, lng }
+  const [locating, setLocating] = useState(true);
+  const [locationError, setLocationError] = useState(null);
+  const [shopCoordsVersion, setShopCoordsVersion] = useState(0);
 
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
+  const myMarkerRef = useRef(null);
   const markersRef = useRef([]);
   const geocoderRef = useRef(null);
   const shopCoordsRef = useRef(new Map());
+  const shopLatLngRef = useRef(new Map()); // shopId → { lat, lng } (거리 계산용)
 
   useEffect(() => {
     getRepairShops()
@@ -139,10 +163,13 @@ export default function FindShopPage() {
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               if (cancelled) return;
-              const myPos = new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+              const { latitude, longitude } = pos.coords;
+              const myPos = new kakao.maps.LatLng(latitude, longitude);
               map.setCenter(myPos);
+              setMyPosition({ lat: latitude, lng: longitude });
+              setLocating(false);
 
-              new kakao.maps.CustomOverlay({
+              myMarkerRef.current = new kakao.maps.CustomOverlay({
                 map,
                 position: myPos,
                 content: '<div style="width:16px;height:16px;background:#3B82F6;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.3);"></div>',
@@ -150,9 +177,16 @@ export default function FindShopPage() {
                 xAnchor: 0.5,
               });
             },
-            () => {},
+            () => {
+              if (cancelled) return;
+              setLocating(false);
+              setLocationError("현재 위치를 가져올 수 없습니다. 위치 접근을 허용해주세요.");
+            },
             { enableHighAccuracy: true, timeout: 5000 },
           );
+        } else {
+          setLocating(false);
+          setLocationError("이 브라우저는 위치 정보를 지원하지 않습니다.");
         }
 
         if (shops.length > 0) placeMarkers(kakao, map, shops);
@@ -169,6 +203,7 @@ export default function FindShopPage() {
     markersRef.current.forEach((m) => m.setMap(null));
     markersRef.current = [];
     shopCoordsRef.current.clear();
+    shopLatLngRef.current.clear();
 
     const bounds = new kakao.maps.LatLngBounds();
     let resolved = 0;
@@ -177,13 +212,13 @@ export default function FindShopPage() {
       if (shop.latitude && shop.longitude) {
         addMarker(kakao, map, shop, shop.latitude, shop.longitude, bounds);
         resolved++;
-        if (resolved === shopList.length) fitBounds(map, bounds, shopList.length);
+        if (resolved === shopList.length) { fitBounds(map, bounds, shopList.length); setShopCoordsVersion((v) => v + 1); }
         return;
       }
 
       if (!shop.address) {
         resolved++;
-        if (resolved === shopList.length) fitBounds(map, bounds, shopList.length);
+        if (resolved === shopList.length) { fitBounds(map, bounds, shopList.length); setShopCoordsVersion((v) => v + 1); }
         return;
       }
 
@@ -194,7 +229,7 @@ export default function FindShopPage() {
           addMarker(kakao, map, shop, lat, lng, bounds);
         }
         resolved++;
-        if (resolved === shopList.length) fitBounds(map, bounds, shopList.length);
+        if (resolved === shopList.length) { fitBounds(map, bounds, shopList.length); setShopCoordsVersion((v) => v + 1); }
       });
     });
   }, []);
@@ -203,6 +238,7 @@ export default function FindShopPage() {
     const position = new kakao.maps.LatLng(lat, lng);
     bounds.extend(position);
     shopCoordsRef.current.set(shop.id, position);
+    shopLatLngRef.current.set(shop.id, { lat, lng });
 
     const marker = new kakao.maps.Marker({ map, position, title: shop.shopName });
     marker._shopId = shop.id;
@@ -241,9 +277,34 @@ export default function FindShopPage() {
     navigate("/customer/request", { state: { selectedShop: shop } });
   };
 
-  const filtered = shops.filter((s) =>
-    (s.shopName || "").toLowerCase().includes(query.toLowerCase()),
-  );
+  const handleRecenter = () => {
+    if (!myPosition || !mapRef.current || !window.kakao) return;
+    const pos = new window.kakao.maps.LatLng(myPosition.lat, myPosition.lng);
+    mapRef.current.setCenter(pos);
+    mapRef.current.setLevel(5);
+  };
+
+  // shopCoordsVersion: 지오코딩 완료 후 좌표가 채워지면 거리 재계산을 트리거
+  const shopsWithDistance = useMemo(() => {
+    return shops.map((shop) => {
+      const coord = shopLatLngRef.current.get(shop.id) ??
+        (shop.latitude && shop.longitude ? { lat: shop.latitude, lng: shop.longitude } : null);
+      const distance = myPosition && coord
+        ? distanceKm(myPosition.lat, myPosition.lng, coord.lat, coord.lng)
+        : null;
+      return { ...shop, distance };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shops, myPosition, shopCoordsVersion]);
+
+  const filtered = shopsWithDistance
+    .filter((s) => (s.shopName || "").toLowerCase().includes(query.toLowerCase()))
+    .sort((a, b) => {
+      if (a.distance == null && b.distance == null) return 0;
+      if (a.distance == null) return 1;
+      if (b.distance == null) return -1;
+      return a.distance - b.distance;
+    });
 
   useEffect(() => {
     if (!mapRef.current || !window.kakao) return;
@@ -301,9 +362,20 @@ export default function FindShopPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-          <p className="text-xs text-muted-foreground px-1 mb-1">
+          <p className="text-xs text-muted-foreground px-1 mb-1 flex items-center gap-1.5">
             검색 결과 {filtered.length}개
+            {locating && (
+              <span className="flex items-center gap-1 text-muted-foreground/70">
+                <Loader2 className="w-3 h-3 animate-spin" /> 내 위치 확인 중...
+              </span>
+            )}
+            {!locating && myPosition && (
+              <span className="text-accent">· 거리순 정렬</span>
+            )}
           </p>
+          {locationError && (
+            <p className="text-[11px] text-amber-600 px-1 mb-1">{locationError}</p>
+          )}
           {filtered.map((shop) => (
             <div
               key={shop.id}
@@ -315,11 +387,15 @@ export default function FindShopPage() {
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-2">
-                <div>
-                  <span className="text-sm font-semibold text-foreground">
-                    {shop.shopName}
+                <span className="text-sm font-semibold text-foreground">
+                  {shop.shopName}
+                </span>
+                {shop.distance != null && (
+                  <span className="flex items-center gap-1 text-xs font-medium text-accent shrink-0">
+                    <MapPin className="w-3 h-3" />
+                    {formatDistance(shop.distance)}
                   </span>
-                </div>
+                )}
               </div>
               <p className="text-xs text-muted-foreground mb-1">{shop.address}</p>
               {shop.phone && (
@@ -348,6 +424,15 @@ export default function FindShopPage() {
           </div>
         ) : (
           <div ref={mapContainerRef} className="w-full h-full" />
+        )}
+        {!mapError && myPosition && (
+          <button
+            onClick={handleRecenter}
+            title="내 위치로 이동"
+            className="absolute bottom-6 right-4 z-10 w-10 h-10 rounded-full bg-card border border-border shadow-lg flex items-center justify-center text-accent hover:bg-secondary transition-colors"
+          >
+            <Navigation className="w-4 h-4" />
+          </button>
         )}
         {activeShop && (
           <InfoPopup
