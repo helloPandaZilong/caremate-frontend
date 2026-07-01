@@ -1,272 +1,274 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import {
-  ChevronDown,
-  Send,
+  Calendar,
+  PlayCircle,
+  RefreshCw,
+  Loader2,
+  Store,
+  X,
   CheckCircle2,
-  Bell,
-  Clock,
-  AlertCircle,
+  AlertTriangle,
+  XCircle,
+  MinusCircle,
+  History,
 } from "lucide-react";
 import { Card, Badge } from "../../components/shared";
-
-const FEE_LEDGER = [
-  {
-    shopId: "SH-001",
-    shopName: "강남 스마트케어",
-    gross: 12400000,
-    feeRate: 10,
-    fee: 1240000,
-    status: "PENDING",
-    dueDate: "2024.07.05",
-    notifiedAt: null,
-  },
-  {
-    shopId: "SH-002",
-    shopName: "서초 아이폰 전문점",
-    gross: 8700000,
-    feeRate: 10,
-    fee: 870000,
-    status: "NOTIFIED",
-    dueDate: "2024.07.05",
-    notifiedAt: "2024.06.30 09:12",
-  },
-  {
-    shopId: "SH-003",
-    shopName: "역삼 갤럭시 수리",
-    gross: 6200000,
-    feeRate: 10,
-    fee: 620000,
-    status: "PAID",
-    dueDate: "2024.07.05",
-    notifiedAt: "2024.06.30 09:12",
-  },
-  {
-    shopId: "SH-004",
-    shopName: "선릉 올폰 서비스",
-    gross: 3800000,
-    feeRate: 10,
-    fee: 380000,
-    status: "OVERDUE",
-    dueDate: "2024.06.05",
-    notifiedAt: "2024.05.31 10:00",
-  },
-  {
-    shopId: "SH-005",
-    shopName: "삼성 공식 서비스센터",
-    gross: 28600000,
-    feeRate: 10,
-    fee: 2860000,
-    status: "PAID",
-    dueDate: "2024.07.05",
-    notifiedAt: "2024.06.30 09:12",
-  },
-  {
-    shopId: "SH-006",
-    shopName: "마포 폰닥터",
-    gross: 5100000,
-    feeRate: 10,
-    fee: 510000,
-    status: "PENDING",
-    dueDate: "2024.07.05",
-    notifiedAt: null,
-  },
-  {
-    shopId: "SH-007",
-    shopName: "홍대 아이케어",
-    gross: 7300000,
-    feeRate: 10,
-    fee: 730000,
-    status: "NOTIFIED",
-    dueDate: "2024.07.05",
-    notifiedAt: "2024.06.30 09:12",
-  },
-];
-
-const STATUS_CONFIG = {
-  PAID: { label: "납부 완료", badge: "green" },
-  PENDING: { label: "청구 전", badge: "muted" },
-  NOTIFIED: { label: "청구 요청 발송됨", badge: "yellow" },
-  OVERDUE: { label: "연체", badge: "red" },
-};
+import {
+  getAdminMonthlySettlements,
+  getAdminShopSettlementDetail,
+  runSettlementBatch,
+  getBatchExecutionLogs,
+} from "../../api/settlement";
 
 function fmt(n) {
-  return "₩" + n.toLocaleString("ko-KR");
+  return "₩" + Number(n ?? 0).toLocaleString("ko-KR");
+}
+
+function currentYearMonth() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// ── 배치/정산 상태 배지 ──────────────────────────────────────────────────────
+const STATUS_CONFIG = {
+  SUCCESS: { label: "성공", variant: "green", icon: CheckCircle2 },
+  PARTIAL_FAIL: { label: "부분 실패", variant: "yellow", icon: AlertTriangle },
+  FAILED: { label: "실패", variant: "red", icon: XCircle },
+  SKIPPED: { label: "중복 실행 방지(이미 완료됨)", variant: "muted", icon: MinusCircle },
+};
+
+function StatusBadge({ status }) {
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.FAILED;
+  const Icon = cfg.icon;
+  return (
+    <Badge variant={cfg.variant}>
+      <Icon className="w-3 h-3" />
+      {cfg.label}
+    </Badge>
+  );
 }
 
 export default function SettlementsPage() {
-  const [month, setMonth] = useState("2024-06");
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [ledger, setLedger] = useState(FEE_LEDGER);
-  const [sendingSingle, setSendingSingle] = useState(null);
+  // ── 정산 통계 ──────────────────────────────────────────────────────────────
+  const [yearMonth, setYearMonth] = useState(currentYearMonth());
+  const [stats, setStats] = useState([]);
+  const [loadingStats, setLoadingStats] = useState(true);
 
-  const pendingCount = ledger.filter((r) => r.status === "PENDING").length;
-  const totalFee = ledger.reduce((a, r) => a + r.fee, 0);
-  const collectedFee = ledger
-    .filter((r) => r.status === "PAID")
-    .reduce((a, r) => a + r.fee, 0);
+  // ── 수리점 상세 이력 ──────────────────────────────────────────────────────
+  const [selectedShop, setSelectedShop] = useState(null); // { id }
+  const [shopDetail, setShopDetail] = useState([]);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-  const handleBulkSend = () => {
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      setSent(true);
-      setLedger((prev) =>
-        prev.map((r) =>
-          r.status === "PENDING"
-            ? { ...r, status: "NOTIFIED", notifiedAt: "2024.07.01 10:00" }
-            : r,
-        ),
+  // ── 배치 수동 실행 ────────────────────────────────────────────────────────
+  const [batchMonth, setBatchMonth] = useState(currentYearMonth());
+  const [running, setRunning] = useState(false);
+  const [lastRunResult, setLastRunResult] = useState(null);
+
+  // ── 배치 실행 로그 ────────────────────────────────────────────────────────
+  const [logs, setLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(true);
+
+  // 정산 통계 로드 (연월 필터, 빈 값이면 전체)
+  const loadStats = useCallback(async (ym) => {
+    setLoadingStats(true);
+    try {
+      const res = await getAdminMonthlySettlements(ym || undefined);
+      const data = res.data.data ?? [];
+      // 최신월 → 수리점ID 순 정렬
+      data.sort(
+        (a, b) =>
+          b.settlementMonth.localeCompare(a.settlementMonth) ||
+          a.repairShopId - b.repairShopId,
       );
-      setTimeout(() => setSent(false), 4000);
-    }, 2000);
+      setStats(data);
+    } catch {
+      toast.error("정산 통계를 불러오지 못했습니다.");
+    } finally {
+      setLoadingStats(false);
+    }
+  }, []);
+
+  // 배치 실행 로그 로드
+  const loadLogs = useCallback(async () => {
+    setLoadingLogs(true);
+    try {
+      const res = await getBatchExecutionLogs();
+      setLogs(res.data.data ?? []);
+    } catch {
+      toast.error("배치 실행 로그를 불러오지 못했습니다.");
+    } finally {
+      setLoadingLogs(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadStats(yearMonth);
+  }, [yearMonth, loadStats]);
+
+  useEffect(() => {
+    loadLogs();
+  }, [loadLogs]);
+
+  // 수리점 클릭 → 정산 이력 조회
+  const handleShopClick = async (shopId) => {
+    setSelectedShop({ id: shopId });
+    setLoadingDetail(true);
+    try {
+      const res = await getAdminShopSettlementDetail(shopId);
+      const data = res.data.data ?? [];
+      data.sort((a, b) => b.settlementMonth.localeCompare(a.settlementMonth));
+      setShopDetail(data);
+    } catch {
+      toast.error("수리점 정산 상세를 불러오지 못했습니다.");
+    } finally {
+      setLoadingDetail(false);
+    }
   };
 
-  const handleSingleNotify = (shopId) => {
-    setSendingSingle(shopId);
-    setTimeout(() => {
-      setSendingSingle(null);
-      setLedger((prev) =>
-        prev.map((r) =>
-          r.shopId === shopId
-            ? { ...r, status: "NOTIFIED", notifiedAt: "방금 전" }
-            : r,
-        ),
-      );
-    }, 1500);
+  // 배치 수동 실행
+  const handleRunBatch = async () => {
+    if (!/^\d{4}-\d{2}$/.test(batchMonth)) {
+      toast.error("연월 형식은 yyyy-MM 이어야 합니다. (예: 2026-06)");
+      return;
+    }
+    setRunning(true);
+    setLastRunResult(null);
+    try {
+      const res = await runSettlementBatch(batchMonth);
+      const result = res.data.data;
+      setLastRunResult(result);
+
+      if (result.status === "SUCCESS") {
+        toast.success(`${batchMonth} 정산 배치가 성공적으로 완료되었습니다.`);
+      } else if (result.status === "PARTIAL_FAIL") {
+        toast.warning(`${batchMonth} 정산 배치가 일부 수리점에서 실패했습니다.`);
+      } else if (result.status === "SKIPPED") {
+        toast.info(result.message ?? "이미 실행된 배치입니다.");
+      } else {
+        toast.error(result.message ?? "배치 실행에 실패했습니다.");
+      }
+
+      // 실행 결과가 반영된 최신 통계·로그로 갱신
+      await Promise.all([loadStats(yearMonth), loadLogs()]);
+    } catch (e) {
+      const message =
+        e.response?.data?.error?.message ?? "배치 실행 중 오류가 발생했습니다.";
+      setLastRunResult({ settlementMonth: batchMonth, status: "FAILED", message });
+      toast.error(message);
+    } finally {
+      setRunning(false);
+    }
   };
 
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold text-foreground">
-          수수료 청구 요청 관리
+          월말 정산 배치 관제
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          수리점별 월말 플랫폼 수수료 청구 현황을 관리합니다.
+          수리점별 매출 정산 통계 조회 및 월말 배치 수동 실행/재실행을 관리합니다.
         </p>
       </div>
 
-      {/* Top controls */}
-      <div className="flex items-center gap-3 flex-wrap justify-between">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <select
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="appearance-none pl-3.5 pr-8 py-2.5 text-sm bg-card border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
-            >
-              {["2024-06", "2024-05", "2024-04", "2024-03"].map((m) => (
-                <option key={m} value={m}>
-                  {m.replace("-", "년 ")}월
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
-          </div>
-          <div className="flex items-center gap-2 px-3 py-2 bg-card border border-border rounded-xl text-xs text-muted-foreground">
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            청구 미발송 {pendingCount}개 수리점
-          </div>
+      {/* ── 배치 수동 실행 ────────────────────────────────────────────── */}
+      <Card className="p-5 flex flex-col gap-4">
+        <div className="flex items-center gap-2">
+          <PlayCircle className="w-4 h-4 text-accent" />
+          <h3 className="text-sm font-semibold text-foreground">
+            배치 수동 실행 / 재실행
+          </h3>
         </div>
+        <p className="text-xs text-muted-foreground -mt-2">
+          자동 배치는 매달 말일 자정(KST)에 실행됩니다. 장애로 실행이 안 됐거나
+          특정 월을 다시 집계해야 할 때 여기서 수동으로 실행하세요. 이미
+          <span className="font-medium text-foreground"> 성공(SUCCESS)</span>
+          으로 처리된 연월은 중복 실행이 자동으로 차단됩니다.
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <input
+              type="text"
+              value={batchMonth}
+              onChange={(e) => setBatchMonth(e.target.value)}
+              placeholder="2026-06"
+              className="pl-9 pr-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all w-36 font-mono"
+            />
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
+          </div>
+          <button
+            onClick={handleRunBatch}
+            disabled={running}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-accent text-white hover:bg-accent/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {running ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <PlayCircle className="w-4 h-4" />
+            )}
+            {running ? "실행 중..." : "배치 실행"}
+          </button>
 
-        {/* Bulk send button */}
-        <div className="flex flex-col items-end gap-2">
-          {sent && (
-            <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-xs font-medium animate-in fade-in">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              일괄 수수료 청구 요청이 모든 수리점으로 발송되었습니다.
+          {lastRunResult && (
+            <div className="flex items-center gap-2 pl-2">
+              <StatusBadge status={lastRunResult.status} />
+              <span className="text-xs text-muted-foreground">
+                {lastRunResult.message}
+              </span>
             </div>
           )}
-          <button
-            onClick={handleBulkSend}
-            disabled={sending || pendingCount === 0}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              pendingCount === 0
-                ? "bg-secondary text-muted-foreground cursor-not-allowed"
-                : sending
-                  ? "bg-accent/70 text-white cursor-not-allowed"
-                  : "bg-accent text-white hover:bg-accent/90 shadow-lg shadow-accent/20"
-            }`}
-          >
-            {sending ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                발송 중...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                월말 수수료 청구 요청 일괄 발송
-              </>
-            )}
-          </button>
-          <p className="text-[11px] text-muted-foreground">
-            청구 미발송 수리점 {pendingCount}곳에 알림 메시지를 일괄 발송합니다.
-          </p>
         </div>
-      </div>
+      </Card>
 
-      {/* KPI summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[
-          {
-            label: "총 청구 수수료",
-            value: fmt(totalFee),
-            color: "text-foreground",
-          },
-          {
-            label: "수납 완료",
-            value: fmt(collectedFee),
-            color: "text-green-700 dark:text-green-400",
-          },
-          {
-            label: "미수납",
-            value: fmt(totalFee - collectedFee),
-            color: "text-amber-600 dark:text-amber-400",
-          },
-          {
-            label: "수납률",
-            value: `${Math.round((collectedFee / totalFee) * 100)}%`,
-            color:
-              collectedFee / totalFee > 0.7
-                ? "text-green-600 dark:text-green-400"
-                : "text-red-500 dark:text-red-400",
-          },
-        ].map((k) => (
-          <Card key={k.label} className="px-4 py-4">
-            <p className="text-xs text-muted-foreground">{k.label}</p>
-            <p className={`text-xl font-bold mt-1 ${k.color}`}>{k.value}</p>
-          </Card>
-        ))}
-      </div>
-
-      {/* Main table */}
-      <div className="grid md:grid-cols-[1fr_300px] gap-5 items-start">
-        <Card className="overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h3 className="text-sm font-semibold text-foreground">
-              수리점별 수수료 청구 현황
-            </h3>
+      {/* ── 정산 통계 ─────────────────────────────────────────────────── */}
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground">
+            월간 정산 통계 (수리점별)
+          </h3>
+          <div className="relative">
+            <input
+              type="text"
+              value={yearMonth}
+              onChange={(e) => setYearMonth(e.target.value)}
+              placeholder="전체 조회는 비워두세요"
+              className="pl-9 pr-3.5 py-2 text-xs bg-card border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all w-56 font-mono"
+            />
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           </div>
+        </div>
+
+        {loadingStats ? (
+          <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm">불러오는 중...</span>
+          </div>
+        ) : stats.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <Store className="w-8 h-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">
+              해당 조건으로 집계된 정산 데이터가 없습니다.
+              <br />
+              아직 배치가 실행되지 않았을 수 있습니다 — 위에서 배치를 실행해보세요.
+            </p>
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border/40 bg-secondary/50">
                   {[
+                    "정산월",
                     "수리점 ID",
-                    "수리점명",
-                    "총 매출",
-                    "수수료율",
-                    "청구 수수료",
-                    "납부 기한",
-                    "발송 일시",
-                    "상태",
-                    "개별 발송",
+                    "총 결제 매출",
+                    "결제 건수",
+                    "예상 환급 총합",
+                    "",
                   ].map((h) => (
                     <th
                       key={h}
-                      className="text-left py-3 px-3 text-muted-foreground font-semibold whitespace-nowrap"
+                      className="text-left py-3 px-4 text-muted-foreground font-semibold whitespace-nowrap"
                     >
                       {h}
                     </th>
@@ -274,130 +276,188 @@ export default function SettlementsPage() {
                 </tr>
               </thead>
               <tbody>
-                {ledger.map((row) => {
-                  const cfg = STATUS_CONFIG[row.status];
-                  return (
-                    <tr
-                      key={row.shopId}
-                      className="border-b border-border/20 hover:bg-secondary/40 transition-colors"
-                    >
-                      <td className="py-3 px-3 font-mono text-muted-foreground">
-                        {row.shopId}
-                      </td>
-                      <td className="py-3 px-3 font-medium text-foreground whitespace-nowrap">
-                        {row.shopName}
-                      </td>
-                      <td className="py-3 px-3 text-foreground">
-                        {fmt(row.gross)}
-                      </td>
-                      <td className="py-3 px-3 text-muted-foreground">
-                        {row.feeRate}%
-                      </td>
-                      <td className="py-3 px-3 font-semibold text-foreground">
-                        {fmt(row.fee)}
-                      </td>
-                      <td className="py-3 px-3 text-muted-foreground whitespace-nowrap">
-                        {row.dueDate}
-                      </td>
-                      <td className="py-3 px-3 text-muted-foreground whitespace-nowrap font-mono">
-                        {row.notifiedAt ?? (
-                          <span className="text-muted-foreground/40">
-                            미발송
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3">
-                        <Badge variant={cfg.badge}>{cfg.label}</Badge>
-                      </td>
-                      <td className="py-3 px-3">
-                        {row.status === "PENDING" && (
-                          <button
-                            onClick={() => handleSingleNotify(row.shopId)}
-                            disabled={sendingSingle === row.shopId}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium bg-accent/10 text-accent rounded-lg hover:bg-accent/15 transition-colors border border-accent/20 whitespace-nowrap disabled:opacity-50"
-                          >
-                            {sendingSingle === row.shopId ? (
-                              <span className="w-3 h-3 border border-accent/30 border-t-accent rounded-full animate-spin" />
-                            ) : (
-                              <Bell className="w-3 h-3" />
-                            )}
-                            청구 발송
-                          </button>
-                        )}
-                        {row.status === "OVERDUE" && (
-                          <button
-                            onClick={() => handleSingleNotify(row.shopId)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors border border-red-200 dark:border-red-700/50 whitespace-nowrap"
-                          >
-                            <AlertCircle className="w-3 h-3" />
-                            독촉 발송
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {stats.map((s) => (
+                  <tr
+                    key={s.settlementId}
+                    className="border-b border-border/20 hover:bg-secondary/40 transition-colors"
+                  >
+                    <td className="py-3 px-4 font-mono text-foreground">
+                      {s.settlementMonth}
+                    </td>
+                    <td className="py-3 px-4 text-muted-foreground">
+                      #{s.repairShopId}
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-foreground">
+                      {fmt(s.totalPaymentAmount)}
+                    </td>
+                    <td className="py-3 px-4 text-muted-foreground">
+                      {s.orderCount}건
+                    </td>
+                    <td className="py-3 px-4 text-muted-foreground">
+                      {fmt(s.totalExpectedRefundAmount)}
+                    </td>
+                    <td className="py-3 px-4">
+                      <button
+                        onClick={() => handleShopClick(s.repairShopId)}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium bg-accent/10 text-accent rounded-lg hover:bg-accent/15 transition-colors border border-accent/20 whitespace-nowrap"
+                      >
+                        <History className="w-3 h-3" />
+                        이력 보기
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        </Card>
+        )}
 
-        {/* Info widget */}
-        <Card className="p-5 flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-accent" />
-            <p className="text-sm font-semibold text-foreground">
-              정산 프로세스 안내
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 text-xs text-muted-foreground">
-            {[
-              {
-                step: "1",
-                title: "결제 수령",
-                desc: "고객 결제 대금이 수리점으로 직접 지급됩니다.",
-              },
-              {
-                step: "2",
-                title: "수수료 청구 발송",
-                desc: "월말 관리자가 각 수리점에 수수료 청구 요청 알림을 발송합니다.",
-              },
-              {
-                step: "3",
-                title: "수리점 납부",
-                desc: "수리점은 알림 수신 후 납부 기한(월 5일)까지 플랫폼 수수료를 납부합니다.",
-              },
-              {
-                step: "4",
-                title: "납부 확인",
-                desc: "납부 완료 시 상태가 PAID로 전환됩니다.",
-              },
-            ].map((s) => (
-              <div key={s.step} className="flex gap-3">
-                <span className="w-5 h-5 rounded-full bg-accent text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                  {s.step}
-                </span>
-                <div>
-                  <p className="font-medium text-foreground">{s.title}</p>
-                  <p className="mt-0.5 leading-relaxed">{s.desc}</p>
-                </div>
+        {/* 수리점 상세 이력 패널 */}
+        {selectedShop && (
+          <div className="border-t border-border px-5 py-4 bg-secondary/30">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Store className="w-3.5 h-3.5 text-accent" />
+                <h4 className="text-xs font-semibold text-foreground">
+                  수리점 #{selectedShop.id} 정산 이력
+                </h4>
               </div>
-            ))}
-          </div>
+              <button
+                onClick={() => setSelectedShop(null)}
+                className="p-1 rounded-lg hover:bg-secondary transition-colors"
+              >
+                <X className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
 
-          <div className="pt-3 border-t border-border/40">
-            <p className="text-[11px] text-muted-foreground">
-              배치 자동 실행: 매월 말일 자정 (KST)
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              납부 기한: 익월 5일
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              연체 시 서비스 제한 처리
+            {loadingDetail ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : shopDetail.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">
+                해당 수리점의 정산 이력이 없습니다.
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {shopDetail.map((d) => (
+                  <div
+                    key={d.settlementId}
+                    className="flex items-center justify-between text-xs bg-card border border-border rounded-xl px-4 py-2.5"
+                  >
+                    <span className="font-mono font-medium text-foreground w-20">
+                      {d.settlementMonth}
+                    </span>
+                    <span className="text-muted-foreground">
+                      매출 {fmt(d.totalPaymentAmount)}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {d.orderCount}건
+                    </span>
+                    <span className="text-muted-foreground">
+                      예상환급 {fmt(d.totalExpectedRefundAmount)}
+                    </span>
+                    <span className="text-muted-foreground/70">
+                      {d.createdAt
+                        ? new Date(d.createdAt).toLocaleString("ko-KR")
+                        : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* ── 배치 실행 로그 ────────────────────────────────────────────── */}
+      <Card className="overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground">
+            배치 실행 로그
+          </h3>
+          <button
+            onClick={loadLogs}
+            disabled={loadingLogs}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
+            새로고침
+          </button>
+        </div>
+
+        {loadingLogs ? (
+          <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-sm">불러오는 중...</span>
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <History className="w-8 h-8 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">
+              아직 실행된 배치가 없습니다.
             </p>
           </div>
-        </Card>
-      </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border/40 bg-secondary/50">
+                  {[
+                    "정산월",
+                    "실행 일시",
+                    "대상 수리점 수",
+                    "성공",
+                    "실패",
+                    "집계 총액",
+                    "상태",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="text-left py-3 px-4 text-muted-foreground font-semibold whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((l) => (
+                  <tr
+                    key={l.id}
+                    className="border-b border-border/20 hover:bg-secondary/40 transition-colors"
+                  >
+                    <td className="py-3 px-4 font-mono text-foreground">
+                      {l.settlementMonth}
+                    </td>
+                    <td className="py-3 px-4 text-muted-foreground whitespace-nowrap font-mono">
+                      {l.executedAt
+                        ? new Date(l.executedAt).toLocaleString("ko-KR")
+                        : "—"}
+                    </td>
+                    <td className="py-3 px-4 text-muted-foreground">
+                      {l.targetShopCount}개
+                    </td>
+                    <td className="py-3 px-4 text-green-700 dark:text-green-400 font-medium">
+                      {l.successCount}
+                    </td>
+                    <td className="py-3 px-4 text-red-600 dark:text-red-400 font-medium">
+                      {l.failCount}
+                    </td>
+                    <td className="py-3 px-4 font-semibold text-foreground">
+                      {fmt(l.totalAmount)}
+                    </td>
+                    <td className="py-3 px-4">
+                      <StatusBadge status={l.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   );
 }
+
