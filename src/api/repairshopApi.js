@@ -73,6 +73,9 @@ export const deleteOrderImage = (orderId, imageId) =>
   apiClient.delete(`/shop/orders/${orderId}/images/${imageId}`)
 
 // ─── Report Save & PDF ────────────────────────────────────
+export const getReport = (orderId) =>
+  apiClient.get(`/shop/orders/${orderId}/report`).then((r) => r.data.data)
+
 export const saveReport = (orderId, data) =>
   apiClient.post(`/shop/orders/${orderId}/report`, data)
 

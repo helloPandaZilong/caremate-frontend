@@ -18,7 +18,7 @@ import {
   Download,
 } from "lucide-react";
 import { Button, Card, Badge } from "../../components/shared";
-import { getOrders, startRepair, completeRepair, parseRepairFile, submitReportFeedback, uploadOrderImage, getOrderImages, deleteOrderImage, saveReport, downloadReportPdf } from "../../api/repairshopApi";
+import { getOrders, startRepair, completeRepair, parseRepairFile, submitReportFeedback, uploadOrderImage, getOrderImages, deleteOrderImage, saveReport, downloadReportPdf, getReport } from "../../api/repairshopApi";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -187,10 +187,9 @@ function ReportList({ onSelect }) {
 
       {/* Filter tabs */}
       <div className="flex gap-1 bg-secondary p-0.5 rounded-xl w-fit">
-        {["all", "pending", "in_progress", "completed"].map((f) => {
+        {["all", "in_progress", "completed"].map((f) => {
           const labels = {
             all: "전체",
-            pending: "작성 필요",
             in_progress: "수리 중",
             completed: "완료",
           };
@@ -390,6 +389,34 @@ function ReportDetail({ item, onBack }) {
   const [repairResult, setRepairResult] = useState("");
   const [warranty, setWarranty] = useState("3개월");
   const [remarks, setRemarks] = useState("");
+
+  // 기존 저장된 리포트 + 이미지 로드
+  useEffect(() => {
+    Promise.all([
+      getReport(item.id).catch(() => null),
+      getOrderImages(item.id).catch(() => null),
+    ]).then(([report, imgData]) => {
+      if (report) {
+        if (report.troubleDescription) setDiagnosis(report.troubleDescription);
+        if (report.repairRows?.length) setRepairRows(report.repairRows.map((r) => ({
+          item: r.item ?? "",
+          part: r.part ?? "",
+          qty: String(r.qty ?? 1),
+          unitPrice: String(r.unitPrice ?? ""),
+        })));
+        if (report.repairResult) setRepairResult(report.repairResult);
+        if (report.warranty) setWarranty(report.warranty);
+        if (report.laborCost) setLaborCost(String(report.laborCost));
+        if (report.remarks) setRemarks(report.remarks);
+      }
+      if (imgData) {
+        const before = (imgData.beforeRepair ?? []).map((i) => ({ id: i.id, url: i.url, uploading: false }));
+        const after  = (imgData.afterRepair  ?? []).map((i) => ({ id: i.id, url: i.url, uploading: false }));
+        setBeforeImages(before);
+        setAfterImages(after);
+      }
+    });
+  }, [item.id]);
 
   const addRow = () => setRepairRows((r) => [...r, { item: "", part: "", qty: "1", unitPrice: "" }]);
   const removeRow = (i) => setRepairRows((r) => r.filter((_, idx) => idx !== i));
