@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
-import { Bell, CheckCircle2, CreditCard, FileText, Loader2, RefreshCw, Wrench } from "lucide-react";
+import {
+  Bell,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  CreditCard,
+  FileText,
+  Loader2,
+  Phone,
+  RefreshCw,
+  Wrench,
+} from "lucide-react";
 import { Badge, Button, Card } from "../../components/shared";
 import RepairStatusStepper, { OrderStatusHistoryList } from "../../components/monitoring/RepairStatusStepper";
 import { NotificationList } from "../../components/notification/NotificationBell";
@@ -70,11 +81,70 @@ function SummaryAction({ order }) {
         </Link>
     );
   }
+}
+
+// Origin 쪽 카드 UI(접수번호·매장 연락 정보·파손 상세 아코디언)를 유지하되,
+// 데이터는 timeline/latestOrder(=실 API·SSE 연동 state)에서만 공급받는다.
+function ASRequestCard({ order }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!order) return null;
+
+  const shopName = order.shopName ?? order.repairShopName ?? null;
 
   return (
-      <Link to={`/customer/repair-orders/${order.id}/status`} className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:underline">
-        <FileText className="w-4 h-4" /> 상태 타임라인 보기
-      </Link>
+      <Card className="p-5 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Wrench className="w-4 h-4 text-accent" />
+            <h2 className="text-sm font-semibold text-foreground">진행 중인 A/S</h2>
+          </div>
+          <Badge variant={STATUS_BADGE[order.status] ?? "muted"}>
+            {STATUS_LABEL[order.status] ?? order.status}
+          </Badge>
+        </div>
+
+        <div className="flex items-center gap-3 bg-secondary rounded-xl p-3">
+          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+            <Phone className="w-5 h-5 text-accent" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-foreground">
+              접수번호: {order.orderNo ?? `주문 #${order.id}`}
+            </p>
+            {shopName && <p className="text-xs text-muted-foreground">{shopName}</p>}
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3 text-sm">
+          <div className="rounded-xl bg-secondary border border-border p-3">
+            <p className="text-xs text-muted-foreground">방문 예약</p>
+            <p className="font-medium text-foreground mt-1">{formatDateTime(order.reservedVisitAt)}</p>
+          </div>
+          <div className="rounded-xl bg-secondary border border-border p-3">
+            <p className="text-xs text-muted-foreground">접수 일시</p>
+            <p className="font-medium text-foreground mt-1">{formatDateTime(order.createdAt)}</p>
+          </div>
+        </div>
+
+        {order.damageDescription && (
+            <>
+              <button
+                  onClick={() => setExpanded(!expanded)}
+                  className="flex items-center justify-between py-2 px-3 bg-secondary rounded-xl text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <span>파손 상세 내역</span>
+                {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {expanded && (
+                  <p className="text-xs text-muted-foreground px-1 whitespace-pre-line">
+                    {order.damageDescription}
+                  </p>
+              )}
+            </>
+        )}
+
+        <SummaryAction order={order} />
+      </Card>
   );
 }
 
@@ -105,7 +175,7 @@ export default function CustomerDashboard() {
           localStorage.setItem("caremate-current-order-id", selectedOrderId);
         }
       } catch {
-        // 접수 목록 API가 아직 미구현이어도, 테스트 러너/상태 화면에서 저장한 orderId로 조회를 계속 시도한다.
+        // 접수 목록 API가 아직 미구현이어도, 저장된 orderId로 조회를 계속 시도한다.
       }
 
       if (!selectedOrderId) {
@@ -121,6 +191,7 @@ export default function CustomerDashboard() {
         id: selectedOrderId,
         orderNo: selectedOrder?.orderNo ?? statusData.orderNo,
         status: statusData.currentStatus ?? selectedOrder?.status,
+        shopName: selectedOrder?.shopName ?? selectedOrder?.repairShopName ?? statusData.shopName,
         reservedVisitAt: selectedOrder?.reservedVisitAt ?? statusData.reservedVisitAt,
         createdAt: selectedOrder?.createdAt ?? statusData.createdAt,
         damageDescription: selectedOrder?.damageDescription ?? statusData.damageDescription,
@@ -140,6 +211,9 @@ export default function CustomerDashboard() {
     load();
   }, [load]);
 
+  // 상태 이력이 정적으로 한 번만 조회되던 Origin 방식과 달리,
+  // SSE로 상태 전이 알림이 들어오면 그 즉시 타임라인(milestones/histories)을 재조회해
+  // 스테퍼·이력 리스트가 실시간으로 갱신되도록 연동한다.
   const handleSseNotification = useCallback((notification) => {
     setNotifications((prev) => [notification, ...prev.filter((item) => item.id !== notification.id)].slice(0, 5));
     setTimeout(() => {
@@ -158,6 +232,7 @@ export default function CustomerDashboard() {
               id: String(notification.repairOrderId),
               orderNo: prev?.orderNo ?? statusData.orderNo,
               status: statusData.currentStatus,
+              shopName: prev?.shopName ?? statusData.shopName,
               reservedVisitAt: prev?.reservedVisitAt ?? statusData.reservedVisitAt,
               createdAt: prev?.createdAt ?? statusData.createdAt,
               damageDescription: prev?.damageDescription ?? statusData.damageDescription,
@@ -210,39 +285,7 @@ export default function CustomerDashboard() {
             </Card>
         ) : latestOrder ? (
             <>
-              <Card className="p-5 flex flex-col gap-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Wrench className="w-4 h-4 text-accent" />
-                      <h2 className="text-sm font-semibold text-foreground">진행 중인 A/S</h2>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{latestOrder.orderNo ?? `주문 #${latestOrder.id}`}</p>
-                  </div>
-                  <Badge variant={STATUS_BADGE[latestOrder.status] ?? "muted"}>
-                    {STATUS_LABEL[latestOrder.status] ?? latestOrder.status}
-                  </Badge>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-xl bg-secondary border border-border p-3">
-                    <p className="text-xs text-muted-foreground">방문 예약</p>
-                    <p className="font-medium text-foreground mt-1">{formatDateTime(latestOrder.reservedVisitAt)}</p>
-                  </div>
-                  <div className="rounded-xl bg-secondary border border-border p-3">
-                    <p className="text-xs text-muted-foreground">접수 일시</p>
-                    <p className="font-medium text-foreground mt-1">{formatDateTime(latestOrder.createdAt)}</p>
-                  </div>
-                </div>
-
-                {latestOrder.damageDescription && (
-                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                      {latestOrder.damageDescription}
-                    </p>
-                )}
-
-                <SummaryAction order={latestOrder} />
-              </Card>
+              <ASRequestCard order={latestOrder} />
 
               {timeline && (
                   <section id="repair-status-section" className="scroll-mt-24 flex flex-col gap-6">
