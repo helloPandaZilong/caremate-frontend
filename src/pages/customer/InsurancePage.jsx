@@ -57,22 +57,23 @@ function DetailsModal({ policy, onClose, onDelete }) {
                 {policy.endDate}
               </span>
             </div>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs text-muted-foreground">
-                연간 청구 횟수
-              </span>
-              <span className="font-medium text-foreground">
-                {policy.annualClaimCount ?? 0}회
-              </span>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xs text-muted-foreground">
-                연간 청구 금액
-              </span>
-              <span className="font-medium text-foreground">
-                {(policy.annualClaimedAmount ?? 0).toLocaleString()}원
-              </span>
-            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 pt-1">
+            <UsageBar
+              label="청구 횟수"
+              used={policy.annualClaimCount ?? 0}
+              limit={policy.annualClaimLimit}
+              remaining={policy.remainingClaimCount}
+              unit="회"
+            />
+            <UsageBar
+              label="청구 금액"
+              used={policy.annualClaimedAmount ?? 0}
+              limit={policy.annualLimit}
+              remaining={policy.remainingAmount}
+              formatValue={(v) => `${v.toLocaleString()}원`}
+            />
           </div>
         </div>
         <div className="px-6 pb-5 flex gap-2">
@@ -106,6 +107,8 @@ function AddPolicyModal({ onClose, onCreated }) {
   const [policyNumber, setPolicyNumber] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [priorClaimCount, setPriorClaimCount] = useState("");
+  const [priorClaimedAmount, setPriorClaimedAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -115,6 +118,8 @@ function AddPolicyModal({ onClose, onCreated }) {
       .catch(() => setProducts([]))
       .finally(() => setLoadingProducts(false));
   }, []);
+
+  const selectedProduct = products.find((p) => String(p.id) === productId);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -127,6 +132,8 @@ function AddPolicyModal({ onClose, onCreated }) {
         policyNumber,
         startDate,
         endDate,
+        priorClaimCount: priorClaimCount ? Number(priorClaimCount) : undefined,
+        priorClaimedAmount: priorClaimedAmount ? Number(priorClaimedAmount) : undefined,
       });
       onCreated();
     } catch (err) {
@@ -222,6 +229,51 @@ function AddPolicyModal({ onClose, onCreated }) {
             </div>
           </div>
 
+          <div className="flex flex-col gap-1.5 pt-3 border-t border-border/40">
+            <p className="text-xs font-medium text-foreground">
+              가입 전 기사용 내역 (선택)
+            </p>
+            <p className="text-[11px] text-muted-foreground -mt-1">
+              CareMate 가입 전 다른 경로로 이미 청구한 횟수·금액이 있다면 입력해주세요.
+            </p>
+            <div className="grid grid-cols-2 gap-3 mt-1">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  기사용 청구 횟수
+                  {selectedProduct && (
+                    <span className="text-muted-foreground/60"> (한도 {selectedProduct.annualClaimLimit}회)</span>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={priorClaimCount}
+                  onChange={(e) => setPriorClaimCount(e.target.value)}
+                  placeholder="0"
+                  className="px-3 py-2 text-sm rounded-xl border border-border bg-card text-foreground"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">
+                  기사용 청구 금액(원)
+                  {selectedProduct && (
+                    <span className="text-muted-foreground/60"> (한도 {selectedProduct.annualLimit?.toLocaleString()}원)</span>
+                  )}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={priorClaimedAmount}
+                  onChange={(e) => setPriorClaimedAmount(e.target.value)}
+                  placeholder="0"
+                  className="px-3 py-2 text-sm rounded-xl border border-border bg-card text-foreground"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="flex gap-2 pt-2">
             <Button
               type="button"
@@ -248,6 +300,48 @@ function AddPolicyModal({ onClose, onCreated }) {
   );
 }
 
+function UsageBar({ label, used, limit, remaining, unit, formatValue }) {
+  const ratio = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+  const barColor =
+    ratio >= 90 ? "bg-red-500" : ratio >= 70 ? "bg-amber-500" : "bg-accent";
+  const fmt = formatValue ?? ((v) => `${v}${unit}`);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-muted-foreground font-medium">{label}</span>
+        <span
+          className="font-bold text-foreground text-base"
+          style={{ fontFamily: "'DM Sans', 'Noto Sans KR', sans-serif" }}
+        >
+          {fmt(used)}
+          {limit != null && (
+            <span className="text-muted-foreground font-normal text-sm"> / {fmt(limit)}</span>
+          )}
+        </span>
+      </div>
+      {limit != null && (
+        <div className="h-3 rounded-full bg-secondary overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${barColor}`}
+            style={{ width: `${ratio}%` }}
+          />
+        </div>
+      )}
+      {limit != null && (
+        <div className="flex justify-end">
+          <span
+            className="text-sm font-bold text-accent"
+            style={{ fontFamily: "'DM Sans', 'Noto Sans KR', sans-serif" }}
+          >
+            {label.includes("횟수") ? "잔여 횟수" : "잔여 금액"} {fmt(remaining ?? 0)}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PolicyCard({ policy, onView }) {
   return (
     <Card
@@ -260,10 +354,10 @@ function PolicyCard({ policy, onView }) {
             <Shield className="w-4 h-4 text-accent" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">
+            <p className="text-base font-semibold text-foreground">
               {policy.productName}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {policy.providerName}
             </p>
           </div>
@@ -273,11 +367,14 @@ function PolicyCard({ policy, onView }) {
         </Badge>
       </div>
 
-      <p className="text-xs text-muted-foreground font-mono">
+      <p
+        className="text-sm text-muted-foreground"
+        style={{ fontFamily: "'DM Sans', 'Noto Sans KR', sans-serif" }}
+      >
         {policy.policyNumber}
       </p>
 
-      <div className="grid grid-cols-2 gap-3 text-xs">
+      <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="flex flex-col gap-0.5">
           <span className="text-muted-foreground">가입일</span>
           <span className="font-medium text-foreground">
@@ -292,13 +389,26 @@ function PolicyCard({ policy, onView }) {
         </div>
       </div>
 
-      <div className="flex items-center justify-between pt-2 border-t border-border/40">
-        <span className="text-xs text-muted-foreground">
-          연간 청구 {policy.annualClaimCount ?? 0}회
-        </span>
-        <span className="text-xs text-muted-foreground flex items-center gap-1">
-          상세 보기 <ChevronRight className="w-3 h-3" />
-        </span>
+      <div className="flex flex-col gap-3 pt-3 border-t border-border/40">
+        <UsageBar
+          label="청구 횟수"
+          used={policy.annualClaimCount ?? 0}
+          limit={policy.annualClaimLimit}
+          remaining={policy.remainingClaimCount}
+          unit="회"
+        />
+        <UsageBar
+          label="청구 금액"
+          used={policy.annualClaimedAmount ?? 0}
+          limit={policy.annualLimit}
+          remaining={policy.remainingAmount}
+          formatValue={(v) => `${v.toLocaleString()}원`}
+        />
+        <div className="flex justify-end">
+          <span className="text-xs text-muted-foreground flex items-center gap-1">
+            상세 보기 <ChevronRight className="w-3 h-3" />
+          </span>
+        </div>
       </div>
     </Card>
   );

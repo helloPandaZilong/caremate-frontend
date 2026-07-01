@@ -63,9 +63,9 @@ export function getInsurancePolicy(policyId) {
     return apiClient.get(`/customer/insurance-policies/${policyId}`)
 }
 
-export function createInsurancePolicy({ insuranceProductId, policyNumber, startDate, endDate }) {
+export function createInsurancePolicy({ insuranceProductId, policyNumber, startDate, endDate, priorClaimCount, priorClaimedAmount }) {
     return apiClient.post('/customer/insurance-policies', {
-        insuranceProductId, policyNumber, startDate, endDate,
+        insuranceProductId, policyNumber, startDate, endDate, priorClaimCount, priorClaimedAmount,
     })
 }
 
