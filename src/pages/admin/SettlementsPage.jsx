@@ -25,6 +25,11 @@ function fmt(n) {
   return "₩" + Number(n ?? 0).toLocaleString("ko-KR");
 }
 
+// 플랫폼 수수료율 — 프론트 표시 전용 참고값. monthly_settlements 테이블에는
+// 수수료 관련 컬럼이 없으며(9.3 — 순수 매출 집계 통계), 백엔드 계산·저장값이 아니다.
+const FEE_RATE = 0.1;
+const fee = (gross) => Math.round(Number(gross ?? 0) * FEE_RATE);
+
 function currentYearMonth() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -224,9 +229,15 @@ export default function SettlementsPage() {
       {/* ── 정산 통계 ─────────────────────────────────────────────────── */}
       <Card className="overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="text-sm font-semibold text-foreground">
-            월간 정산 통계 (수리점별)
-          </h3>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">
+              월간 정산 통계 (수리점별)
+            </h3>
+            <p className="text-[11px] text-muted-foreground mt-0.5">
+              플랫폼 수수료는 매출의 {FEE_RATE * 100}%로 화면에서만 계산해 표시하는
+              참고값입니다(서버 저장값 아님).
+            </p>
+          </div>
           <div className="relative">
             <input
               type="text"
@@ -263,6 +274,7 @@ export default function SettlementsPage() {
                     "수리점 ID",
                     "총 결제 매출",
                     "결제 건수",
+                    `플랫폼 수수료(${FEE_RATE * 100}%)`,
                     "예상 환급 총합",
                     "",
                   ].map((h) => (
@@ -292,6 +304,9 @@ export default function SettlementsPage() {
                     </td>
                     <td className="py-3 px-4 text-muted-foreground">
                       {s.orderCount}건
+                    </td>
+                    <td className="py-3 px-4 text-red-600 dark:text-red-400 font-medium">
+                      {fmt(fee(s.totalPaymentAmount))}
                     </td>
                     <td className="py-3 px-4 text-muted-foreground">
                       {fmt(s.totalExpectedRefundAmount)}
@@ -353,6 +368,9 @@ export default function SettlementsPage() {
                     </span>
                     <span className="text-muted-foreground">
                       {d.orderCount}건
+                    </span>
+                    <span className="text-red-600 dark:text-red-400">
+                      수수료 {fmt(fee(d.totalPaymentAmount))}
                     </span>
                     <span className="text-muted-foreground">
                       예상환급 {fmt(d.totalExpectedRefundAmount)}

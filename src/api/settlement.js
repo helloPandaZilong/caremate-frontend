@@ -31,6 +31,17 @@ export const downloadSettlementExcel = async (settlementMonth) => {
   URL.revokeObjectURL(url)
 }
 
+/**
+ * 특정 월 건별(주문별) 결제 내역 조회
+ * GET /api/shop/settlements/{settlementMonth}/orders
+ *
+ * 응답 data: [{ orderId, orderNo, customerName, totalPaidAmount,
+ *               expectedRefundAmount, paidAt }]
+ * payments.paidAt 기준으로 뽑은 목록이라 위 정산 요약(총매출·건수)과 항상 합계가 일치함.
+ */
+export const fetchSettlementOrders = (settlementMonth) =>
+  apiClient.get(`/shop/settlements/${settlementMonth}/orders`)
+
 // ── 관리자 정산·배치 관리 API ───────────────────────────────────────────────────
 // 백엔드: AdminSettlementController (/api/admin/settlements/**)
 
