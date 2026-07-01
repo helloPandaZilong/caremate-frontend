@@ -9,19 +9,21 @@ const STATUS_TABS = [
   { label:'확정',    value:'ACCEPTED' },
   { label:'수리 중', value:'IN_REPAIR' },
   { label:'수리 완료', value:'REPAIR_DONE' },
+  { label:'수리 불가', value:'REPAIR_IMPOSSIBLE' },
   { label:'반려',    value:'REJECTED' },
 ]
 
 const STATUS_LABEL = {
   RECEIVED:'접수 대기', ACCEPTED:'확정', REJECTED:'반려',
-  NO_SHOW:'노쇼', IN_REPAIR:'수리 중', REPAIR_DONE:'수리 완료',
-  PAYMENT_COMPLETED:'결제 완료', CLAIM_REQUESTED:'청구 요청', CLAIM_COMPLETED:'청구 완료',
+  NO_SHOW:'노쇼', IN_REPAIR:'수리 중', REPAIR_IMPOSSIBLE:'수리 불가',
+  REPAIR_DONE:'수리 완료', PAYMENT_COMPLETED:'결제 완료',
+  CLAIM_REQUESTED:'청구 요청', CLAIM_COMPLETED:'청구 완료',
 }
 const STATUS_CLASS = {
   RECEIVED:'badge--received', ACCEPTED:'badge--accepted', REJECTED:'badge--rejected',
-  NO_SHOW:'badge--no-show', IN_REPAIR:'badge--in-repair', REPAIR_DONE:'badge--repair-done',
-  PAYMENT_COMPLETED:'badge--payment-completed', CLAIM_REQUESTED:'badge--claim-requested',
-  CLAIM_COMPLETED:'badge--claim-completed',
+  NO_SHOW:'badge--no-show', IN_REPAIR:'badge--in-repair', REPAIR_IMPOSSIBLE:'badge--rejected',
+  REPAIR_DONE:'badge--repair-done', PAYMENT_COMPLETED:'badge--payment-completed',
+  CLAIM_REQUESTED:'badge--claim-requested', CLAIM_COMPLETED:'badge--claim-completed',
 }
 
 function formatDateTime(str) {
