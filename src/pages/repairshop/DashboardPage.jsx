@@ -142,21 +142,24 @@ function BookingDrawer({ booking, onClose, onAction }) {
           <div className="flex flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground">첨부 이미지</p>
             <div className="flex gap-2 flex-wrap">
-              {detail?.beforeRepairImageUrls?.length > 0
-                ? detail.beforeRepairImageUrls.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noopener noreferrer">
-                      <img
-                        src={url}
-                        alt={`첨부 이미지 ${i + 1}`}
-                        className="w-16 h-16 rounded-xl object-cover border border-border"
-                      />
-                    </a>
-                  ))
-                : (
-                  <div className="w-16 h-16 rounded-xl bg-secondary flex items-center justify-center border border-border">
-                    <Image className="w-6 h-6 text-muted-foreground/50" />
-                  </div>
-                )}
+              {(() => {
+                const urls = [...(detail?.customerImageUrls ?? []), ...(detail?.beforeRepairImageUrls ?? [])];
+                return urls.length > 0
+                  ? urls.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={url}
+                          alt={`첨부 이미지 ${i + 1}`}
+                          className="w-16 h-16 rounded-xl object-cover border border-border"
+                        />
+                      </a>
+                    ))
+                  : (
+                    <div className="w-16 h-16 rounded-xl bg-secondary flex items-center justify-center border border-border">
+                      <Image className="w-6 h-6 text-muted-foreground/50" />
+                    </div>
+                  );
+              })()}
             </div>
           </div>
 

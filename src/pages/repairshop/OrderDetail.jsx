@@ -155,12 +155,12 @@ export default function OrderDetail() {
             <p className="od-description">{order.damageDescription}</p>
           </div>
 
-          {/* Before repair images */}
-          {order.beforeRepairImageUrls?.length > 0 && (
+          {/* 고객 접수 사진 (수리 전 단계에서만 표시) */}
+          {order.customerImageUrls?.length > 0 && (
             <div className="card od-card">
               <h2 className="od-card-title">접수 사진</h2>
               <div className="od-images">
-                {order.beforeRepairImageUrls.map((url, i) => (
+                {order.customerImageUrls.map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noreferrer">
                     <img src={url} alt={`접수사진 ${i+1}`} className="od-image" />
                   </a>
@@ -169,7 +169,21 @@ export default function OrderDetail() {
             </div>
           )}
 
-          {/* After repair images */}
+          {/* 수리점 촬영 수리 전 사진 */}
+          {order.beforeRepairImageUrls?.length > 0 && (
+            <div className="card od-card">
+              <h2 className="od-card-title">수리 전 사진</h2>
+              <div className="od-images">
+                {order.beforeRepairImageUrls.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer">
+                    <img src={url} alt={`수리전사진 ${i+1}`} className="od-image" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 수리점 촬영 완료 사진 */}
           {order.afterRepairImageUrls?.length > 0 && (
             <div className="card od-card">
               <h2 className="od-card-title">완료 사진</h2>
