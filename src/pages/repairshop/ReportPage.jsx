@@ -105,7 +105,6 @@ const PAGE_SIZE = 4;
 
 // 백엔드 status → 화면 status 매핑
 const BE_STATUS_MAP = {
-  ACCEPTED: "pending",             // 수리 시작 전
   IN_REPAIR: "in_progress",        // 수리 중
   REPAIR_DONE: "completed",
   REPAIR_IMPOSSIBLE: "impossible", // 수리 불가 — 결제 없음
@@ -124,6 +123,7 @@ function ReportList({ onSelect }) {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState("all");
+  const [customerName, setCustomerName] = useState("");
   const [items, setItems] = useState(REPORT_ITEMS);
   const [startingId, setStartingId] = useState(null);
 
@@ -166,14 +166,16 @@ function ReportList({ onSelect }) {
     }
   }
 
-  const filtered = items.filter(
-    (r) => filter === "all" || r.status === filter,
-  );
+  const filtered = items.filter((r) => {
+    if (filter !== "all" && r.status !== filter) return false;
+    if (customerName.trim() && !r.customer?.toLowerCase().includes(customerName.trim().toLowerCase())) return false;
+    return true;
+  });
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const pendingCount = items.filter(
-    (r) => r.status !== "completed" && r.status !== "impossible",
+    (r) => r.status === "in_progress",
   ).length;
 
   return (
@@ -183,9 +185,34 @@ function ReportList({ onSelect }) {
           <h1 className="text-xl font-semibold text-foreground">수리 리포트</h1>
           <p className="text-sm text-muted-foreground mt-1">
             리포트 작성이 필요한 건수:{" "}
-            <span className="text-accent font-semibold">{pendingCount}건</span>
+            <button
+              className="text-accent font-semibold hover:underline"
+              onClick={() => { setFilter("in_progress"); setPage(0); }}
+            >{pendingCount}건</button>
           </p>
         </div>
+      </div>
+
+      {/* Search */}
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="고객명 검색"
+            value={customerName}
+            onChange={e => { setCustomerName(e.target.value); setPage(0); }}
+            className="pl-7 pr-3 py-1.5 text-xs rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </div>
+        {customerName && (
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => { setCustomerName(""); setPage(0); }}
+          >초기화</button>
+        )}
       </div>
 
       {/* Filter tabs */}
@@ -255,7 +282,7 @@ function ReportList({ onSelect }) {
                       <Clock className="w-3 h-3" />
                       접수: {item.receivedAt}
                     </span>
-                    <span>방문 예약: {item.visitAt}</span>
+
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">

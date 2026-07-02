@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
-import { NavLink, useNavigate } from 'react-router'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { NavLink, useNavigate, useLocation } from 'react-router'
 import apiClient from '../../api/client.js'
+import { getOperatingHours } from '../../api/repairshopApi.js'
 import './ShopLayout.css'
 
 const NAV_ITEMS = [
@@ -17,7 +18,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/shop/orders',
-    label: '주문 접수',
+    label: '접수 현황',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
@@ -76,8 +77,43 @@ const FOOTER_ITEMS = [
 
 export default function ShopLayout({ children }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [isDark, setIsDark] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  // ── 운영시간 미설정 감지 ────────────────────────────────────
+  const [hoursNotSet, setHoursNotSet] = useState(false)
+  const redirectedRef = useRef(false)
+
+  const checkOperatingHours = useCallback(() => {
+    getOperatingHours()
+      .then((data) => {
+        console.log('[ShopLayout] operating hours data:', data)
+        const list = data?.hours ?? data ?? []
+        if (!list.length) {
+          setHoursNotSet(true)
+          const lmsDone = localStorage.getItem('caremate-shop-lms') === 'done'
+          if (!redirectedRef.current && lmsDone && location.pathname !== '/shop/profile') {
+            redirectedRef.current = true
+            navigate('/shop/profile', { replace: true })
+          }
+        }
+      })
+      .catch((err) => console.warn('[ShopLayout] 운영시간 조회 실패:', err))
+  }, [location.pathname, navigate])
+
+  useEffect(() => { checkOperatingHours() }, [checkOperatingHours])
+
+  useEffect(() => {
+    const onHoursSaved = () => setHoursNotSet(false)
+    const onLMSDone = () => checkOperatingHours()
+    window.addEventListener('hours-saved', onHoursSaved)
+    window.addEventListener('lms-completed', onLMSDone)
+    return () => {
+      window.removeEventListener('hours-saved', onHoursSaved)
+      window.removeEventListener('lms-completed', onLMSDone)
+    }
+  }, [checkOperatingHours])
 
   // ── 알림 state ─────────────────────────────────────────────
   const [unreadCount, setUnreadCount] = useState(0)
@@ -306,6 +342,28 @@ export default function ShopLayout({ children }) {
             <div className="shop-header__avatar">김</div>
           </div>
         </header>
+
+        {/* 운영시간 미설정 경고 배너 */}
+        {hoursNotSet && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '10px 20px',
+            background: '#fef3c7', borderBottom: '1px solid #fcd34d',
+            color: '#92400e', fontSize: '13px',
+          }}>
+            <span>⚠️</span>
+            <span>운영시간이 설정되지 않아 <strong>고객 예약이 불가능</strong>합니다.</span>
+            <button
+              onClick={() => navigate('/shop/profile')}
+              style={{
+                marginLeft: '4px', fontWeight: 600, textDecoration: 'underline',
+                background: 'none', border: 'none', color: '#92400e', cursor: 'pointer', fontSize: '13px',
+              }}
+            >
+              지금 설정하기 →
+            </button>
+          </div>
+        )}
 
         {/* Page content */}
         <main className="shop-content">{children}</main>

@@ -4,7 +4,6 @@ import {
   CreditCard,
   Smartphone,
   CheckCircle2,
-  TrendingDown,
   Download,
   ExternalLink,
   FileText,
@@ -12,8 +11,9 @@ import {
   ArrowRight,
   Info,
   Loader2,
+  Wrench,
 } from "lucide-react";
-import { Button, Card } from "../../components/shared";
+import { Button, Card, Badge } from "../../components/shared";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   fetchPaymentInfo,
@@ -28,6 +28,22 @@ import { getClaimEstimates, requestClaimPackage } from "../../api/claim";
 function fmt(n) {
   return Number(n ?? 0).toLocaleString("ko-KR") + "원";
 }
+
+// 결제 정보 조회(PAYABLE_STATUSES)에서 나올 수 있는 상태만 다룬다 —
+// customer/DashboardPage.jsx의 STATUS_LABEL과 동일한 표기 기준.
+const STATUS_LABEL_KO = {
+  REPAIR_DONE: "수리완료",
+  PAYMENT_COMPLETED: "결제완료",
+  CLAIM_REQUESTED: "청구요청",
+  CLAIM_COMPLETED: "청구완료",
+};
+
+const STATUS_VARIANT_KO = {
+  REPAIR_DONE: "yellow",
+  PAYMENT_COMPLETED: "green",
+  CLAIM_REQUESTED: "accent",
+  CLAIM_COMPLETED: "green",
+};
 
 // 청구 완료 여부 (CALCULATED = 아직 청구 안 함)
 const isClaimed = (claim) => claim.status !== "CALCULATED";
@@ -664,9 +680,9 @@ export default function PaymentPage() {
             </div>
             <div className="flex justify-between py-2.5 text-sm">
               <span className="text-muted-foreground">현재 상태</span>
-              <span className="font-medium text-foreground">
-                {paymentInfo?.status ?? "-"}
-              </span>
+              <Badge variant={STATUS_VARIANT_KO[paymentInfo?.status] || "muted"}>
+                {STATUS_LABEL_KO[paymentInfo?.status] || paymentInfo?.status || "-"}
+              </Badge>
             </div>
             <div className="flex justify-between py-3 text-base font-semibold">
               <span className="text-foreground">결제 금액 합계</span>
@@ -704,20 +720,68 @@ export default function PaymentPage() {
           </div>
         </Card>
 
-        {/* Insurance estimate preview — 5번 insurance-claims API 완성 후 연결 예정 */}
-        <Card className="p-5 flex flex-col gap-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-200 dark:border-blue-700/50">
+        {/* 수리 내역 — repair_reports 상세 */}
+        <Card className="p-5 flex flex-col gap-4">
           <div className="flex items-center gap-2">
-            <TrendingDown className="w-4 h-4 text-accent" />
-            <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-300">
-              보험 환급 예상액
+            <Wrench className="w-4 h-4 text-accent" />
+            <h3 className="text-sm font-semibold text-foreground">
+              수리 내역 상세
             </h3>
           </div>
-          <p className="text-xs text-blue-600 dark:text-blue-400 leading-relaxed">
-            결제 완료 후 보험 약관에 따라 예상 환급액이 산출됩니다. 실제
-            수령액은 보험사 심사 결과에 따라 다를 수 있습니다.
-          </p>
-          <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-            결제 완료 후 예상 환급액이 표시됩니다.
+
+          {paymentInfo?.troubleDescription && (
+            <p className="text-xs text-muted-foreground leading-relaxed bg-secondary/50 rounded-xl p-3">
+              {paymentInfo.troubleDescription}
+            </p>
+          )}
+
+          {paymentInfo?.repairRows?.length > 0 && (
+            <div className="flex flex-col divide-y divide-border/40">
+              {paymentInfo.repairRows.map((row, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between py-2 text-xs"
+                >
+                  <div>
+                    <span className="font-medium text-foreground">
+                      {row.item}
+                    </span>
+                    {row.part && (
+                      <span className="text-muted-foreground ml-1.5">
+                        · {row.part}
+                      </span>
+                    )}
+                    {row.qty > 1 && (
+                      <span className="text-muted-foreground ml-1.5">
+                        × {row.qty}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-foreground font-medium shrink-0">
+                    {fmt(row.unitPrice * (row.qty || 1))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col divide-y divide-border/40 pt-2 border-t border-border/40">
+            <div className="flex justify-between py-2 text-sm">
+              <span className="text-muted-foreground">부품비</span>
+              <span className="font-medium text-foreground">
+                {fmt(paymentInfo?.partsCost)}
+              </span>
+            </div>
+            <div className="flex justify-between py-2 text-sm">
+              <span className="text-muted-foreground">공임비</span>
+              <span className="font-medium text-foreground">
+                {fmt(paymentInfo?.laborCost)}
+              </span>
+            </div>
+            <div className="flex justify-between py-2.5 text-sm font-semibold">
+              <span className="text-foreground">총 수리비</span>
+              <span className="text-foreground">{fmt(total)}</span>
+            </div>
           </div>
         </Card>
       </div>
