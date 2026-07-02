@@ -53,6 +53,7 @@ export default function ShopProfilePage() {
   const [saving, setSaving] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [hours, setHours] = useState(DEFAULT_HOURS);
+  const [hoursNotSaved, setHoursNotSaved] = useState(false);
   const [profile, setProfile] = useState({
     shopName: "강남 스마트케어",
     ownerName: "박기술",
@@ -81,7 +82,7 @@ export default function ShopProfilePage() {
     getOperatingHours()
       .then((data) => {
         const list = data?.hours ?? data ?? [];
-        if (!list.length) return;
+        if (!list.length) { setHoursNotSaved(true); return; }
         const next = { ...DEFAULT_HOURS };
         list.forEach((row) => {
           const dayName = DAYS[row.dayOfWeek === 0 ? 6 : row.dayOfWeek - 1]; // 월=1→index0
@@ -119,6 +120,7 @@ export default function ShopProfilePage() {
           })),
         };
         await updateOperatingHours(hoursPayload);
+        setHoursNotSaved(false);
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -273,6 +275,12 @@ export default function ShopProfilePage() {
       )}
 
       {/* Operating hours */}
+      {tab === "hours" && hoursNotSaved && (
+        <div className="flex items-start gap-2 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm">
+          <span className="mt-0.5">⚠️</span>
+          <span>운영시간이 아직 저장되어 있지 않습니다. 아래 시간을 확인하고 <strong>저장</strong>을 눌러주세요. 저장 전에는 고객이 예약할 수 없습니다.</span>
+        </div>
+      )}
       {tab === "hours" && (
         <Card className="p-6 flex flex-col gap-4">
           <h3 className="text-sm font-semibold text-foreground">

@@ -7,7 +7,7 @@ import {
 import './css/OrderDetail.css'
 
 const STATUS_LABEL = {
-  RECEIVED:'접수 대기', ACCEPTED:'확정', REJECTED:'반려',
+  RECEIVED:'접수 대기', ACCEPTED:'방문 예정', REJECTED:'반려',
   NO_SHOW:'노쇼', IN_REPAIR:'수리 중', REPAIR_IMPOSSIBLE:'수리 불가',
   REPAIR_DONE:'수리 완료', PAYMENT_COMPLETED:'결제 완료',
   CLAIM_REQUESTED:'청구 요청', CLAIM_COMPLETED:'청구 완료',

@@ -48,6 +48,62 @@
 }
 .ol-date-input:focus { border-color: var(--accent); }
 
+.ol-search-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ol-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ol-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.ol-text-input {
+  padding: 8px 14px 8px 32px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--foreground);
+  background: var(--card);
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s;
+  width: 150px;
+}
+.ol-text-input:focus { border-color: var(--accent); }
+.ol-text-input::placeholder { color: var(--muted-foreground); opacity: 0.6; }
+
+.ol-range-sep {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ol-clear-btn {
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  background: var(--card);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.ol-clear-btn:hover { border-color: #ef4444; color: #ef4444; }
+
 /* ── Table card ───────────────────────────────────────────── */
 .ol-table-card { padding: 0; overflow: hidden; }
 
@@ -79,6 +135,18 @@
   letter-spacing: 0.2px;
 }
 
+/* 전체 컬럼 가운데 정렬 */
+.ol-table th,
+.ol-table td {
+  text-align: center;
+}
+
+/* 고객명만 왼쪽 정렬 유지 */
+.ol-table th:nth-child(2),
+.ol-table td:nth-child(2) {
+  text-align: left;
+}
+
 .ol-row {
   border-bottom: 1px solid var(--border);
   cursor: pointer;
@@ -108,6 +176,7 @@
 .ol-actions {
   display: flex;
   gap: 6px;
+  justify-content: center;
 }
 
 .ol-no-action {

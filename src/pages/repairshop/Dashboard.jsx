@@ -19,7 +19,7 @@ function isSameDay(dateStr, year, month, day) {
 }
 
 const STATUS_LABEL = {
-  RECEIVED:'검토 대기', ACCEPTED:'확정 예약', REJECTED:'반려',
+  RECEIVED:'검토 대기', ACCEPTED:'방문 예정', REJECTED:'반려',
   NO_SHOW:'노쇼', IN_REPAIR:'수리 중', REPAIR_DONE:'수리 완료',
   PAYMENT_COMPLETED:'결제 완료', CLAIM_REQUESTED:'청구 요청', CLAIM_COMPLETED:'청구 완료',
 }
@@ -113,7 +113,7 @@ export default function Dashboard() {
           <span className="db-legend-dot db-legend-dot--blue" />
           <span className="db-legend-text">검토 대기</span>
           <span className="db-legend-dot db-legend-dot--yellow" />
-          <span className="db-legend-text">확정 예약</span>
+          <span className="db-legend-text">방문 예정</span>
         </div>
       </div>
 
