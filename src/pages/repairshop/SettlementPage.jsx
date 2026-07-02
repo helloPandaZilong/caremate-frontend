@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   ChevronDown,
-  Printer,
+  FileDown,
   Download,
   TrendingUp,
   Loader2,
@@ -12,6 +12,7 @@ import {
   fetchSettlementDetail,
   fetchSettlementOrders,
   downloadSettlementExcel,
+  downloadSettlementPdf,
 } from "../../api/settlement";
 
 function fmt(n) {
@@ -27,6 +28,7 @@ export default function ShopSettlementPage() {
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
   const [error, setError] = useState(null);
 
   // 월별 정산 목록 조회
@@ -61,7 +63,7 @@ export default function ShopSettlementPage() {
       .finally(() => setLoadingOrders(false));
   }, [month]);
 
-  // 다운로드
+  // Excel 다운로드
   const handleDownload = async () => {
     if (!month || downloading) return;
     setDownloading(true);
@@ -71,6 +73,19 @@ export default function ShopSettlementPage() {
       setError("다운로드에 실패했습니다.");
     } finally {
       setDownloading(false);
+    }
+  };
+
+  // PDF 다운로드 — 서버(Thymeleaf+openhtmltopdf)에서 화면과 동일한 내용을 렌더링해 반환
+  const handleDownloadPdf = async () => {
+    if (!month || pdfDownloading) return;
+    setPdfDownloading(true);
+    try {
+      await downloadSettlementPdf(month);
+    } catch {
+      setError("PDF 다운로드에 실패했습니다.");
+    } finally {
+      setPdfDownloading(false);
     }
   };
 
@@ -120,11 +135,16 @@ export default function ShopSettlementPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => window.print()}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-border rounded-xl hover:bg-secondary transition-colors text-foreground"
+            onClick={handleDownloadPdf}
+            disabled={pdfDownloading || !month}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium border border-border rounded-xl hover:bg-secondary transition-colors text-foreground disabled:opacity-50"
           >
-            <Printer className="w-4 h-4" />
-            인쇄
+            {pdfDownloading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <FileDown className="w-4 h-4" />
+            )}
+            {pdfDownloading ? "PDF 생성 중..." : "PDF 다운로드"}
           </button>
           <button
             onClick={handleDownload}
