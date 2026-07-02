@@ -42,6 +42,24 @@ export const downloadSettlementExcel = async (settlementMonth) => {
 export const fetchSettlementOrders = (settlementMonth) =>
   apiClient.get(`/shop/settlements/${settlementMonth}/orders`)
 
+/**
+ * 정산 리포트 PDF 다운로드 — 화면에 보이는 리포트를 서버(Thymeleaf+openhtmltopdf)에서
+ * 그대로 렌더링해 PDF로 내려준다. window.print()와 달리 클릭 한 번으로 바로 파일 다운로드된다.
+ * GET /api/shop/settlements/{settlementMonth}/pdf
+ */
+export const downloadSettlementPdf = async (settlementMonth) => {
+  const response = await apiClient.get(
+    `/shop/settlements/${settlementMonth}/pdf`,
+    { responseType: 'blob' }
+  )
+  const url = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `정산리포트_${settlementMonth}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 // ── 관리자 정산·배치 관리 API ───────────────────────────────────────────────────
 // 백엔드: AdminSettlementController (/api/admin/settlements/**)
 
