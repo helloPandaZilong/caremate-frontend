@@ -71,8 +71,18 @@ const ADMIN_NAV = [
   { label: "운영 감사", href: "/admin/audit", icon: AlertTriangle },
 ];
 
-function getNavConfig(path) {
-  if (path.startsWith("/shop"))
+function normalizeRole(role) {
+  const value = String(role ?? "").toUpperCase();
+
+  if (value.includes("ADMIN")) return "ADMIN";
+  if (value.includes("REPAIR_SHOP") || value.includes("SHOP")) return "REPAIR_SHOP";
+  return "CUSTOMER";
+}
+
+function getNavConfig(path, userRole) {
+  const roleType = normalizeRole(userRole);
+
+  if (roleType === "REPAIR_SHOP")
     return {
       items: SHOP_NAV,
       role: "수리점 파트너",
@@ -82,7 +92,7 @@ function getNavConfig(path) {
       profileHref: "/shop/profile",
       profileLabel: "매장 프로필",
     };
-  if (path.startsWith("/admin"))
+  if (roleType === "ADMIN")
     return {
       items: ADMIN_NAV,
       role: "관리자",
@@ -99,104 +109,6 @@ function getNavConfig(path) {
     profileHref: "/customer/profile",
     profileLabel: "마이페이지",
   };
-}
-
-// ── Notification data ─────────────────────────────────────────────────────────
-
-const CUSTOMER_NOTIFS = [
-  {
-    id: 1,
-    type: "ACCEPTED",
-    msg: "A/S 접수가 강남 스마트케어에서 수락되었습니다.",
-    time: "방금 전",
-    read: false,
-    icon: CheckCircle2,
-    color: "text-green-500",
-  },
-  {
-    id: 2,
-    type: "PAYMENT_REQUESTED",
-    msg: "수리가 완료되었습니다. 결제를 진행해 주세요.",
-    time: "1시간 전",
-    read: false,
-    icon: Pay,
-    color: "text-blue-500",
-  },
-  {
-    id: 3,
-    type: "ESTIMATED_CLAIM_NOTICE",
-    msg: "보험 예상 환급액이 산출되었습니다. Carrier Care: ₩287,000",
-    time: "2시간 전",
-    read: true,
-    icon: Award,
-    color: "text-amber-500",
-  },
-  {
-    id: 4,
-    type: "CLAIM_DISPATCH_SUCCESS",
-    msg: "보험 청구 패키지 생성이 완료되었습니다.",
-    time: "어제",
-    read: true,
-    icon: CheckCircle2,
-    color: "text-green-500",
-  },
-];
-
-const SHOP_NOTIFS = [
-  {
-    id: 1,
-    type: "BATCH_COMPLETED",
-    msg: "2024년 6월 월말 수수료 청구 요청이 도착했습니다. 납부 기한: 07.05",
-    time: "방금 전",
-    read: false,
-    icon: AlertCircle,
-    color: "text-amber-500",
-  },
-  {
-    id: 2,
-    type: "REPAIR_SHOP_APPROVED",
-    msg: "수리점 가입이 관리자에 의해 최종 승인되었습니다.",
-    time: "2024.06.01",
-    read: true,
-    icon: CheckCircle2,
-    color: "text-green-500",
-  },
-];
-
-const ADMIN_NOTIFS = [
-  {
-    id: 1,
-    type: "BATCH_FAILED",
-    msg: "선릉 올폰 서비스 Step 실행 실패 — 즉시 확인 필요",
-    time: "방금 전",
-    read: false,
-    icon: AlertCircle,
-    color: "text-red-500",
-  },
-  {
-    id: 2,
-    type: "CLAIM_DISPATCH_FAILED",
-    msg: "KB손해보험 청구 패키지 전송 실패 (DLQ 적재)",
-    time: "1시간 전",
-    read: false,
-    icon: AlertCircle,
-    color: "text-red-400",
-  },
-  {
-    id: 3,
-    type: "BATCH_COMPLETED",
-    msg: "2024년 6월 월말 정산 배치가 완료되었습니다.",
-    time: "어제",
-    read: true,
-    icon: CheckCircle2,
-    color: "text-green-500",
-  },
-];
-
-function getRoleNotifs(path) {
-  if (path.startsWith("/shop")) return SHOP_NOTIFS;
-  if (path.startsWith("/admin")) return ADMIN_NOTIFS;
-  return CUSTOMER_NOTIFS;
 }
 
 // ── Dark mode toggle ──────────────────────────────────────────────────────────
@@ -232,6 +144,18 @@ function NotificationDropdown({ path, onClose }) {
   const notifs = getRoleNotifs(path);
   const [items, setItems] = useState(notifs);
   const ref = useRef(null);
+
+  useEffect(() => {
+    getNotifications()
+        .then(({ data }) => {
+          console.log('[Notification] API 응답:', data);
+          setItems(data.data?.content ?? []);
+        })
+        .catch((err) => {
+          console.error('[Notification] API 오류:', err?.response?.status, err?.response?.data ?? err?.message);
+        })
+        .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     function handleClick(e) {
@@ -430,11 +354,11 @@ function LMSGate({ onNavigate }) {
 
 // ── Desktop Sidebar ───────────────────────────────────────────────────────────
 
-function DesktopSidebar({ collapsed, onToggle, dark, onLogout }) {
+function DesktopSidebar({ collapsed, onToggle, dark, onLogout, userRole }) {
   const loc = useLocation();
   const nav = useNavigate();
   const { items, role, roleColorLight, roleColorDark, profileHref, profileLabel } =
-    getNavConfig(loc.pathname);
+    getNavConfig(loc.pathname, userRole);
   const roleColor = dark ? roleColorDark : roleColorLight;
 
   return (
@@ -749,9 +673,10 @@ export default function AppShell() {
         onToggle={() => setCollapsed((v) => !v)}
         dark={dark}
         onLogout={handleLogout}
+        userRole={user?.role}
       />
       <DesktopTopBar collapsed={collapsed} dark={dark} toggleDark={toggle} user={user} />
-      <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} />
+      <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} userRole={user?.role} />
       <ContentArea collapsed={collapsed}>
         {showLMSGate ? (
           <LMSGate onNavigate={() => nav("/shop/lms")} />
