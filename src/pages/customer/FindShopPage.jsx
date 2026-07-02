@@ -2,15 +2,16 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
 import { Search, Clock, Phone, X, Loader2, MapPin, Navigation } from "lucide-react";
 import { getRepairShops, getShopOperatingHours } from "../../api/customerService";
+import { StarRating } from "../../components/shared";
 
 const KAKAO_MAP_KEY = import.meta.env.VITE_KAKAO_MAP_KEY;
 
 const DEMO_SHOPS = [
-  { id: 901, shopName: "폰케어 강남점", address: "서울 강남구 테헤란로 152", phone: "02-555-1234", latitude: 37.5000, longitude: 127.0365 },
-  { id: 902, shopName: "스마트픽스 홍대점", address: "서울 마포구 양화로 160", phone: "02-332-5678", latitude: 37.5563, longitude: 126.9236 },
-  { id: 903, shopName: "닥터폰 건대입구점", address: "서울 광진구 아차산로 272", phone: "02-446-9012", latitude: 37.5407, longitude: 127.0698 },
-  { id: 904, shopName: "모바일119 신촌점", address: "서울 서대문구 연세로 11", phone: "02-393-3456", latitude: 37.5598, longitude: 126.9425 },
-  { id: 905, shopName: "퀵리페어 잠실점", address: "서울 송파구 올림픽로 300", phone: "02-421-7890", latitude: 37.5133, longitude: 127.1001 },
+  { id: 901, shopName: "폰케어 강남점", address: "서울 강남구 테헤란로 152", phone: "02-555-1234", latitude: 37.5000, longitude: 127.0365, avgRating: 4.8, reviewCount: 132 },
+  { id: 902, shopName: "스마트픽스 홍대점", address: "서울 마포구 양화로 160", phone: "02-332-5678", latitude: 37.5563, longitude: 126.9236, avgRating: 4.6, reviewCount: 87 },
+  { id: 903, shopName: "닥터폰 건대입구점", address: "서울 광진구 아차산로 272", phone: "02-446-9012", latitude: 37.5407, longitude: 127.0698, avgRating: 4.9, reviewCount: 204 },
+  { id: 904, shopName: "모바일119 신촌점", address: "서울 서대문구 연세로 11", phone: "02-393-3456", latitude: 37.5598, longitude: 126.9425, avgRating: 4.5, reviewCount: 56 },
+  { id: 905, shopName: "퀵리페어 잠실점", address: "서울 송파구 올림픽로 300", phone: "02-421-7890", latitude: 37.5133, longitude: 127.1001, avgRating: 4.7, reviewCount: 98 },
 ];
 
 function loadScript(url) {
@@ -66,6 +67,7 @@ function InfoPopup({ shop, hours, onClose, onReserve }) {
         <div>
           <p className="text-sm font-semibold text-foreground">{shop.shopName}</p>
           <p className="text-xs text-muted-foreground mt-0.5">{shop.address}</p>
+          <StarRating rating={shop.avgRating} reviewCount={shop.reviewCount} size="sm" className="mt-1" />
         </div>
         <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-0.5">
           <X className="w-4 h-4" />
@@ -398,6 +400,7 @@ export default function FindShopPage() {
                 )}
               </div>
               <p className="text-xs text-muted-foreground mb-1">{shop.address}</p>
+              <StarRating rating={shop.avgRating} reviewCount={shop.reviewCount} size="sm" className="mb-2" />
               {shop.phone && (
                 <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
                   <Phone className="w-3 h-3" /> {shop.phone}

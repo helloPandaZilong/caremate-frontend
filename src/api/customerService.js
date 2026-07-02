@@ -103,3 +103,17 @@ export function getRepairShop(shopId) {
 export function getShopOperatingHours(shopId) {
     return apiClient.get(`/repair-shops/${shopId}/operating-hours`)
 }
+
+export function getShopReviews(shopId, page = 0, size = 10) {
+    return apiClient.get(`/repair-shops/${shopId}/reviews`, { params: { page, size } })
+}
+
+// ── Shop Reviews ─────────────────────────────────────────────────────────────
+
+export function createShopReview({ repairOrderId, rating }) {
+    return apiClient.post('/customer/shop-reviews', { repairOrderId, rating })
+}
+
+export function getOrderShopReview(orderId) {
+    return apiClient.get(`/customer/repair-orders/${orderId}/shop-review`)
+}

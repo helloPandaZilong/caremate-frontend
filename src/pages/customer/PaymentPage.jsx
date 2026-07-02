@@ -14,6 +14,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { Button, Card, Badge } from "../../components/shared";
+import ShopReviewCard from "../../components/ShopReviewCard";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   fetchPaymentInfo,
@@ -390,6 +391,9 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
           ))}
         </div>
       </Card>
+
+      {/* 별점 리뷰 (선택) */}
+      <ShopReviewCard orderId={orderId} shopName={receipt?.shopName} />
 
       <Button
         variant="secondary"
