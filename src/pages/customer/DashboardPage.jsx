@@ -13,7 +13,15 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { Card, Badge, Button } from "../../components/shared";
+import ShopReviewCard from "../../components/ShopReviewCard";
 import { getRepairOrders, getStatusHistories } from "../../api/customerService";
+
+const REVIEWABLE_STATUSES = [
+  "PAYMENT_COMPLETED",
+  "CLAIM_REQUESTED",
+  "CLAIM_COMPLETED",
+  "RECEIPT_UPLOADED",
+];
 
 const STAGES = [
   { id: 1, label: "접수", icon: CheckCircle2 },
@@ -191,6 +199,10 @@ function ASRequestCard({ order }) {
         >
           결제하러 가기
         </Button>
+      )}
+
+      {REVIEWABLE_STATUSES.includes(order.status) && (
+        <ShopReviewCard orderId={order.id} shopName={order.shopName} />
       )}
     </Card>
   );

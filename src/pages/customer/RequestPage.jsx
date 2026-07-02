@@ -11,7 +11,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import { Button, Card, UploadZone } from "../../components/shared";
+import { Button, Card, UploadZone, StarRating } from "../../components/shared";
 import {
   getRepairShops,
   getInsurancePolicies,
@@ -27,9 +27,9 @@ const STEPS = [
 ];
 
 const DEMO_SHOPS = [
-  { id: 901, shopName: "폰케어 강남점", address: "서울 강남구 테헤란로 152", phone: "02-555-1234" },
-  { id: 902, shopName: "스마트픽스 홍대점", address: "서울 마포구 양화로 160", phone: "02-332-5678" },
-  { id: 903, shopName: "닥터폰 건대입구점", address: "서울 광진구 아차산로 272", phone: "02-446-9012" },
+  { id: 901, shopName: "폰케어 강남점", address: "서울 강남구 테헤란로 152", phone: "02-555-1234", avgRating: 4.8, reviewCount: 132 },
+  { id: 902, shopName: "스마트픽스 홍대점", address: "서울 마포구 양화로 160", phone: "02-332-5678", avgRating: 4.6, reviewCount: 87 },
+  { id: 903, shopName: "닥터폰 건대입구점", address: "서울 광진구 아차산로 272", phone: "02-446-9012", avgRating: 4.9, reviewCount: 204 },
 ];
 
 const DEMO_POLICIES = [
@@ -403,6 +403,7 @@ export default function RequestPage() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-foreground">{shop.shopName}</p>
                     <p className="text-xs text-muted-foreground">{shop.address}</p>
+                    <StarRating rating={shop.avgRating} reviewCount={shop.reviewCount} size="sm" className="mt-1" />
                   </div>
                 </div>
               ))}
