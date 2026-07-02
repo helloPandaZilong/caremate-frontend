@@ -10,6 +10,7 @@ import { Card, Badge } from "../../components/shared";
 import {
   fetchSettlements,
   fetchSettlementDetail,
+  fetchSettlementOrders,
   downloadSettlementExcel,
 } from "../../api/settlement";
 
@@ -21,8 +22,10 @@ export default function ShopSettlementPage() {
   const [months, setMonths] = useState([]);
   const [month, setMonth] = useState(null);
   const [detail, setDetail] = useState(null);
+  const [orders, setOrders] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadingOrders, setLoadingOrders] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -46,6 +49,16 @@ export default function ShopSettlementPage() {
       .then((res) => setDetail(res.data.data))
       .catch(() => setError("정산 상세를 불러오지 못했습니다."))
       .finally(() => setLoadingDetail(false));
+  }, [month]);
+
+  // 특정 월 건별 결제 내역 조회
+  useEffect(() => {
+    if (!month) return;
+    setLoadingOrders(true);
+    fetchSettlementOrders(month)
+      .then((res) => setOrders(res.data.data ?? []))
+      .catch(() => setOrders([]))
+      .finally(() => setLoadingOrders(false));
   }, [month]);
 
   // 다운로드
@@ -244,16 +257,72 @@ export default function ShopSettlementPage() {
             </div>
           </Card>
 
-          {/* 주문 상세 테이블 — 4번 repair_orders API 연동 후 추가 예정 */}
+          {/* 주문 상세 테이블 — payments.paidAt 기준 건별 결제 내역 */}
           <Card className="overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h3 className="text-sm font-semibold text-foreground">
                 {displayMonth} 수리 내역 ({orderCount}건)
               </h3>
             </div>
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              건별 수리 내역은 4번 담당 API 연동 후 표시됩니다.
-            </div>
+
+            {loadingOrders ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="py-12 text-center text-sm text-muted-foreground">
+                해당 월에 결제 완료된 수리 내역이 없습니다.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-border/40 bg-secondary/50">
+                      {[
+                        "주문번호",
+                        "고객명",
+                        "결제 금액",
+                        "예상 환급액",
+                        "결제 일시",
+                      ].map((h) => (
+                        <th
+                          key={h}
+                          className="text-left py-3 px-4 text-muted-foreground font-semibold whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((o) => (
+                      <tr
+                        key={o.orderId}
+                        className="border-b border-border/20 hover:bg-secondary/40 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-mono text-foreground whitespace-nowrap">
+                          {o.orderNo}
+                        </td>
+                        <td className="py-3 px-4 text-foreground font-medium">
+                          {o.customerName}
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-foreground">
+                          {fmt(o.totalPaidAmount)}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {fmt(o.expectedRefundAmount)}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground whitespace-nowrap font-mono">
+                          {o.paidAt
+                            ? new Date(o.paidAt).toLocaleString("ko-KR")
+                            : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </Card>
 
           {/* Monthly trend */}

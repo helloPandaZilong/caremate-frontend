@@ -41,6 +41,7 @@ const STATUS_LABEL = {
   REJECTED: "반려됨",
   CANCELLED: "취소됨",
   NO_SHOW: "노쇼",
+  REPAIR_IMPOSSIBLE: "수리불가",
 };
 
 const STATUS_VARIANT = {
@@ -53,6 +54,7 @@ const STATUS_VARIANT = {
   REJECTED: "red",
   CANCELLED: "muted",
   NO_SHOW: "red",
+  REPAIR_IMPOSSIBLE: "red",
 };
 
 function StatusStepper({ currentStage }) {

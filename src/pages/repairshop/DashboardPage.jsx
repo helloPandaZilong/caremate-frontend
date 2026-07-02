@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, ChevronRight, X, Check, Phone, Image, Wrench, UserX } from "lucide-react";
 import { Badge, Button } from "../../components/shared";
-import { getOrders, getOrderDetail, acceptOrder, rejectOrder, startRepair, manualNoShow } from "../../api/repairshopApi";
+import { getOrders, getOrderDetail, acceptOrder, rejectOrder, startRepair, manualNoShow, getShopProfile } from "../../api/repairshopApi";
 
 const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -16,7 +16,7 @@ const STATUS_MAP = {
 
 const STATUS_BADGE = {
   pending:   { label: "대기",   barCls: "border-blue-500 bg-blue-50 text-blue-700",     badgeCls: "bg-blue-500 text-white" },
-  scheduled: { label: "접수완료", barCls: "border-amber-400 bg-amber-50 text-amber-700",  badgeCls: "bg-amber-400 text-white" },
+  scheduled: { label: "방문 예정", barCls: "border-amber-400 bg-amber-50 text-amber-700",  badgeCls: "bg-amber-400 text-white" },
   in_repair: { label: "수리중", barCls: "border-purple-500 bg-purple-50 text-purple-700", badgeCls: "bg-purple-500 text-white" },
   done:      { label: "완료",   barCls: "border-green-500 bg-green-50 text-green-700",  badgeCls: "bg-green-500 text-white" },
   rejected:  { label: "거절",   barCls: "border-red-400 bg-red-50 text-red-700",        badgeCls: "bg-red-400 text-white" },
@@ -223,8 +223,10 @@ function BookingDrawer({ booking, onClose, onAction }) {
 export default function ShopDashboard() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [bookings, setBookings] = useState(MOCK_BOOKINGS);
+  const todayListRef = useRef(null);
   const [curYear, setCurYear] = useState(new Date().getFullYear());
   const [curMonth, setCurMonth] = useState(new Date().getMonth());
+  const [shopName, setShopName] = useState("");
 
   const loadOrders = useCallback(() => {
     getOrders({ size: 100 })
@@ -250,14 +252,14 @@ export default function ShopDashboard() {
             visitAt: formatDate(o.reservedVisitAt),
           };});
         setBookings(mapped);
-        const first = new Date(items[0].reservedVisitAt);
-        setCurYear(first.getFullYear());
-        setCurMonth(first.getMonth());
       })
       .catch(() => {});
   }, []);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
+  useEffect(() => {
+    getShopProfile().then((d) => { if (d?.shopName) setShopName(d.shopName); }).catch(() => {});
+  }, []);
 
   const firstDay = new Date(curYear, curMonth, 1).getDay();
   const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
@@ -278,7 +280,19 @@ export default function ShopDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-foreground">예약 스케줄 관리</h1>
-          <p className="text-sm text-muted-foreground mt-1">강남 스마트케어 · 오늘 예약 {todayBookings.length}건</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {shopName && `${shopName} · `}
+            {todayBookings.length > 0 ? (
+              <button
+                className="text-accent font-semibold hover:underline"
+                onClick={() => todayListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              >
+                오늘 예약 {todayBookings.length}건
+              </button>
+            ) : (
+              '오늘 예약 0건'
+            )}
+          </p>
         </div>
         <div className="hidden md:flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-blue-500 bg-blue-50" />대기</span>
@@ -314,27 +328,33 @@ export default function ShopDashboard() {
         </div>
       </div>
 
-      <div className="bg-card border border-border rounded-2xl p-5">
+      <div ref={todayListRef} className="bg-card border border-border rounded-2xl p-5">
         <h3 className="text-sm font-semibold text-foreground mb-4">오늘 예약 목록</h3>
         {todayBookings.length === 0
           ? <p className="text-sm text-muted-foreground text-center py-6">오늘 예약이 없습니다.</p>
           : (
             <div className="flex flex-col gap-2">
-              {todayBookings.map((b) => (
-                <div key={b.id} onClick={() => setSelectedBooking(b)}
-                  className="flex items-center justify-between p-3 bg-secondary rounded-xl cursor-pointer hover:bg-secondary/80 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-muted-foreground w-12">{b.hour}:00</span>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{b.customer}</p>
-                      <p className="text-xs text-muted-foreground">{b.device}</p>
+              {todayBookings.map((b) => {
+                const badge = STATUS_BADGE[b.status] ?? STATUS_BADGE.pending;
+                return (
+                  <div key={b.id} onClick={() => setSelectedBooking(b)}
+                    className="flex items-center justify-between p-3 bg-secondary rounded-xl cursor-pointer hover:bg-secondary/80 transition-colors gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xs font-mono text-muted-foreground w-12 shrink-0">{b.hour}:00</span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-foreground">{b.customer}</p>
+                          <span className="text-xs text-muted-foreground font-mono">{b.orderNo}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{b.issue !== "-" ? b.issue : "증상 정보 없음"}</p>
+                      </div>
                     </div>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 ${badge.badgeCls}`}>
+                      {badge.label}
+                    </span>
                   </div>
-                  <Badge variant={b.status === "pending" ? "accent" : "yellow"}>
-                    {b.status === "pending" ? "검토 대기" : "확정"}
-                  </Badge>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )
         }

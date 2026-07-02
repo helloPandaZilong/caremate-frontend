@@ -83,6 +83,8 @@ function StepIndicator({ current }) {
   );
 }
 
+const todayStr = () => new Date().toISOString().split("T")[0];
+
 export default function RequestPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -90,9 +92,7 @@ export default function RequestPage() {
   const [step, setStep] = useState(0);
   const [damage, setDamage] = useState("");
   const [selectedSlot, setSelectedSlot] = useState("");
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [selectedDate, setSelectedDate] = useState(todayStr());
   const [selectedShop, setSelectedShop] = useState(preselectedShop);
   const [selectedPolicies, setSelectedPolicies] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
@@ -171,10 +171,14 @@ export default function RequestPage() {
     if (!selectedShop) { setSubmitError("서비스 센터를 선택해주세요."); return; }
     if (!selectedSlot) { setSubmitError("방문 시간을 선택해주세요."); return; }
     if (selectedPolicies.length === 0) { setSubmitError("보험을 1개 이상 선택해주세요."); return; }
+    const reservedVisitAt = `${selectedDate}T${selectedSlot}:00`;
+    if (new Date(reservedVisitAt) < new Date()) {
+      setSubmitError("현재 시간 이전으로는 예약할 수 없습니다.");
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const reservedVisitAt = `${selectedDate}T${selectedSlot}:00`;
       await createRepairOrder({
         repairShopId: selectedShop.id,
         damageDescription: damage,
@@ -369,7 +373,9 @@ export default function RequestPage() {
       )}
 
       {/* Step 2: Service center */}
-      {step === 2 && (
+      {step === 2 && (() => {
+        const now = new Date();
+        return (
         <Card className="p-6 flex flex-col gap-5">
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-semibold text-foreground">
@@ -410,7 +416,11 @@ export default function RequestPage() {
             <input
               type="date"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              min={todayStr()}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedDate(value < todayStr() ? todayStr() : value);
+              }}
               className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
             />
           </div>
@@ -420,23 +430,31 @@ export default function RequestPage() {
               방문 시간 선택
             </label>
             <div className="grid grid-cols-4 gap-2">
-              {TIME_SLOTS.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setSelectedSlot(t)}
-                  className={`py-2 text-xs font-medium rounded-xl border transition-all ${
-                    selectedSlot === t
-                      ? "bg-accent text-white border-accent"
-                      : "bg-card border-border text-foreground hover:border-accent/40"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
+              {TIME_SLOTS.map((t) => {
+                const isToday = selectedDate === todayStr();
+                const isPast = isToday && t <= now.toTimeString().slice(0, 5);
+                return (
+                  <button
+                    key={t}
+                    onClick={() => !isPast && setSelectedSlot(t)}
+                    disabled={isPast}
+                    className={`py-2 text-xs font-medium rounded-xl border transition-all ${
+                      isPast
+                        ? "bg-secondary border-border text-muted-foreground/40 cursor-not-allowed"
+                        : selectedSlot === t
+                          ? "bg-accent text-white border-accent"
+                          : "bg-card border-border text-foreground hover:border-accent/40"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </Card>
-      )}
+        );
+      })()}
 
       {/* Step 3: Insurance selection */}
       {step === 3 && (

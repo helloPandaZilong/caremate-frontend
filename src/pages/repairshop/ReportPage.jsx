@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
 import {
   ChevronRight,
   CheckCircle2,
@@ -18,7 +19,7 @@ import {
   Download,
 } from "lucide-react";
 import { Button, Card, Badge } from "../../components/shared";
-import { getOrders, startRepair, completeRepair, parseRepairFile, submitReportFeedback, uploadOrderImage, getOrderImages, deleteOrderImage, saveReport, downloadReportPdf } from "../../api/repairshopApi";
+import { getOrders, startRepair, completeRepair, repairImpossible, parseRepairFile, submitReportFeedback, uploadOrderImage, getOrderImages, deleteOrderImage, saveReport, downloadReportPdf, getReport } from "../../api/repairshopApi";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
@@ -95,6 +96,7 @@ const STATUS_CONFIG = {
   pending: { label: "리포트 작성 필요", badgeVariant: "yellow" },
   in_progress: { label: "수리 진행 중", badgeVariant: "accent" },
   completed: { label: "완료", badgeVariant: "green" },
+  impossible: { label: "수리 불가", badgeVariant: "red" },
 };
 
 // ── List Page ─────────────────────────────────────────────────────────────────
@@ -103,9 +105,9 @@ const PAGE_SIZE = 4;
 
 // 백엔드 status → 화면 status 매핑
 const BE_STATUS_MAP = {
-  ACCEPTED: "pending",       // 수리 시작 전
-  IN_REPAIR: "in_progress",  // 수리 중
+  IN_REPAIR: "in_progress",        // 수리 중
   REPAIR_DONE: "completed",
+  REPAIR_IMPOSSIBLE: "impossible", // 수리 불가 — 결제 없음
   PAYMENT_COMPLETED: "completed",
   CLAIM_REQUESTED: "completed",
   CLAIM_COMPLETED: "completed",
@@ -118,8 +120,10 @@ function fmtDate(s) {
 }
 
 function ReportList({ onSelect }) {
+  const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState("all");
+  const [customerName, setCustomerName] = useState("");
   const [items, setItems] = useState(REPORT_ITEMS);
   const [startingId, setStartingId] = useState(null);
 
@@ -149,8 +153,7 @@ function ReportList({ onSelect }) {
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
-  async function handleStartRepair(e, item) {
-    e.stopPropagation();
+  async function handleStartRepair(item) {
     if (!window.confirm("수리를 시작하시겠습니까?")) return;
     setStartingId(item.id);
     try {
@@ -163,14 +166,16 @@ function ReportList({ onSelect }) {
     }
   }
 
-  const filtered = items.filter(
-    (r) => filter === "all" || r.status === filter,
-  );
+  const filtered = items.filter((r) => {
+    if (filter !== "all" && r.status !== filter) return false;
+    if (customerName.trim() && !r.customer?.toLowerCase().includes(customerName.trim().toLowerCase())) return false;
+    return true;
+  });
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   const pendingCount = items.filter(
-    (r) => r.status !== "completed",
+    (r) => r.status === "in_progress",
   ).length;
 
   return (
@@ -180,19 +185,44 @@ function ReportList({ onSelect }) {
           <h1 className="text-xl font-semibold text-foreground">수리 리포트</h1>
           <p className="text-sm text-muted-foreground mt-1">
             리포트 작성이 필요한 건수:{" "}
-            <span className="text-accent font-semibold">{pendingCount}건</span>
+            <button
+              className="text-accent font-semibold hover:underline"
+              onClick={() => { setFilter("in_progress"); setPage(0); }}
+            >{pendingCount}건</button>
           </p>
         </div>
       </div>
 
+      {/* Search */}
+      <div className="flex items-center gap-2">
+        <div className="relative">
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="고객명 검색"
+            value={customerName}
+            onChange={e => { setCustomerName(e.target.value); setPage(0); }}
+            className="pl-7 pr-3 py-1.5 text-xs rounded-lg border border-border bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent"
+          />
+        </div>
+        {customerName && (
+          <button
+            className="text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => { setCustomerName(""); setPage(0); }}
+          >초기화</button>
+        )}
+      </div>
+
       {/* Filter tabs */}
       <div className="flex gap-1 bg-secondary p-0.5 rounded-xl w-fit">
-        {["all", "pending", "in_progress", "completed"].map((f) => {
+        {["all", "in_progress", "completed", "impossible"].map((f) => {
           const labels = {
             all: "전체",
-            pending: "작성 필요",
             in_progress: "수리 중",
             completed: "완료",
+            impossible: "수리 불가",
           };
           return (
             <button
@@ -220,8 +250,7 @@ function ReportList({ onSelect }) {
           return (
             <Card
               key={item.id}
-              onClick={() => onSelect(item)}
-              className="p-5 cursor-pointer hover:border-accent/30 hover:shadow-md transition-all"
+              className="p-5 hover:border-accent/30 hover:shadow-md transition-all"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col gap-2 flex-1 min-w-0">
@@ -253,14 +282,14 @@ function ReportList({ onSelect }) {
                       <Clock className="w-3 h-3" />
                       접수: {item.receivedAt}
                     </span>
-                    <span>방문 예약: {item.visitAt}</span>
+
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  {/* ACCEPTED 상태 → 수리 시작 버튼 (4번 담당) */}
+                  {/* ACCEPTED → 수리 시작 */}
                   {item.status === "pending" && (
                     <button
-                      onClick={(e) => handleStartRepair(e, item)}
+                      onClick={() => handleStartRepair(item)}
                       disabled={startingId === item.id}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent/90 disabled:opacity-50 transition-all"
                     >
@@ -268,7 +297,41 @@ function ReportList({ onSelect }) {
                       {startingId === item.id ? "처리 중..." : "수리 시작"}
                     </button>
                   )}
-                  <ChevronRight className="w-5 h-5 text-muted-foreground mt-1" />
+                  {/* IN_REPAIR → 리포트 작성 */}
+                  {item.status === "in_progress" && (
+                    <button
+                      onClick={() => onSelect(item)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent/90 transition-all"
+                    >
+                      리포트 작성
+                    </button>
+                  )}
+                  {/* 완료 → 내역 이동 + 수정하기 */}
+                  {item.status === "completed" && (
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => navigate(`/shop/orders/${item.id}`)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-secondary transition-all"
+                      >
+                        내역 이동
+                      </button>
+                      <button
+                        onClick={() => onSelect(item)}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent/90 transition-all"
+                      >
+                        수정하기
+                      </button>
+                    </div>
+                  )}
+                  {/* 수리 불가 → 내역 이동만 */}
+                  {item.status === "impossible" && (
+                    <button
+                      onClick={() => navigate(`/shop/orders/${item.id}`)}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-secondary transition-all"
+                    >
+                      내역 이동
+                    </button>
+                  )}
                 </div>
               </div>
             </Card>
@@ -347,7 +410,9 @@ const REPAIR_RESULT_OPTIONS = [
 const WARRANTY_OPTIONS = ["없음", "1개월", "3개월", "6개월", "1년"];
 
 function ReportDetail({ item, onBack }) {
-  const [repairStatus, setRepairStatus] = useState("repairing");
+  const [repairStatus, setRepairStatus] = useState(
+    item.rawStatus !== "IN_REPAIR" ? "completed" : "repairing"
+  );
   const [laborCost, setLaborCost] = useState("");
   const [saved, setSaved] = useState(false);
   // 이미 REPAIR_DONE인 경우 또는 이번 세션에서 전이 완료된 경우 재호출 방지
@@ -358,6 +423,25 @@ function ReportDetail({ item, onBack }) {
   const [aiDraft, setAiDraft] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiSnapshot, setAiSnapshot] = useState(null); // AI 원본 결과 보존 (피드백용)
+
+  // 수리 불가 처리
+  const [showImpossibleModal, setShowImpossibleModal] = useState(false);
+  const [impossibleReason, setImpossibleReason] = useState("");
+  const [impossibleLoading, setImpossibleLoading] = useState(false);
+
+  const handleRepairImpossible = async () => {
+    if (!impossibleReason.trim()) return;
+    setImpossibleLoading(true);
+    try {
+      await repairImpossible(item.id, impossibleReason);
+      setShowImpossibleModal(false);
+      onBack(); // 목록으로 복귀
+    } catch {
+      alert("처리 중 오류가 발생했습니다.");
+    } finally {
+      setImpossibleLoading(false);
+    }
+  };
 
   // 수리 사진 상태
   const [beforeImages, setBeforeImages] = useState([]); // { url, uploading }
@@ -391,6 +475,34 @@ function ReportDetail({ item, onBack }) {
   const [warranty, setWarranty] = useState("3개월");
   const [remarks, setRemarks] = useState("");
 
+  // 기존 저장된 리포트 + 이미지 로드
+  useEffect(() => {
+    Promise.all([
+      getReport(item.id).catch(() => null),
+      getOrderImages(item.id).catch(() => null),
+    ]).then(([report, imgData]) => {
+      if (report) {
+        if (report.troubleDescription) setDiagnosis(report.troubleDescription);
+        if (report.repairRows?.length) setRepairRows(report.repairRows.map((r) => ({
+          item: r.item ?? "",
+          part: r.part ?? "",
+          qty: String(r.qty ?? 1),
+          unitPrice: String(r.unitPrice ?? ""),
+        })));
+        if (report.repairResult) setRepairResult(report.repairResult);
+        if (report.warranty) setWarranty(report.warranty);
+        if (report.laborCost) setLaborCost(String(report.laborCost));
+        if (report.remarks) setRemarks(report.remarks);
+      }
+      if (imgData) {
+        const before = (imgData.beforeRepair ?? []).map((i) => ({ id: i.id, url: i.url, uploading: false }));
+        const after  = (imgData.afterRepair  ?? []).map((i) => ({ id: i.id, url: i.url, uploading: false }));
+        setBeforeImages(before);
+        setAfterImages(after);
+      }
+    });
+  }, [item.id]);
+
   const addRow = () => setRepairRows((r) => [...r, { item: "", part: "", qty: "1", unitPrice: "" }]);
   const removeRow = (i) => setRepairRows((r) => r.filter((_, idx) => idx !== i));
   const updateRow = (i, field, val) =>
@@ -400,6 +512,13 @@ function ReportDetail({ item, onBack }) {
   const total = partCost + (Number(laborCost) || 0);
 
   const handleSave = async () => {
+    // 수정 모드(statusTransitioned)면 고객 알림 재발송 안내
+    if (statusTransitioned) {
+      const ok = window.confirm(
+        "수정 내용이 저장되고 고객에게 변경 알림이 발송됩니다.\n계속하시겠습니까?"
+      );
+      if (!ok) return;
+    }
     setSaving(true);
     try {
       // 1. 리포트 DB 저장
@@ -499,27 +618,43 @@ function ReportDetail({ item, onBack }) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-1 bg-card rounded-lg p-0.5 shrink-0 border border-border">
-          {[
-            ["repairing", "수리중"],
-            ["completed", "수리완료"],
-          ].map(([v, l]) => (
-            <button
-              key={v}
-              onClick={() => setRepairStatus(v)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                repairStatus === v
-                  ? v === "completed"
-                    ? "bg-green-500 text-white shadow-sm"
-                    : "bg-amber-500 text-white shadow-sm"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
+        {statusTransitioned ? (
+          <span className="px-3 py-1.5 text-xs font-medium rounded-md bg-green-500 text-white shadow-sm shrink-0">
+            수리완료
+          </span>
+        ) : (
+          <div className="flex items-center gap-1 bg-card rounded-lg p-0.5 shrink-0 border border-border">
+            {[
+              ["repairing", "수리중"],
+              ["completed", "수리완료"],
+            ].map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setRepairStatus(v)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  repairStatus === v
+                    ? v === "completed"
+                      ? "bg-green-500 text-white shadow-sm"
+                      : "bg-amber-500 text-white shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
       </Card>
+
+      {/* 수정 모드 안내 배너 */}
+      {statusTransitioned && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50">
+          <Info className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700 dark:text-amber-400">
+            이미 고객에게 알림이 발송된 리포트입니다. 수정 시 고객에게 변경 알림이 자동 발송됩니다. 결제 완료 후에는 수정이 불가능합니다.
+          </p>
+        </div>
+      )}
 
       {/* AI 초안 배너 */}
       {aiDraft && (
@@ -870,25 +1005,102 @@ function ReportDetail({ item, onBack }) {
         {saved ? (
           <div className="flex items-center gap-2 text-green-600 dark:text-green-400 text-sm font-medium animate-in fade-in">
             <CheckCircle2 className="w-4 h-4" />
-            리포트가 저장되었습니다.
+            {statusTransitioned
+              ? "수정 내용이 저장되고 고객에게 변경 알림이 발송됐습니다."
+              : repairStatus === "completed"
+              ? "리포트가 저장되고 고객에게 알림이 발송됐습니다."
+              : "임시 저장됐습니다."}
           </div>
         ) : (
-          <div />
+          /* 수리 불가 처리 버튼 — IN_REPAIR 상태에서만 노출 */
+          item.rawStatus === "IN_REPAIR" ? (
+            <button
+              onClick={() => setShowImpossibleModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-red-200 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
+            >
+              수리 불가 처리
+            </button>
+          ) : <div />
         )}
         <div className="flex items-center gap-2">
           <button
             onClick={handleDownloadPdf}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+            disabled={!statusTransitioned}
+            title={!statusTransitioned ? "리포트 저장 및 고객 알림 발송 후 PDF를 다운로드할 수 있습니다." : undefined}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-border rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all"
           >
             <Download className="w-4 h-4" />
             PDF 다운로드
           </button>
-          <Button variant="accent" size="md" onClick={handleSave} disabled={saving}>
-            <Save className="w-4 h-4" />
-            {saving ? "처리 중..." : "리포트 저장 및 고객 알림 발송"}
-          </Button>
+          {statusTransitioned ? (
+            /* 이미 저장+알림 완료 → 수정하기 (알림 없음) */
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-border rounded-xl text-foreground hover:bg-secondary disabled:opacity-50 transition-all"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? "저장 중..." : "수정하기"}
+            </button>
+          ) : repairStatus === "completed" ? (
+            /* 수리완료 선택 + 미저장 → 저장 + 알림 발송 */
+            <Button variant="accent" size="md" onClick={handleSave} disabled={saving}>
+              <Save className="w-4 h-4" />
+              {saving ? "처리 중..." : "리포트 저장 및 고객 알림 발송"}
+            </Button>
+          ) : (
+            /* 수리중 → 임시 저장 */
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-border rounded-xl text-foreground hover:bg-secondary disabled:opacity-50 transition-all"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? "저장 중..." : "임시 저장"}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* 수리 불가 모달 */}
+      {showImpossibleModal && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+          onClick={() => setShowImpossibleModal(false)}
+        >
+          <div
+            className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-foreground mb-1">수리 불가 처리</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              고객에게 수리 불가 사유가 전달됩니다. 결제 요청은 발송되지 않습니다.
+            </p>
+            <textarea
+              className="w-full px-3.5 py-3 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-red-400/30 resize-none"
+              placeholder="수리 불가 사유를 입력해주세요..."
+              rows={4}
+              value={impossibleReason}
+              onChange={(e) => setImpossibleReason(e.target.value)}
+            />
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                className="px-4 py-2 text-sm font-medium border border-border rounded-xl text-muted-foreground hover:bg-secondary transition-all"
+                onClick={() => setShowImpossibleModal(false)}
+              >
+                취소
+              </button>
+              <button
+                className="px-4 py-2 text-sm font-medium bg-red-500 hover:bg-red-600 text-white rounded-xl disabled:opacity-50 transition-all"
+                disabled={!impossibleReason.trim() || impossibleLoading}
+                onClick={handleRepairImpossible}
+              >
+                {impossibleLoading ? "처리 중..." : "수리 불가 확정"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

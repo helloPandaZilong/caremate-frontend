@@ -6,22 +6,24 @@ import './css/OrderList.css'
 const STATUS_TABS = [
   { label:'전체',    value:'' },
   { label:'접수 대기', value:'RECEIVED' },
-  { label:'확정',    value:'ACCEPTED' },
+  { label:'방문 예정', value:'ACCEPTED' },
   { label:'수리 중', value:'IN_REPAIR' },
   { label:'수리 완료', value:'REPAIR_DONE' },
+  { label:'수리 불가', value:'REPAIR_IMPOSSIBLE' },
   { label:'반려',    value:'REJECTED' },
 ]
 
 const STATUS_LABEL = {
-  RECEIVED:'접수 대기', ACCEPTED:'확정', REJECTED:'반려',
-  NO_SHOW:'노쇼', IN_REPAIR:'수리 중', REPAIR_DONE:'수리 완료',
-  PAYMENT_COMPLETED:'결제 완료', CLAIM_REQUESTED:'청구 요청', CLAIM_COMPLETED:'청구 완료',
+  RECEIVED:'접수 대기', ACCEPTED:'방문 예정', REJECTED:'반려',
+  NO_SHOW:'노쇼', IN_REPAIR:'수리 중', REPAIR_IMPOSSIBLE:'수리 불가',
+  REPAIR_DONE:'수리 완료', PAYMENT_COMPLETED:'결제 완료',
+  CLAIM_REQUESTED:'청구 요청', CLAIM_COMPLETED:'청구 완료',
 }
 const STATUS_CLASS = {
   RECEIVED:'badge--received', ACCEPTED:'badge--accepted', REJECTED:'badge--rejected',
-  NO_SHOW:'badge--no-show', IN_REPAIR:'badge--in-repair', REPAIR_DONE:'badge--repair-done',
-  PAYMENT_COMPLETED:'badge--payment-completed', CLAIM_REQUESTED:'badge--claim-requested',
-  CLAIM_COMPLETED:'badge--claim-completed',
+  NO_SHOW:'badge--no-show', IN_REPAIR:'badge--in-repair', REPAIR_IMPOSSIBLE:'badge--rejected',
+  REPAIR_DONE:'badge--repair-done', PAYMENT_COMPLETED:'badge--payment-completed',
+  CLAIM_REQUESTED:'badge--claim-requested', CLAIM_COMPLETED:'badge--claim-completed',
 }
 
 function formatDateTime(str) {
@@ -77,23 +79,33 @@ function RejectModal({ onConfirm, onCancel }) {
 export default function OrderList() {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('')
-  const [dateFilter, setDateFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [customerName, setCustomerName] = useState('')
   const [page, setPage] = useState(0)
   const [data, setData] = useState(MOCK_ORDERS)
   const [loading, setLoading] = useState(false)
   const [actionLoading, setActionLoading] = useState(null)
   const [rejectTarget, setRejectTarget] = useState(null) // orderId
 
+  const hasFilter = dateFrom || dateTo || customerName
+
+  function clearFilters() {
+    setDateFrom(''); setDateTo(''); setCustomerName(''); setPage(0)
+  }
+
   const fetchOrders = useCallback(() => {
     setLoading(true)
     const params = { page, size: 20 }
     if (activeTab) params.status = activeTab
-    if (dateFilter) params.date = dateFilter
+    if (dateFrom) params.dateFrom = dateFrom
+    if (dateTo) params.dateTo = dateTo
+    if (customerName.trim()) params.customerName = customerName.trim()
     getOrders(params)
       .then(setData)
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [activeTab, dateFilter, page])
+  }, [activeTab, dateFrom, dateTo, customerName, page])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
@@ -156,7 +168,7 @@ export default function OrderList() {
 
   return (
     <div>
-      <h1 className="page-title">접수 관리</h1>
+      <h1 className="page-title">접수 현황</h1>
       <p className="page-subtitle">접수된 A/S 요청을 수락·반려하고 수리 상태를 관리합니다.</p>
 
       {/* Filters */}
@@ -174,13 +186,44 @@ export default function OrderList() {
           ))}
         </div>
 
-        {/* Date filter */}
-        <input
-          type="date"
-          className="ol-date-input"
-          value={dateFilter}
-          onChange={e => { setDateFilter(e.target.value); setPage(0) }}
-        />
+        {/* Search controls */}
+        <div className="ol-search-controls">
+          {/* 고객명 검색 */}
+          <div className="ol-search-input-wrap">
+            <svg className="ol-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              type="text"
+              className="ol-text-input"
+              placeholder="고객명 검색"
+              value={customerName}
+              onChange={e => { setCustomerName(e.target.value); setPage(0) }}
+            />
+          </div>
+
+          {/* 기간 검색 */}
+          <input
+            type="date"
+            className="ol-date-input"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={e => { setDateFrom(e.target.value); setPage(0) }}
+          />
+          <span className="ol-range-sep">~</span>
+          <input
+            type="date"
+            className="ol-date-input"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={e => { setDateTo(e.target.value); setPage(0) }}
+          />
+
+          {/* 초기화 */}
+          {hasFilter && (
+            <button className="ol-clear-btn" onClick={clearFilters}>초기화</button>
+          )}
+        </div>
       </div>
 
       {/* Order list */}
@@ -196,8 +239,8 @@ export default function OrderList() {
                 <tr>
                   <th>접수번호</th>
                   <th>고객명</th>
-                  <th>방문 예약 일시</th>
                   <th>접수 일시</th>
+                  <th>방문 예약 일시</th>
                   <th>상태</th>
                   <th>처리</th>
                 </tr>
@@ -211,8 +254,8 @@ export default function OrderList() {
                   >
                     <td className="ol-order-no">{order.orderNo}</td>
                     <td className="ol-customer">{order.customerName}</td>
-                    <td>{formatDateTime(order.reservedVisitAt)}</td>
                     <td>{formatDateTime(order.createdAt)}</td>
+                    <td>{formatDateTime(order.reservedVisitAt)}</td>
                     <td>
                       <span className={`badge ${STATUS_CLASS[order.status]}`}>
                         {STATUS_LABEL[order.status]}

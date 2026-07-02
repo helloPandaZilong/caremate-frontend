@@ -31,3 +31,45 @@ export async function requestClaimPackage(orderId) {
   );
   return res.data; // Blob
 }
+
+// ── 관리자 — 청구 패키지 실패 관제/재시도 API ──────────────────────────────────
+// 백엔드: AdminClaimController (/api/admin/claims/**)
+
+/**
+ * 관리자 — 청구 패키지 생성 현황·실패율 모니터링 조회
+ * GET /api/admin/claims/monitoring
+ *
+ * 응답 data (ClaimMonitoringResponse):
+ *   { totalClaimTargetCount, completedCount, failedCount, pendingCount,
+ *     successRate, failureRate,
+ *     failedItems: [{ orderId, orderNo, memberId, currentStatus, createdAt }] }
+ */
+export async function getClaimMonitoring() {
+  const res = await apiClient.get("/admin/claims/monitoring");
+  return res.data.data;
+}
+
+/**
+ * 관리자 — 청구 패키지 생성 실패 건 재시도
+ * POST /api/admin/claims/packages/retry
+ * body(ClaimRetryRequest): { orderIds: number[] }
+ *   - orderIds 를 지정하면 해당 건들만 재시도
+ *   - orderIds 를 비우거나 생략하면(null/[]) 실패 건 전체를 재시도
+ *
+ * 응답 data (ClaimRetryResponse):
+ *   { totalRetryCount, successCount, failedCount,
+ *     results: [{ orderId, orderNo, success, failReason }] }
+ *
+ * @param {number[]} [orderIds] 재시도할 주문 ID 목록. 생략 시 실패 건 전체 재시도.
+ */
+export async function retryClaimPackage(orderIds) {
+  const res = await apiClient.post("/admin/claims/packages/retry", {
+    orderIds: orderIds ?? [],
+  });
+  return res.data.data;
+}
+
+/**
+ * 관리자 — 실패 건 전체 재시도 (편의 함수)
+ */
+export const retryAllClaimPackages = () => retryClaimPackage([]);

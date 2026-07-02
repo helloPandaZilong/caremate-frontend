@@ -31,6 +31,9 @@ export const manualNoShow = (orderId) =>
 export const completeRepair = (orderId) =>
   apiClient.patch(`/shop/orders/${orderId}/complete-repair`).then((r) => r.data.data)
 
+export const repairImpossible = (orderId, reason) =>
+  apiClient.patch(`/shop/orders/${orderId}/repair-impossible`, { reason }).then((r) => r.data.data)
+
 // ─── AI Report Parse & Feedback ───────────────────────────
 export const parseRepairFile = (file, orderContext = {}) => {
   const form = new FormData()
@@ -73,6 +76,9 @@ export const deleteOrderImage = (orderId, imageId) =>
   apiClient.delete(`/shop/orders/${orderId}/images/${imageId}`)
 
 // ─── Report Save & PDF ────────────────────────────────────
+export const getReport = (orderId) =>
+  apiClient.get(`/shop/orders/${orderId}/report`).then((r) => r.data.data)
+
 export const saveReport = (orderId, data) =>
   apiClient.post(`/shop/orders/${orderId}/report`, data)
 

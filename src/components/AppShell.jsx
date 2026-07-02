@@ -36,6 +36,7 @@ import {
 import { useDarkMode } from "../hooks/useDarkMode";
 import { getGuides } from "../api/lmsService";
 import { getRepairOrders } from "../api/customerService";
+import { getNotifications, getUnreadCount, markNotificationRead } from "../api/notificationApi";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function resolveNavHref(item, paymentOrderId) {
 
 const SHOP_NAV = [
   { label: "대시보드", href: "/shop/dashboard", icon: Calendar },
-  { label: "주문 접수", href: "/shop/orders", icon: FileText },
+  { label: "접수 현황", href: "/shop/orders", icon: FileText },
   { label: "수리 리포트", href: "/shop/report", icon: Wrench },
   { label: "LMS 교육", href: "/shop/lms", icon: GraduationCap },
   { label: "월말 정산", href: "/shop/settlement", icon: Receipt },
@@ -114,102 +115,44 @@ function getNavConfig(path) {
   };
 }
 
-// ── Notification data ─────────────────────────────────────────────────────────
+// ── Notification helpers ──────────────────────────────────────────────────────
 
-const CUSTOMER_NOTIFS = [
-  {
-    id: 1,
-    type: "ACCEPTED",
-    msg: "A/S 접수가 강남 스마트케어에서 수락되었습니다.",
-    time: "방금 전",
-    read: false,
-    icon: CheckCircle2,
-    color: "text-green-500",
-  },
-  {
-    id: 2,
-    type: "PAYMENT_REQUESTED",
-    msg: "수리가 완료되었습니다. 결제를 진행해 주세요.",
-    time: "1시간 전",
-    read: false,
-    icon: Pay,
-    color: "text-blue-500",
-  },
-  {
-    id: 3,
-    type: "ESTIMATED_CLAIM_NOTICE",
-    msg: "보험 예상 환급액이 산출되었습니다. Carrier Care: ₩287,000",
-    time: "2시간 전",
-    read: true,
-    icon: Award,
-    color: "text-amber-500",
-  },
-  {
-    id: 4,
-    type: "CLAIM_DISPATCH_SUCCESS",
-    msg: "보험 청구 패키지 생성이 완료되었습니다.",
-    time: "어제",
-    read: true,
-    icon: CheckCircle2,
-    color: "text-green-500",
-  },
-];
+function formatRelativeTime(createdAt) {
+  const diff = Date.now() - new Date(createdAt).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "방금 전";
+  if (mins < 60) return `${mins}분 전`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}시간 전`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "어제";
+  return `${days}일 전`;
+}
 
-const SHOP_NOTIFS = [
-  {
-    id: 1,
-    type: "BATCH_COMPLETED",
-    msg: "2024년 6월 월말 수수료 청구 요청이 도착했습니다. 납부 기한: 07.05",
-    time: "방금 전",
-    read: false,
-    icon: AlertCircle,
-    color: "text-amber-500",
-  },
-  {
-    id: 2,
-    type: "REPAIR_SHOP_APPROVED",
-    msg: "수리점 가입이 관리자에 의해 최종 승인되었습니다.",
-    time: "2024.06.01",
-    read: true,
-    icon: CheckCircle2,
-    color: "text-green-500",
-  },
-];
-
-const ADMIN_NOTIFS = [
-  {
-    id: 1,
-    type: "BATCH_FAILED",
-    msg: "선릉 올폰 서비스 Step 실행 실패 — 즉시 확인 필요",
-    time: "방금 전",
-    read: false,
-    icon: AlertCircle,
-    color: "text-red-500",
-  },
-  {
-    id: 2,
-    type: "CLAIM_DISPATCH_FAILED",
-    msg: "KB손해보험 청구 패키지 전송 실패 (DLQ 적재)",
-    time: "1시간 전",
-    read: false,
-    icon: AlertCircle,
-    color: "text-red-400",
-  },
-  {
-    id: 3,
-    type: "BATCH_COMPLETED",
-    msg: "2024년 6월 월말 정산 배치가 완료되었습니다.",
-    time: "어제",
-    read: true,
-    icon: CheckCircle2,
-    color: "text-green-500",
-  },
-];
-
-function getRoleNotifs(path) {
-  if (path.startsWith("/shop")) return SHOP_NOTIFS;
-  if (path.startsWith("/admin")) return ADMIN_NOTIFS;
-  return CUSTOMER_NOTIFS;
+function getNotifMeta(type) {
+  switch (type) {
+    case "ORDER_RECEIVED":
+    case "ORDER_ACCEPTED":
+    case "PAYMENT_COMPLETED":
+    case "CLAIM_DISPATCH_SUCCESS":
+    case "BATCH_COMPLETED":
+    case "REPAIR_SHOP_APPROVED":
+      return { icon: CheckCircle2, color: "text-green-500" };
+    case "ORDER_REJECTED":
+    case "NO_SHOW_WARNING":
+    case "NO_SHOW":
+    case "REPAIR_IMPOSSIBLE":
+    case "CLAIM_DISPATCH_FAILED":
+      return { icon: AlertCircle, color: "text-red-500" };
+    case "PAYMENT_REQUESTED":
+      return { icon: Pay, color: "text-blue-500" };
+    case "ESTIMATED_CLAIM_NOTICE":
+      return { icon: Award, color: "text-amber-500" };
+    case "REPORT_MODIFIED":
+      return { icon: FileText, color: "text-violet-500" };
+    default:
+      return { icon: Bell, color: "text-muted-foreground" };
+  }
 }
 
 // ── Dark mode toggle ──────────────────────────────────────────────────────────
@@ -241,10 +184,22 @@ function DarkModeToggle({ dark, toggle }) {
 
 // ── Notification dropdown ─────────────────────────────────────────────────────
 
-function NotificationDropdown({ path, onClose }) {
-  const notifs = getRoleNotifs(path);
-  const [items, setItems] = useState(notifs);
+function NotificationDropdown({ onClose }) {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const ref = useRef(null);
+
+  useEffect(() => {
+    getNotifications()
+      .then(({ data }) => {
+        console.log('[Notification] API 응답:', data);
+        setItems(data.data?.content ?? []);
+      })
+      .catch((err) => {
+        console.error('[Notification] API 오류:', err?.response?.status, err?.response?.data ?? err?.message);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   useEffect(() => {
     function handleClick(e) {
@@ -254,10 +209,18 @@ function NotificationDropdown({ path, onClose }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  const unreadCount = items.filter((n) => !n.read).length;
+  const unreadCount = items.filter((n) => !n.isRead).length;
 
-  const markAll = () =>
-    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
+  const handleMarkRead = (id) => {
+    setItems((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
+    markNotificationRead(id).catch(() => {});
+  };
+
+  const markAll = () => {
+    const unread = items.filter((n) => !n.isRead);
+    setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    Promise.all(unread.map((n) => markNotificationRead(n.id))).catch(() => {});
+  };
 
   return (
     <div
@@ -286,42 +249,40 @@ function NotificationDropdown({ path, onClose }) {
 
       {/* Notification list */}
       <div className="max-h-72 overflow-y-auto">
-        {items.length === 0 ? (
+        {loading ? (
+          <div className="py-10 text-center text-sm text-muted-foreground">불러오는 중...</div>
+        ) : items.length === 0 ? (
           <div className="py-10 text-center text-sm text-muted-foreground">
             알림이 없습니다.
           </div>
         ) : (
           items.map((n) => {
-            const Icon = n.icon;
+            const { icon: Icon, color } = getNotifMeta(n.type);
             return (
               <div
                 key={n.id}
-                onClick={() =>
-                  setItems((prev) =>
-                    prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)),
-                  )
-                }
-                className={`flex gap-3 px-4 py-3 border-b border-border last:border-0 cursor-pointer transition-colors ${n.read ? "opacity-60 hover:opacity-80" : "hover:bg-secondary"}`}
+                onClick={() => handleMarkRead(n.id)}
+                className={`flex gap-3 px-4 py-3 border-b border-border last:border-0 cursor-pointer transition-colors ${n.isRead ? "opacity-60 hover:opacity-80" : "hover:bg-secondary"}`}
               >
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${n.read ? "bg-muted" : "bg-secondary"}`}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${n.isRead ? "bg-muted" : "bg-secondary"}`}
                 >
                   <Icon
-                    className={`w-3.5 h-3.5 ${n.read ? "text-muted-foreground" : n.color}`}
+                    className={`w-3.5 h-3.5 ${n.isRead ? "text-muted-foreground" : color}`}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p
-                    className={`text-xs leading-relaxed ${n.read ? "text-muted-foreground" : "text-foreground font-medium"}`}
+                    className={`text-xs leading-relaxed ${n.isRead ? "text-muted-foreground" : "text-foreground font-medium"}`}
                   >
-                    {n.msg}
+                    {n.message}
                   </p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <Clock className="w-2.5 h-2.5 text-muted-foreground" />
                     <p className="text-[10px] text-muted-foreground">
-                      {n.time}
+                      {formatRelativeTime(n.createdAt)}
                     </p>
-                    {!n.read && (
+                    {!n.isRead && (
                       <span className="w-1.5 h-1.5 rounded-full bg-accent ml-auto" />
                     )}
                   </div>
@@ -346,8 +307,20 @@ function NotificationDropdown({ path, onClose }) {
 
 function BellButton({ path }) {
   const [open, setOpen] = useState(false);
-  const notifs = getRoleNotifs(path);
-  const unread = notifs.filter((n) => !n.read).length;
+  const [unread, setUnread] = useState(0);
+
+  const fetchUnread = () => {
+    getUnreadCount()
+      .then(({ data }) => setUnread(data.data?.unreadCount ?? 0))
+      .catch(() => {});
+  };
+
+  useEffect(() => { fetchUnread(); }, []);
+
+  const handleClose = () => {
+    setOpen(false);
+    fetchUnread();
+  };
 
   return (
     <div className="relative">
@@ -363,7 +336,7 @@ function BellButton({ path }) {
         )}
       </button>
       {open && (
-        <NotificationDropdown path={path} onClose={() => setOpen(false)} />
+        <NotificationDropdown onClose={handleClose} />
       )}
     </div>
   );
