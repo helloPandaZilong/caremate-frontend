@@ -1,27 +1,40 @@
-import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router";
 import {
   CheckCircle2,
   ChevronRight,
   Image,
-  Loader2,
+  Video,
   MapPin,
   Shield,
   X,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
-import { Button, Card } from "../../components/shared";
+import { Button, Card, UploadZone } from "../../components/shared";
 import {
-  createCustomerRepairOrder,
-  getCustomerInsurancePolicies,
   getRepairShops,
-} from "../../api/customerRepairOrderApi";
+  getInsurancePolicies,
+  createRepairOrder,
+  diagnoseImage,
+} from "../../api/customerService";
 
 const STEPS = [
+  "사진·영상 업로드",
   "파손 설명",
-  "사진 업로드",
-  "서비스 센터·방문일시",
-  "보험 선택·제출",
+  "서비스 센터 선택",
+  "보험 선택",
+];
+
+const DEMO_SHOPS = [
+  { id: 901, shopName: "폰케어 강남점", address: "서울 강남구 테헤란로 152", phone: "02-555-1234" },
+  { id: 902, shopName: "스마트픽스 홍대점", address: "서울 마포구 양화로 160", phone: "02-332-5678" },
+  { id: 903, shopName: "닥터폰 건대입구점", address: "서울 광진구 아차산로 272", phone: "02-446-9012" },
+];
+
+const DEMO_POLICIES = [
+  { id: 801, productName: "삼성 갤럭시 케어+", providerName: "삼성화재", status: "ACTIVE", policyNumber: "SF-2025-001" },
+  { id: 802, productName: "SKT T다이렉트 보험", providerName: "SK텔레콤", status: "ACTIVE", policyNumber: "SK-2025-042" },
 ];
 
 const TIME_SLOTS = [
@@ -34,490 +47,520 @@ const TIME_SLOTS = [
   "17:00",
 ];
 
-function toArray(data) {
-  if (Array.isArray(data)) return data;
-  return data?.content ?? data?.items ?? [];
-}
-
-function getTomorrowDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().slice(0, 10);
-}
-
-function formatMoney(value) {
-  if (value === null || value === undefined || value === "") return "-";
-  return `${Number(value).toLocaleString("ko-KR")}원`;
-}
-
-function shopNameOf(shop) {
-  return shop.shopName ?? shop.name ?? shop.centerName ?? `수리점 #${shop.id}`;
-}
-
-function policyTitleOf(policy) {
-  return (
-      policy.productName ??
-      policy.insuranceProductName ??
-      policy.product?.productName ??
-      policy.insuranceProduct?.productName ??
-      policy.providerName ??
-      `보험 #${policy.id}`
-  );
-}
-
-function policyProviderOf(policy) {
-  return (
-      policy.providerName ??
-      policy.insuranceProduct?.providerName ??
-      policy.product?.providerName ??
-      policy.providerType ??
-      "보험"
-  );
-}
-
 function StepIndicator({ current }) {
   return (
-      <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-1">
-        {STEPS.map((s, i) => {
-          const done = i < current;
-          const active = i === current;
-          return (
-              <div key={s} className="flex items-center gap-2 shrink-0">
-                <div className="flex items-center gap-2">
-                  <div
-                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
-                          done
-                              ? "bg-accent text-white"
-                              : active
-                                  ? "bg-foreground text-background"
-                                  : "bg-secondary text-muted-foreground"
-                      }`}
-                  >
-                    {done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
-                  </div>
-                  <span
-                      className={`text-xs font-medium hidden md:block ${active ? "text-foreground" : "text-muted-foreground"}`}
-                  >
+    <div className="flex items-center gap-2 mb-8">
+      {STEPS.map((s, i) => {
+        const done = i < current;
+        const active = i === current;
+        return (
+          <div key={s} className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
+                  done
+                    ? "bg-accent text-white"
+                    : active
+                      ? "bg-foreground text-background"
+                      : "bg-secondary text-muted-foreground"
+                }`}
+              >
+                {done ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+              </div>
+              <span
+                className={`text-xs font-medium hidden md:block ${active ? "text-foreground" : "text-muted-foreground"}`}
+              >
                 {s}
               </span>
-                </div>
-                {i < STEPS.length - 1 && (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
-                )}
-              </div>
-          );
-        })}
-      </div>
-  );
-}
-
-function FileUploadBox({ files, onChange, onRemove }) {
-  const handleFiles = (fileList) => {
-    const nextFiles = Array.from(fileList || []);
-    if (!nextFiles.length) return;
-
-    const merged = [...files, ...nextFiles].slice(0, 5);
-    const invalid = merged.find((file) => {
-      const validType = ["image/jpeg", "image/png"].includes(file.type);
-      const validSize = file.size <= 10 * 1024 * 1024;
-      return !validType || !validSize;
-    });
-
-    if (invalid) {
-      toast.error("사진은 JPG/PNG만 가능하고 각 10MB 이하여야 합니다.");
-      return;
-    }
-
-    onChange(merged);
-  };
-
-  return (
-      <div className="flex flex-col gap-4">
-        <label className="border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center justify-center gap-3 text-center hover:border-accent/40 hover:bg-accent/3 transition-all cursor-pointer">
-          <input
-              type="file"
-              accept="image/jpeg,image/png"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                handleFiles(e.target.files);
-                e.target.value = "";
-              }}
-          />
-          <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-            <Image className="w-5 h-5 text-muted-foreground" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-foreground">파손 사진 드래그 또는 클릭</p>
-            <p className="text-xs text-muted-foreground mt-0.5">JPG, PNG · 최대 5장 · 각 10MB 이하</p>
-          </div>
-        </label>
-
-        {files.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {files.map((file, index) => (
-                  <div key={`${file.name}-${index}`} className="relative rounded-xl bg-secondary border border-border p-3 min-h-24">
-                    <button
-                        type="button"
-                        onClick={() => onRemove(index)}
-                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow"
-                        title="삭제"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                    <div className="flex items-start gap-2">
-                      <Image className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-foreground truncate">{file.name}</p>
-                        <p className="text-[11px] text-muted-foreground mt-1">
-                          {(file.size / 1024 / 1024).toFixed(2)}MB
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-              ))}
             </div>
-        )}
-      </div>
+            {i < STEPS.length - 1 && (
+              <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 }
+
+const todayStr = () => new Date().toISOString().split("T")[0];
 
 export default function RequestPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const preselectedShop = location.state?.selectedShop ?? null;
   const [step, setStep] = useState(0);
   const [damage, setDamage] = useState("");
-  const [images, setImages] = useState([]);
-  const [selectedSlot, setSelectedSlot] = useState("10:00");
-  const [selectedDate, setSelectedDate] = useState(getTomorrowDate);
-  const [selectedShopId, setSelectedShopId] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState("");
+  const [selectedDate, setSelectedDate] = useState(todayStr());
+  const [selectedShop, setSelectedShop] = useState(preselectedShop);
   const [selectedPolicies, setSelectedPolicies] = useState([]);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [aiDiagnosis, setAiDiagnosis] = useState(null);
+  const [diagnoseFailed, setDiagnoseFailed] = useState(false);
+
   const [shops, setShops] = useState([]);
   const [policies, setPolicies] = useState([]);
-  const [loadingMeta, setLoadingMeta] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [loadingShops, setLoadingShops] = useState(true);
+  const [loadingPolicies, setLoadingPolicies] = useState(true);
 
   useEffect(() => {
-    let alive = true;
-    async function loadMeta() {
-      setLoadingMeta(true);
-      try {
-        const [shopData, policyData] = await Promise.all([
-          getRepairShops({ page: 0, size: 100 }),
-          getCustomerInsurancePolicies({ status: "ACTIVE" }),
-        ]);
-        if (!alive) return;
-        const nextShops = toArray(shopData);
-        const nextPolicies = toArray(policyData).filter((policy) => (policy.status ?? "ACTIVE") === "ACTIVE");
-        setShops(nextShops);
-        setPolicies(nextPolicies);
-        setSelectedShopId((prev) => prev || String(nextShops[0]?.id ?? ""));
-        setSelectedPolicies((prev) => prev.length ? prev : nextPolicies.slice(0, 2).map((policy) => policy.id));
-      } catch (error) {
-        toast.error(error.message || "수리점/보험 정보를 불러오지 못했습니다.");
-      } finally {
-        if (alive) setLoadingMeta(false);
-      }
-    }
-
-    loadMeta();
-    return () => {
-      alive = false;
-    };
+    getRepairShops()
+      .then(({ data }) => {
+        const list = data.data ?? [];
+        const base = list.length > 0 ? list : DEMO_SHOPS;
+        const merged =
+          preselectedShop && !base.some((s) => s.id === preselectedShop.id)
+            ? [preselectedShop, ...base]
+            : base;
+        setShops(merged);
+      })
+      .catch(() => setShops(preselectedShop ? [preselectedShop, ...DEMO_SHOPS] : DEMO_SHOPS))
+      .finally(() => setLoadingShops(false));
+    getInsurancePolicies()
+      .then(({ data }) => {
+        const list = data.data ?? [];
+        setPolicies(list.length > 0 ? list : DEMO_POLICIES);
+      })
+      .catch(() => setPolicies(DEMO_POLICIES))
+      .finally(() => setLoadingPolicies(false));
   }, []);
-
-  const selectedShop = useMemo(
-      () => shops.find((shop) => String(shop.id) === String(selectedShopId)),
-      [shops, selectedShopId],
-  );
-
-  const reservedVisitAt = selectedDate && selectedSlot
-      ? `${selectedDate}T${selectedSlot}:00+09:00`
-      : "";
 
   const togglePolicy = (id) => {
     setSelectedPolicies((prev) =>
-        prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
+      prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id],
     );
   };
 
-  const validateStep = (targetStep = step) => {
-    if (targetStep === 0 && damage.trim().length < 10) {
-      toast.error("파손 상황은 10자 이상 입력해주세요.");
-      return false;
-    }
-    if (targetStep === 1 && images.length < 1) {
-      toast.error("파손 사진을 최소 1장 업로드해주세요.");
-      return false;
-    }
-    if (targetStep === 2 && (!selectedShopId || !selectedDate || !selectedSlot)) {
-      toast.error("수리점과 방문 일시를 선택해주세요.");
-      return false;
-    }
-    if (targetStep === 3 && selectedPolicies.length < 1) {
-      toast.error("적용할 보험을 1개 이상 선택해주세요.");
-      return false;
-    }
-    return true;
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setUploadedFiles((prev) => [...prev, ...files]);
   };
 
-  const next = () => {
-    if (!validateStep(step)) return;
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  const removeFile = (index) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+    setAiDiagnosis(null);
   };
 
-  const prev = () => setStep((s) => Math.max(s - 1, 0));
-
-  const submit = async () => {
-    if (![0, 1, 2, 3].every((s) => validateStep(s))) return;
-    setSubmitting(true);
+  const handleDiagnose = async () => {
+    const imageFile = uploadedFiles.find((f) => f.type.startsWith("image/"));
+    if (!imageFile) return;
+    setDiagnosing(true);
+    setAiDiagnosis(null);
+    setDiagnoseFailed(false);
     try {
-      const result = await createCustomerRepairOrder({
-        repairShopId: selectedShopId,
-        damageDescription: damage.trim(),
+      const { data } = await diagnoseImage(imageFile);
+      setAiDiagnosis(data.data?.diagnosis ?? data.diagnosis ?? "진단 결과를 가져오지 못했습니다.");
+    } catch {
+      setDiagnoseFailed(true);
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
+  const applyDiagnosis = () => {
+    if (aiDiagnosis) setDamage(aiDiagnosis);
+    setStep(1);
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedShop) { setSubmitError("서비스 센터를 선택해주세요."); return; }
+    if (!selectedSlot) { setSubmitError("방문 시간을 선택해주세요."); return; }
+    if (selectedPolicies.length === 0) { setSubmitError("보험을 1개 이상 선택해주세요."); return; }
+    const reservedVisitAt = `${selectedDate}T${selectedSlot}:00`;
+    if (new Date(reservedVisitAt) < new Date()) {
+      setSubmitError("현재 시간 이전으로는 예약할 수 없습니다.");
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await createRepairOrder({
+        repairShopId: selectedShop.id,
+        damageDescription: damage,
         reservedVisitAt,
-        memberInsurancePolicyIds: selectedPolicies,
-        images,
+        policyIds: selectedPolicies,
+        images: uploadedFiles,
       });
-      const orderId = result?.orderId ?? result?.id;
-      if (orderId) {
-        localStorage.setItem("caremate-current-order-id", String(orderId));
-      }
-      toast.success(`A/S 접수가 완료되었습니다. ${result?.orderNo ? `접수번호: ${result.orderNo}` : ""}`);
-      navigate(orderId ? `/customer/repair-orders/${orderId}/status` : "/customer/repair-orders/status");
-    } catch (error) {
-      toast.error(error.message || "A/S 접수 제출 중 오류가 발생했습니다.");
+      setSubmitted(true);
+    } catch (e) {
+      setSubmitError(
+        e.response?.data?.error?.message || "접수에 실패했습니다. (백엔드에 해당 수리점/보험 데이터가 없을 수 있습니다)",
+      );
     } finally {
       setSubmitting(false);
     }
   };
 
-  return (
+  const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  const prev = () => setStep((s) => Math.max(s - 1, 0));
+
+  if (submitted) {
+    return (
       <div className="max-w-2xl">
-        <div className="mb-6">
-          <h1 className="text-xl font-semibold text-foreground">비대면 A/S 접수</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            백엔드 multipart API로 파손 정보, 사진, 센터, 방문일시, 보험을 한 번에 접수합니다.
-          </p>
-        </div>
+        <Card className="p-8 text-center flex flex-col items-center gap-4">
+          <CheckCircle2 className="w-12 h-12 text-accent" />
+          <h2 className="text-lg font-semibold text-foreground">접수가 완료되었습니다!</h2>
+          <p className="text-sm text-muted-foreground">대시보드에서 진행 상황을 확인하세요.</p>
+          <Button variant="accent" size="md" onClick={() => navigate("/customer/dashboard")}>
+            대시보드로 이동
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
-        <StepIndicator current={step} />
+  return (
+    <div className="max-w-2xl">
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-foreground">
+          비대면 A/S 접수
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          단계별로 정보를 입력하면 빠르게 접수됩니다.
+        </p>
+      </div>
 
-        {loadingMeta && (
-            <Card className="p-4 mb-4 flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              수리점과 가입 보험 정보를 불러오는 중입니다.
-            </Card>
-        )}
+      <StepIndicator current={step} />
 
-        {/* Step 0: Damage description */}
-        {step === 0 && (
-            <Card className="p-6 flex flex-col gap-5">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-foreground">파손 상황 설명</label>
-                <p className="text-xs text-muted-foreground">
-                  어떤 상황에서, 어떤 부분이 파손되었는지 10~500자로 입력해주세요.
-                </p>
-              </div>
-              <textarea
-                  value={damage}
-                  maxLength={500}
-                  onChange={(e) => setDamage(e.target.value)}
-                  placeholder="예: 핸드폰을 떨어뜨려 전면 유리가 깨졌습니다. 터치는 일부 작동하지만 우측 하단에서 미인식 구간이 발생하고 있습니다."
-                  rows={6}
-                  className="w-full px-3.5 py-3 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 resize-none transition-all"
-              />
-              <div className="flex justify-between text-[11px] text-muted-foreground">
-                <span>최소 10자 이상</span>
-                <span>{damage.length}/500</span>
-              </div>
+      {/* Step 0: Media upload */}
+      {step === 0 && (
+        <Card className="p-6 flex flex-col gap-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-foreground">
+              파손 사진·영상 업로드
+            </label>
+            <p className="text-xs text-muted-foreground">
+              파손 부위가 잘 보이는 사진 또는 영상을 업로드해주세요. (선택)
+            </p>
+          </div>
 
-              <div className="flex flex-wrap gap-2">
-                {["액정 파손", "침수", "배터리 불량", "카메라 파손", "버튼 고장"].map((t) => (
+          <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-xl p-6 cursor-pointer hover:border-accent/40 transition-all">
+            <Image className="w-8 h-8 text-muted-foreground mb-2" />
+            <span className="text-sm text-muted-foreground">클릭하여 파일 선택</span>
+            <span className="text-xs text-muted-foreground/60 mt-1">JPG, PNG, MP4 · 장당 최대 50MB</span>
+            <input
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+          </label>
+
+          <div className="flex gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <Image className="w-3.5 h-3.5" />
+              이미지 권장: 3장 이상
+            </span>
+            <span className="flex items-center gap-1.5">
+              <Video className="w-3.5 h-3.5" />
+              영상: 30초 이내
+            </span>
+          </div>
+
+          {uploadedFiles.length > 0 && (
+            <>
+              <div className="flex gap-2 flex-wrap">
+                {uploadedFiles.map((f, i) => (
+                  <div
+                    key={i}
+                    className="relative w-20 h-20 rounded-xl bg-secondary border border-border flex items-center justify-center group"
+                  >
+                    {f.type.startsWith("image/") ? (
+                      <img
+                        src={URL.createObjectURL(f)}
+                        alt={f.name}
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                    ) : (
+                      <Image className="w-6 h-6 text-muted-foreground" />
+                    )}
+                    <p className="text-[10px] text-muted-foreground absolute bottom-1 left-0 right-0 text-center truncate px-1 bg-black/30 rounded-b-xl">
+                      {f.name}
+                    </p>
                     <button
-                        type="button"
-                        key={t}
-                        onClick={() => setDamage((d) => (d ? `${d}, ${t}` : t))}
-                        className="px-3 py-1 text-xs font-medium bg-card border border-border rounded-full hover:border-accent/40 hover:text-accent transition-all"
+                      onClick={() => removeFile(i)}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                     >
-                      + {t}
+                      <X className="w-2.5 h-2.5" />
                     </button>
+                  </div>
                 ))}
               </div>
-            </Card>
-        )}
 
-        {/* Step 1: Image upload */}
-        {step === 1 && (
-            <Card className="p-6 flex flex-col gap-5">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-foreground">파손 사진 업로드</label>
-                <p className="text-xs text-muted-foreground">
-                  백엔드 규약에 맞춰 images 파트로 전송됩니다. 사진은 1~5장, JPG/PNG만 가능합니다.
-                </p>
-              </div>
-              <FileUploadBox
-                  files={images}
-                  onChange={setImages}
-                  onRemove={(index) => setImages((prev) => prev.filter((_, i) => i !== index))}
-              />
-            </Card>
-        )}
-
-        {/* Step 2: Service center and visit time */}
-        {step === 2 && (
-            <Card className="p-6 flex flex-col gap-5">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-semibold text-foreground">서비스 센터 선택</label>
-                <p className="text-xs text-muted-foreground">GET /api/repair-shops 응답으로 목록을 구성합니다.</p>
-              </div>
-
-              {shops.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground text-center">
-                    조회된 수리점이 없습니다. 백엔드 시드 데이터 또는 수리점 승인을 확인해주세요.
-                  </div>
-              ) : (
-                  <div className="grid gap-2">
-                    {shops.map((shop) => {
-                      const checked = String(selectedShopId) === String(shop.id);
-                      return (
-                          <button
-                              type="button"
-                              key={shop.id}
-                              onClick={() => setSelectedShopId(String(shop.id))}
-                              className={`text-left flex items-center gap-3 rounded-xl border p-3.5 transition-all ${
-                                  checked ? "border-accent bg-accent/10" : "border-border bg-secondary hover:border-accent/40"
-                              }`}
-                          >
-                            <MapPin className="w-4 h-4 text-accent shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-foreground">{shopNameOf(shop)}</p>
-                              <p className="text-xs text-muted-foreground truncate">{shop.address ?? shop.phone ?? "주소 정보 없음"}</p>
-                            </div>
-                            {checked && <CheckCircle2 className="w-4 h-4 text-accent" />}
-                          </button>
-                      );
-                    })}
-                  </div>
+              {/* AI 진단 버튼 */}
+              {uploadedFiles.some((f) => f.type.startsWith("image/")) && (
+                <button
+                  onClick={handleDiagnose}
+                  disabled={diagnosing}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent/10 border border-accent/30 text-accent text-sm font-medium hover:bg-accent/20 transition-all disabled:opacity-60"
+                >
+                  {diagnosing ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  {diagnosing ? "AI 분석 중..." : "AI로 파손 진단하기"}
+                </button>
               )}
 
-              {selectedShop && (
-                  <div className="rounded-xl bg-secondary border border-border p-3 text-xs text-muted-foreground">
-                    선택된 센터: <b className="text-foreground">{shopNameOf(selectedShop)}</b>
-                    {selectedShop.phone ? ` · ${selectedShop.phone}` : ""}
-                  </div>
-              )}
-
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-medium text-muted-foreground">방문 날짜</label>
-                  <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
-                  />
+              {/* AI 진단 실패 */}
+              {diagnoseFailed && (
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                  <p className="text-sm text-red-600">AI 진단에 실패했습니다.</p>
                 </div>
+              )}
 
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-medium text-muted-foreground">방문 시간</label>
-                  <select
-                      value={selectedSlot}
-                      onChange={(e) => setSelectedSlot(e.target.value)}
-                      className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
+              {/* AI 진단 결과 */}
+              {aiDiagnosis && (
+                <div className="flex flex-col gap-3 p-4 rounded-xl bg-accent/5 border border-accent/20">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-accent" />
+                    <span className="text-xs font-semibold text-accent">AI 진단 결과</span>
+                  </div>
+                  <p className="text-sm text-foreground leading-relaxed">{aiDiagnosis}</p>
+                  <button
+                    onClick={applyDiagnosis}
+                    className="self-start px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg hover:bg-accent/90 transition-all"
                   >
-                    {TIME_SLOTS.map((time) => (
-                        <option key={time} value={time}>{time}</option>
-                    ))}
-                  </select>
+                    이 내용으로 파손 설명 채우기 →
+                  </button>
                 </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">전송 값: {reservedVisitAt || "-"}</p>
-            </Card>
-        )}
-
-        {/* Step 3: Insurance selection */}
-        {step === 3 && (
-            <Card className="p-6 flex flex-col gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-semibold text-foreground">가입 보험 선택</label>
-                <p className="text-xs text-muted-foreground">
-                  GET /api/customer/insurance-policies 응답 중 ACTIVE 보험을 선택합니다. 최소 1건이 필요합니다.
-                </p>
-              </div>
-
-              {policies.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-border p-5 text-sm text-muted-foreground text-center">
-                    등록된 ACTIVE 보험이 없습니다. 먼저 “보험 관리”에서 가입 보험을 등록해주세요.
-                  </div>
-              ) : (
-                  policies.map((policy) => {
-                    const checked = selectedPolicies.includes(policy.id);
-                    return (
-                        <div
-                            key={policy.id}
-                            onClick={() => togglePolicy(policy.id)}
-                            className={`flex items-start gap-3 p-4 border rounded-xl transition-all cursor-pointer ${
-                                checked ? "border-accent bg-accent/10" : "border-border hover:border-border/70"
-                            }`}
-                        >
-                          <div
-                              className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
-                                  checked ? "bg-accent border-accent" : "border-border"
-                              }`}
-                          >
-                            {checked && <CheckCircle2 className="w-3 h-3 text-white" />}
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between gap-3">
-                              <p className="text-sm font-semibold text-foreground">{policyTitleOf(policy)}</p>
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent font-medium">
-                        {policy.providerType ?? policy.insuranceProduct?.providerType ?? "보험"}
-                      </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-0.5">{policyProviderOf(policy)}</p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              증권번호: {policy.policyNumber ?? "-"} · 만료일: {policy.endDate ?? "-"}
-                            </p>
-                            {(policy.coveragePerIncident || policy.insuranceProduct?.coveragePerIncident) && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  사고 한도: {formatMoney(policy.coveragePerIncident ?? policy.insuranceProduct?.coveragePerIncident)}
-                                </p>
-                            )}
-                          </div>
-                          <Shield className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                        </div>
-                    );
-                  })
               )}
+            </>
+          )}
+        </Card>
+      )}
 
-              <div className="rounded-xl bg-secondary border border-border p-4 text-xs text-muted-foreground leading-relaxed">
-                제출 API: <b className="text-foreground">POST /api/customer/repair-orders</b><br />
-                request JSON과 images 파일 배열을 multipart/form-data 단일 요청으로 전송합니다.
-              </div>
-            </Card>
-        )}
+      {/* Step 1: Damage description */}
+      {step === 1 && (
+        <Card className="p-6 flex flex-col gap-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-foreground">
+              파손 상황 설명
+            </label>
+            <p className="text-xs text-muted-foreground">
+              어떤 상황에서, 어떤 부분이 파손되었는지 자세히 기술해주세요.
+            </p>
+          </div>
+          <textarea
+            value={damage}
+            onChange={(e) => setDamage(e.target.value)}
+            placeholder="예: 핸드폰을 떨어뜨려 전면 유리가 깨졌습니다. 터치는 일부 작동하지만 우측 하단에서 미인식 구간이 발생하고 있습니다."
+            rows={6}
+            className="w-full px-3.5 py-3 text-sm bg-secondary border border-border rounded-xl text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 resize-none transition-all"
+          />
 
-        {/* Footer buttons */}
-        <div className="flex items-center justify-between mt-6">
-          <Button variant="secondary" size="md" onClick={prev} disabled={step === 0 || submitting}>
-            이전
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="ghost" size="md" disabled={submitting} onClick={() => navigate("/customer/dashboard")}>
-              취소
-            </Button>
-            {step < STEPS.length - 1 ? (
-                <Button variant="accent" size="md" onClick={next} disabled={loadingMeta || submitting}>
-                  다음 단계
-                </Button>
-            ) : (
-                <Button variant="accent" size="md" onClick={submit} disabled={loadingMeta || submitting}>
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
-                  {submitting ? "접수 제출 중..." : "접수 제출 (RECEIVED)"}
-                </Button>
+          <div className="flex flex-wrap gap-2">
+            {["액정 파손", "침수", "배터리 불량", "카메라 파손", "분실"].map(
+              (t) => (
+                <button
+                  key={t}
+                  onClick={() => setDamage((d) => (d ? d + ", " + t : t))}
+                  className="px-3 py-1 text-xs font-medium bg-card border border-border rounded-full hover:border-accent/40 hover:text-accent transition-all"
+                >
+                  + {t}
+                </button>
+              ),
             )}
           </div>
+        </Card>
+      )}
+
+      {/* Step 2: Service center */}
+      {step === 2 && (() => {
+        const now = new Date();
+        return (
+        <Card className="p-6 flex flex-col gap-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-semibold text-foreground">
+              서비스 센터 선택
+            </label>
+          </div>
+
+          {loadingShops ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
+              {shops.map((shop) => (
+                <div
+                  key={shop.id}
+                  onClick={() => setSelectedShop(shop)}
+                  className={`flex items-center gap-3 p-3.5 border rounded-xl cursor-pointer transition-all ${
+                    selectedShop?.id === shop.id
+                      ? "border-accent bg-accent/10"
+                      : "border-border hover:border-accent/40"
+                  }`}
+                >
+                  <MapPin className="w-4 h-4 text-accent shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-foreground">{shop.shopName}</p>
+                    <p className="text-xs text-muted-foreground">{shop.address}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              방문 날짜
+            </label>
+            <input
+              type="date"
+              value={selectedDate}
+              min={todayStr()}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedDate(value < todayStr() ? todayStr() : value);
+              }}
+              className="px-3.5 py-2.5 text-sm bg-secondary border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent/50 transition-all"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              방문 시간 선택
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {TIME_SLOTS.map((t) => {
+                const isToday = selectedDate === todayStr();
+                const isPast = isToday && t <= now.toTimeString().slice(0, 5);
+                return (
+                  <button
+                    key={t}
+                    onClick={() => !isPast && setSelectedSlot(t)}
+                    disabled={isPast}
+                    className={`py-2 text-xs font-medium rounded-xl border transition-all ${
+                      isPast
+                        ? "bg-secondary border-border text-muted-foreground/40 cursor-not-allowed"
+                        : selectedSlot === t
+                          ? "bg-accent text-white border-accent"
+                          : "bg-card border-border text-foreground hover:border-accent/40"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+        );
+      })()}
+
+      {/* Step 3: Insurance selection */}
+      {step === 3 && (
+        <Card className="p-6 flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-semibold text-foreground">
+              보험 정책 선택
+            </label>
+            <p className="text-xs text-muted-foreground">
+              이번 수리에 적용할 보험을 선택하세요. 복수 선택 가능.
+            </p>
+          </div>
+
+          {loadingPolicies ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-accent" />
+            </div>
+          ) : (
+            policies.map((p) => {
+              const checked = selectedPolicies.includes(p.id);
+              const isActive = p.status === "ACTIVE";
+              return (
+                <div
+                  key={p.id}
+                  onClick={() => isActive && togglePolicy(p.id)}
+                  className={`flex items-start gap-3 p-4 border rounded-xl transition-all ${
+                    !isActive
+                      ? "opacity-50 cursor-not-allowed bg-secondary"
+                      : checked
+                        ? "border-accent bg-accent/10 cursor-pointer"
+                        : "border-border hover:border-border/70 cursor-pointer"
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all ${
+                      checked ? "bg-accent border-accent" : "border-border"
+                    }`}
+                  >
+                    {checked && <CheckCircle2 className="w-3 h-3 text-white" />}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-foreground">
+                        {p.productName}
+                      </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {p.providerName}
+                    </p>
+                    {p.policyNumber && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        증권번호: {p.policyNumber}
+                      </p>
+                    )}
+                  </div>
+                  {!isActive && (
+                    <Shield className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                  )}
+                </div>
+              );
+            })
+          )}
+
+          {submitError && (
+            <div className="text-sm text-red-500 bg-red-50 border border-red-200 rounded-xl p-3">
+              {submitError}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Footer buttons */}
+      <div className="flex items-center justify-between mt-6">
+        <Button
+          variant="secondary"
+          size="md"
+          onClick={prev}
+          disabled={step === 0}
+        >
+          이전
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="md">
+            취소
+          </Button>
+          {step < STEPS.length - 1 ? (
+            <Button variant="accent" size="md" onClick={next}>
+              다음 단계
+            </Button>
+          ) : (
+            <Button
+              variant="accent"
+              size="md"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              {submitting ? "접수 중..." : "접수 제출"}
+            </Button>
+          )}
         </div>
       </div>
+    </div>
   );
 }

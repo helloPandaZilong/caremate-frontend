@@ -8,14 +8,15 @@ import './css/OrderDetail.css'
 
 const STATUS_LABEL = {
   RECEIVED:'접수 대기', ACCEPTED:'확정', REJECTED:'반려',
-  NO_SHOW:'노쇼', IN_REPAIR:'수리 중', REPAIR_DONE:'수리 완료',
-  PAYMENT_COMPLETED:'결제 완료', CLAIM_REQUESTED:'청구 요청', CLAIM_COMPLETED:'청구 완료',
+  NO_SHOW:'노쇼', IN_REPAIR:'수리 중', REPAIR_IMPOSSIBLE:'수리 불가',
+  REPAIR_DONE:'수리 완료', PAYMENT_COMPLETED:'결제 완료',
+  CLAIM_REQUESTED:'청구 요청', CLAIM_COMPLETED:'청구 완료',
 }
 const STATUS_CLASS = {
   RECEIVED:'badge--received', ACCEPTED:'badge--accepted', REJECTED:'badge--rejected',
-  NO_SHOW:'badge--no-show', IN_REPAIR:'badge--in-repair', REPAIR_DONE:'badge--repair-done',
-  PAYMENT_COMPLETED:'badge--payment-completed', CLAIM_REQUESTED:'badge--claim-requested',
-  CLAIM_COMPLETED:'badge--claim-completed',
+  NO_SHOW:'badge--no-show', IN_REPAIR:'badge--in-repair', REPAIR_IMPOSSIBLE:'badge--rejected',
+  REPAIR_DONE:'badge--repair-done', PAYMENT_COMPLETED:'badge--payment-completed',
+  CLAIM_REQUESTED:'badge--claim-requested', CLAIM_COMPLETED:'badge--claim-completed',
 }
 
 function fmt(str) {
@@ -155,12 +156,12 @@ export default function OrderDetail() {
             <p className="od-description">{order.damageDescription}</p>
           </div>
 
-          {/* Before repair images */}
-          {order.beforeRepairImageUrls?.length > 0 && (
+          {/* 고객 접수 사진 (수리 전 단계에서만 표시) */}
+          {order.customerImageUrls?.length > 0 && (
             <div className="card od-card">
               <h2 className="od-card-title">접수 사진</h2>
               <div className="od-images">
-                {order.beforeRepairImageUrls.map((url, i) => (
+                {order.customerImageUrls.map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noreferrer">
                     <img src={url} alt={`접수사진 ${i+1}`} className="od-image" />
                   </a>
@@ -169,7 +170,21 @@ export default function OrderDetail() {
             </div>
           )}
 
-          {/* After repair images */}
+          {/* 수리점 촬영 수리 전 사진 */}
+          {order.beforeRepairImageUrls?.length > 0 && (
+            <div className="card od-card">
+              <h2 className="od-card-title">수리 전 사진</h2>
+              <div className="od-images">
+                {order.beforeRepairImageUrls.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noreferrer">
+                    <img src={url} alt={`수리전사진 ${i+1}`} className="od-image" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 수리점 촬영 완료 사진 */}
           {order.afterRepairImageUrls?.length > 0 && (
             <div className="card od-card">
               <h2 className="od-card-title">완료 사진</h2>
@@ -245,6 +260,12 @@ export default function OrderDetail() {
             {['REPAIR_DONE','PAYMENT_COMPLETED','CLAIM_REQUESTED','CLAIM_COMPLETED'].includes(order.status) && (
               <div className="od-action-hint od-action-hint--success">
                 ✓ 이 접수 건의 처리가 완료되었습니다.
+              </div>
+            )}
+            {order.status === 'REPAIR_IMPOSSIBLE' && (
+              <div className="od-action-hint od-action-hint--danger">
+                수리 불가 판정되었습니다.
+                {order.rejectedReason && <><br /><span style={{fontSize:'12px'}}>사유: {order.rejectedReason}</span></>}
               </div>
             )}
             {['REJECTED','NO_SHOW'].includes(order.status) && (

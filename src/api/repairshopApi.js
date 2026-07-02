@@ -31,6 +31,9 @@ export const manualNoShow = (orderId) =>
 export const completeRepair = (orderId) =>
   apiClient.patch(`/shop/orders/${orderId}/complete-repair`).then((r) => r.data.data)
 
+export const repairImpossible = (orderId, reason) =>
+  apiClient.patch(`/shop/orders/${orderId}/repair-impossible`, { reason }).then((r) => r.data.data)
+
 // ─── AI Report Parse & Feedback ───────────────────────────
 export const parseRepairFile = (file, orderContext = {}) => {
   const form = new FormData()
@@ -41,7 +44,15 @@ export const parseRepairFile = (file, orderContext = {}) => {
   return apiClient.post('/shop/reports/parse-file', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 60000, // Gemini 처리 시간 고려해 60초로 확장
-  }).then((r) => JSON.parse(r.data.data))
+  }).then((r) => {
+    const raw = r.data.data
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw
+    } catch (e) {
+      console.error('[parseRepairFile] JSON 파싱 실패:', raw)
+      throw new Error('AI 응답을 파싱할 수 없습니다. 다시 시도해주세요.')
+    }
+  })
 }
 
 // aiDraft(x)와 최종 제출값(y)을 서버에 저장 — 프롬프트 개선용 피드백
@@ -65,6 +76,9 @@ export const deleteOrderImage = (orderId, imageId) =>
   apiClient.delete(`/shop/orders/${orderId}/images/${imageId}`)
 
 // ─── Report Save & PDF ────────────────────────────────────
+export const getReport = (orderId) =>
+  apiClient.get(`/shop/orders/${orderId}/report`).then((r) => r.data.data)
+
 export const saveReport = (orderId, data) =>
   apiClient.post(`/shop/orders/${orderId}/report`, data)
 

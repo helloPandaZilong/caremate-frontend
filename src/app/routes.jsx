@@ -1,4 +1,4 @@
-import { createBrowserRouter,Navigate } from "react-router";
+import { createBrowserRouter } from "react-router";
 import AppShell from "../components/AppShell";
 import ProtectedRoute from "../components/ProtectedRoute";
 import LandingPage from "../pages/LandingPage";
@@ -13,7 +13,6 @@ import CustomerInsurance from "../pages/customer/InsurancePage";
 import CustomerPayment   from "../pages/customer/PaymentPage";
 import CustomerProfile   from "../pages/customer/ProfilePage";
 import CustomerFindShop  from "../pages/customer/FindShopPage";
-import RepairOrderStatusPage from "../pages/customer/RepairOrderStatusPage";
 
 // 수리점용 import
 import ShopDashboard  from "../pages/repairshop/DashboardPage";
@@ -61,8 +60,6 @@ export const router = createBrowserRouter([
       { path: "/customer/payment/:orderId", Component: CustomerPayment   }, // 결제·청구
       { path: "/customer/find-shop",  Component: CustomerFindShop  }, // 서비스 센터 찾기
       { path: "/customer/profile",    Component: CustomerProfile   }, // 프로필
-      { path: "/customer/repair-orders/status", Component: RepairOrderStatusPage },
-      { path: "/customer/repair-orders/:orderId/status", Component: RepairOrderStatusPage },
 
       // 역할 공통
       { path: "/notifications", Component: NotificationPage },
@@ -79,7 +76,7 @@ export const router = createBrowserRouter([
       // 관리자
       { path: "/admin/dashboard",      Component: AdminDashboard     }, // 통합 대시보드
       { path: "/admin/policies",       Component: AdminPolicies      }, // 보험 약관 관리
-      { path: "/admin/settlements",    Component: AdminSettlements   }, // 수수료 청구 관리
+      { path: "/admin/settlements",    Component: AdminSettlements   }, // 정산 통계 조회 + 월말 배치 수동 실행/재실행 관제
       { path: "/admin/audit",          Component: AdminAudit         }, // 감사·DLQ
       { path: "/admin/lms",            Component: AdminLMS           }, // LMS 관리
       { path: "/admin/profile",        Component: AdminProfile       }, // 관리자 프로필

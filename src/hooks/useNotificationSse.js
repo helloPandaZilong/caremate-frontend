@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getAccessToken } from "../utils/authToken";
+
+const TOKEN_KEY = "caremate_access_token";
+
+function getSseAccessToken() {
+  if (typeof window === "undefined") return "";
+  return window.localStorage.getItem(TOKEN_KEY) || "";
+}
 
 function normalizeNotificationEvent(event) {
   try {
@@ -34,7 +40,7 @@ export function useNotificationSse({ enabled = true, onNotification } = {}) {
       return undefined;
     }
 
-    const token = getAccessToken();
+    const token = getSseAccessToken();
     if (!token) {
       setConnectionState("no-token");
       return undefined;

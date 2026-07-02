@@ -26,8 +26,10 @@ export function createRepairOrder({ repairShopId, damageDescription, reservedVis
     })
 }
 
-export function getRepairOrders(page = 0, size = 10) {
-    return apiClient.get('/customer/repair-orders', { params: { page, size } })
+export function getRepairOrders(page = 0, size = 10, status) {
+    const params = { page, size }
+    if (status) params.status = status
+    return apiClient.get('/customer/repair-orders', { params })
 }
 
 export function getRepairOrder(orderId) {
@@ -36,6 +38,15 @@ export function getRepairOrder(orderId) {
 
 export function cancelRepairOrder(orderId) {
     return apiClient.post(`/customer/repair-orders/${orderId}/cancel`)
+}
+
+export function diagnoseImage(imageFile) {
+    const formData = new FormData()
+    formData.append('image', imageFile)
+    return apiClient.post('/customer/repair-orders/diagnose', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 60000,
+    })
 }
 
 export function getStatusHistories(orderId) {
@@ -52,9 +63,9 @@ export function getInsurancePolicy(policyId) {
     return apiClient.get(`/customer/insurance-policies/${policyId}`)
 }
 
-export function createInsurancePolicy({ insuranceProductId, policyNumber, startDate, endDate }) {
+export function createInsurancePolicy({ insuranceProductId, policyNumber, startDate, endDate, priorClaimCount, priorClaimedAmount }) {
     return apiClient.post('/customer/insurance-policies', {
-        insuranceProductId, policyNumber, startDate, endDate,
+        insuranceProductId, policyNumber, startDate, endDate, priorClaimCount, priorClaimedAmount,
     })
 }
 

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router";
 import {
   CreditCard,
   Smartphone,
@@ -14,6 +14,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button, Card } from "../../components/shared";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   fetchPaymentInfo,
   readyPayment,
@@ -31,6 +32,25 @@ function fmt(n) {
 // 청구 완료 여부 (CALCULATED = 아직 청구 안 함)
 const isClaimed = (claim) => claim.status !== "CALCULATED";
 
+// ── 토스페이먼츠 결제창 SDK (v1) ─────────────────────────────────────────────
+// index.html에서 <script src="https://js.tosspayments.com/v1/payment">로 전역 로드됨
+const TOSS_CLIENT_KEY = import.meta.env.VITE_TOSS_CLIENT_KEY;
+
+// 결제수단 라디오 값 → 토스 v1 결제창 requestPayment()의 첫 번째 파라미터(한글 고정값)
+const TOSS_METHOD_MAP = {
+  card: "카드",
+  mobile: "휴대폰",
+};
+
+function getTossPayments() {
+  if (!window.TossPayments) {
+    throw new Error(
+      "토스페이먼츠 SDK를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.",
+    );
+  }
+  return window.TossPayments(TOSS_CLIENT_KEY);
+}
+
 // ── Post-Payment: Claim Package Screen ───────────────────────────────────────
 // orderId 추가로 받음 (청구 API에 필요). claims 는 confirmData 대신 조회.
 function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
@@ -44,9 +64,12 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
   const [claimError, setClaimError] = useState(null);
   const [showWarning, setShowWarning] = useState(false);
 
-  // 영수증 조회 (협업자 코드 그대로)
+  // 영수증 조회 — paymentId가 없으면 로딩 즉시 해제
   useEffect(() => {
-    if (!paymentId) return;
+    if (!paymentId) {
+      setLoading(false);
+      return;
+    }
     fetchReceipt(paymentId)
       .then((res) => setReceipt(res.data.data))
       .catch(console.error)
@@ -101,14 +124,6 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
   const handleSubmit = (claim) => {
     if (!isClaimed(claim)) return;
     window.open(claim.claimChannelValue, "_blank", "noopener");
-    // if (claim.claimChannelType === "WEBSITE") {
-    //   window.open(claim.claimChannelValue, "_blank", "noopener");
-    // } else {
-    //   alert(
-    //     `${claim.providerName} 제출 채널: ${claim.claimChannelValue}\n` +
-    //       `카카오톡에서 해당 채널로 서류를 제출하세요.`,
-    //   );
-    // }
   };
 
   if (loading) {
@@ -432,7 +447,9 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
 export default function PaymentPage() {
   const { orderId: orderIdParam } = useParams();
   const orderId = Number(orderIdParam);
-  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [method, setMethod] = useState("card");
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -444,16 +461,98 @@ export default function PaymentPage() {
   const [paymentId, setPaymentId] = useState(null);
   const [confirmData, setConfirmData] = useState(null);
 
-  // 결제 정보 조회 (GET /api/customer/payments/info/{orderId})
+  // 토스 successUrl 리다이렉트로 돌아왔을 때 — 서버에 결제 승인 재검증 요청
+  // (18.9: 서버가 PG 단건조회로 승인 상태·금액을 재검증한 뒤에만 처리)
+  // tossOrderId: 토스가 successUrl 쿼리파라미터로 돌려준 orderId (ready 단계에서 발급한 결제 시도 전용 값)
+  const handleConfirm = useCallback(
+    async (paymentKey, tossOrderId, amount) => {
+      setPaying(true);
+      setError(null);
+      try {
+        const confirmRes = await confirmPayment(
+          orderId,
+          paymentKey,
+          tossOrderId,
+          amount,
+        );
+        const confirmResult = confirmRes.data.data;
+        setPaymentId(confirmResult.paymentId);
+        setConfirmData(confirmResult);
+        setPaid(true);
+      } catch (err) {
+        const errorMessage =
+          err.response?.data?.error?.message ??
+          "결제 승인 중 오류가 발생했습니다.";
+        setError(errorMessage);
+      } finally {
+        setPaying(false);
+        setLoading(false);
+      }
+    },
+    [orderId],
+  );
+
+  // 진입 시 토스 리다이렉트(successUrl/failUrl) 쿼리파라미터 처리 또는 일반 진입 처리
   useEffect(() => {
     if (!orderId) return;
+
+    const paymentKey = searchParams.get("paymentKey");
+    const tossOrderId = searchParams.get("orderId"); // 토스가 돌려준 값 — 내부 PK(orderId 라우트 파라미터)와는 별개
+    const amountParam = searchParams.get("amount");
+    const failCode = searchParams.get("code");
+
+    // 1) 토스 successUrl 리다이렉트 — paymentKey/orderId/amount가 쿼리로 돌아옴
+    if (paymentKey && tossOrderId && amountParam) {
+      setSearchParams({}, { replace: true }); // 새로고침 시 중복 승인 방지를 위해 쿼리 정리
+      handleConfirm(paymentKey, tossOrderId, Number(amountParam));
+      return;
+    }
+
+    // 2) 토스 failUrl 리다이렉트 — code/message가 쿼리로 돌아옴 (사용자 취소, 인증 실패 등)
+    if (failCode) {
+      const message = searchParams.get("message") || "결제가 취소되었습니다.";
+      setSearchParams({}, { replace: true });
+      failPayment(orderId, failCode, message).catch(console.error);
+      setError(message);
+    }
+
+    // 3) 일반 진입 — 결제 정보 조회 (GET /api/customer/payments/info/{orderId})
     fetchPaymentInfo(orderId)
-      .then((res) => setPaymentInfo(res.data.data))
-      .catch(() => setError("결제 정보를 불러오지 못했습니다."))
+      .then((res) => {
+        const info = res.data.data;
+        setPaymentInfo(info);
+        // 이미 결제된 상태(PAYMENT_COMPLETED / CLAIM_COMPLETED)면 ClaimPackageScreen으로 바로 이동
+        if (info.status === 'PAYMENT_COMPLETED' || info.status === 'CLAIM_COMPLETED') {
+          setPaymentId(info.paymentId ?? null);
+          setPaid(true);
+        }
+      })
+      .catch((err) => {
+        const code = err.response?.data?.error?.code;
+        const message = err.response?.data?.error?.message;
+        if (code === "INVALID_STATE_TRANSITION") {
+          setError(
+            (prev) =>
+              prev ??
+              "아직 결제할 수 없는 주문입니다. 수리 완료(리포트 작성) 이후에 결제가 가능합니다.",
+          );
+        } else if (code === "RESOURCE_NOT_FOUND") {
+          setError(
+            (prev) => prev ?? "존재하지 않는 주문이거나 접근 권한이 없습니다.",
+          );
+        } else {
+          setError(
+            (prev) => prev ?? message ?? "결제 정보를 불러오지 못했습니다.",
+          );
+        }
+        // eslint-disable-next-line no-console
+        console.error("[결제 정보 조회 실패]", code, message, err);
+      })
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
-  // 결제하기 버튼 클릭
+  // 결제하기 버튼 클릭 — 결제 준비 후 토스 결제창 호출
   const handlePayment = async () => {
     if (paying) return;
     setPaying(true);
@@ -462,26 +561,27 @@ export default function PaymentPage() {
     try {
       // 1. 결제 준비 (POST /api/customer/payments/ready)
       const readyRes = await readyPayment(orderId);
-      const { paymentKey, amount } = readyRes.data.data;
+      const { tossOrderId, orderName, customerKey, amount } =
+        readyRes.data.data;
 
-      // 2. PG SDK 호출 (실제 PG 연동 시 여기서 PG SDK 실행)
-      //    현재는 바로 confirm으로 진행 (테스트용)
+      // 2. 토스 결제창 호출 — 성공/실패 시 동일 페이지(쿼리파라미터로 구분)로 리다이렉트
+      const tossPayments = getTossPayments();
+      const returnUrl = `${window.location.origin}/customer/payment/${orderId}`;
 
-      // 3. 결제 승인 (POST /api/customer/payments/confirm)
-      const confirmRes = await confirmPayment(orderId, paymentKey, amount);
-      const confirmResult = confirmRes.data.data;
-
-      setPaymentId(confirmResult.paymentId);
-      setConfirmData(confirmResult);
-      setPaid(true);
+      await tossPayments.requestPayment(TOSS_METHOD_MAP[method], {
+        amount,
+        orderId: tossOrderId, // ready 단계에서 발급한 결제 시도 전용 토스 orderId(영구 1회용이라 매번 새로 발급됨)
+        orderName,
+        customerKey,
+        customerName: user?.name,
+        successUrl: returnUrl,
+        failUrl: returnUrl,
+      });
+      // 정상 흐름이라면 브라우저가 위 URL로 리다이렉트되어 이 아래 코드는 실행되지 않음
     } catch (err) {
-      // 결제 실패 처리 (POST /api/customer/payments/fail)
-      const errorCode = err.response?.data?.error?.code ?? "UNKNOWN";
-      const errorMessage =
-        err.response?.data?.error?.message ?? "결제 중 오류가 발생했습니다.";
-      await failPayment(orderId, errorCode, errorMessage).catch(console.error);
-      setError(errorMessage);
-    } finally {
+      // 사용자가 결제창을 닫거나 인증 도중 취소한 경우 등 (예: code === "USER_CANCEL")
+      const message = err?.message ?? "결제 진행 중 오류가 발생했습니다.";
+      setError(message);
       setPaying(false);
     }
   };
@@ -516,7 +616,7 @@ export default function PaymentPage() {
 
   const PAYMENT_METHODS = [
     { id: "card", label: "신용카드", icon: CreditCard },
-    { id: "mobile", label: "간편결제 (카카오페이·토스)", icon: Smartphone },
+    { id: "mobile", label: "휴대폰 결제", icon: Smartphone },
   ];
 
   return (
@@ -524,7 +624,7 @@ export default function PaymentPage() {
       <div>
         <h1 className="text-xl font-semibold text-foreground">결제 센터</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          수리 대금을 결제하면 보험 청구 패키지가 자동 생성됩니다.
+          수리 대금을 결제하면 보험 청구 패키지를 생성할 수 있습니다.
         </p>
       </div>
 
@@ -532,7 +632,7 @@ export default function PaymentPage() {
       <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
         {[
           "수리 대금 전액 결제 (수리점 지급)",
-          "청구 패키지 자동 생성",
+          "청구 패키지 생성 하기",
           "보험사 서류 제출 안내",
         ].map((s, i, arr) => (
           <div key={s} className="flex items-center gap-2">
@@ -633,7 +733,7 @@ export default function PaymentPage() {
       <div className="flex flex-col md:flex-row items-center gap-4 p-5 bg-card border border-border rounded-2xl">
         <div className="flex-1">
           <p className="text-sm font-semibold text-foreground">
-            결제 즉시 청구 패키지가 생성됩니다
+            결제 완료 후 보험 청구 패키지를 생성할 수 있습니다.
           </p>
           <p className="text-xs text-muted-foreground mt-0.5">
             결제 금액은 수리점에 바로 지급됩니다. 이후 보험사 청구는 생성된

@@ -30,3 +30,50 @@ export const downloadSettlementExcel = async (settlementMonth) => {
   a.click()
   URL.revokeObjectURL(url)
 }
+
+/**
+ * 특정 월 건별(주문별) 결제 내역 조회
+ * GET /api/shop/settlements/{settlementMonth}/orders
+ *
+ * 응답 data: [{ orderId, orderNo, customerName, totalPaidAmount,
+ *               expectedRefundAmount, paidAt }]
+ * payments.paidAt 기준으로 뽑은 목록이라 위 정산 요약(총매출·건수)과 항상 합계가 일치함.
+ */
+export const fetchSettlementOrders = (settlementMonth) =>
+  apiClient.get(`/shop/settlements/${settlementMonth}/orders`)
+
+// ── 관리자 정산·배치 관리 API ───────────────────────────────────────────────────
+// 백엔드: AdminSettlementController (/api/admin/settlements/**)
+
+/**
+ * 관리자 — 월간 정산 통계 (수리점별)
+ * GET /api/admin/settlements/monthly?yearMonth=2026-06
+ * yearMonth 생략 시 전체 정산 이력 전체 조회 (AdminSettlementService 확인 완료)
+ */
+export const getAdminMonthlySettlements = (yearMonth) =>
+  apiClient.get('/admin/settlements/monthly', {
+    params: yearMonth ? { yearMonth } : {},
+  })
+
+/**
+ * 관리자 — 특정 수리점의 월별 정산 상세 이력 조회
+ * GET /api/admin/settlements/monthly/{shopId}
+ */
+export const getAdminShopSettlementDetail = (shopId) =>
+  apiClient.get(`/admin/settlements/monthly/${shopId}`)
+
+/**
+ * 관리자 — 월말 정산 배치 수동 실행/재실행
+ * POST /api/admin/settlements/batch/run
+ * body: { settlementMonth: "2026-06" }
+ * 응답 data: { settlementMonth, status: "SUCCESS"|"PARTIAL_FAIL"|"FAILED"|"SKIPPED", message }
+ */
+export const runSettlementBatch = (settlementMonth) =>
+  apiClient.post('/admin/settlements/batch/run', { settlementMonth })
+
+/**
+ * 관리자 — 배치 실행 로그 목록 조회 (최신순)
+ * GET /api/admin/settlements/batch/logs
+ */
+export const getBatchExecutionLogs = () =>
+  apiClient.get('/admin/settlements/batch/logs')

@@ -119,7 +119,8 @@ function getDetailHref(notification, role) {
   return "/notifications";
 }
 
-function NotificationRow({ notification, onRead, onNavigate, compact = false, role }) {  const meta = TYPE_META[notification.type] ?? {
+function NotificationRow({ notification, onRead, onNavigate, compact = false, role }) {
+  const meta = TYPE_META[notification.type] ?? {
     label: notification.type ?? "알림",
     icon: Bell,
     color: "text-muted-foreground",
@@ -159,7 +160,8 @@ function NotificationRow({ notification, onRead, onNavigate, compact = false, ro
   );
 }
 
-export function NotificationList({ items, onRead, onNavigate, compact = false, role }) {  if (!items?.length) {
+export function NotificationList({ items, onRead, onNavigate, compact = false, role }) {
+  if (!items?.length) {
     return (
         <div className="py-10 text-center text-sm text-muted-foreground">
           수신된 알림이 없습니다.
