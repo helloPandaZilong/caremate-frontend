@@ -1,20 +1,29 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router";
 import {
-  Phone,
+  Bell,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
-  CheckCircle2,
-  Wrench,
-  Package,
-  Truck,
-  Loader2,
+  CreditCard,
   ListFilter,
+  Loader2,
+  Phone,
+  RefreshCw,
+  Wrench,
   X as XIcon,
 } from "lucide-react";
-import { Card, Badge, Button } from "../../components/shared";
+import { Badge, Button, Card } from "../../components/shared";
 import ShopReviewCard from "../../components/ShopReviewCard";
-import { getRepairOrders, getStatusHistories } from "../../api/customerService";
+import RepairStatusStepper, {
+  OrderStatusHistoryList,
+} from "../../components/monitoring/RepairStatusStepper";
+import { NotificationList } from "../../components/notification/NotificationBell";
+import { useNotificationSse } from "../../hooks/useNotificationSse";
+import { getOrderStatusHistories } from "../../api/monitoringApi";
+import { getCustomerRepairOrders } from "../../api/customerRepairOrderApi";
+import { getNotifications, markNotificationRead } from "../../api/notificationApi";
+import { useAuth } from "../../contexts/AuthContext";
 
 const REVIEWABLE_STATUSES = [
   "PAYMENT_COMPLETED",
@@ -23,338 +32,318 @@ const REVIEWABLE_STATUSES = [
   "RECEIPT_UPLOADED",
 ];
 
-const STAGES = [
-  { id: 1, label: "접수", icon: CheckCircle2 },
-  { id: 2, label: "수리중", icon: Wrench },
-  { id: 3, label: "수리완료", icon: Package },
-  { id: 4, label: "인도완료", icon: Truck },
-];
-
-const STATUS_TO_STAGE = {
-  RECEIVED: 1,
-  ACCEPTED: 1,
-  IN_REPAIR: 2,
-  REPAIR_DONE: 3,
-  PAYMENT_COMPLETED: 4,
-  CLAIM_COMPLETED: 4,
-};
-
 const STATUS_LABEL = {
-  RECEIVED: "접수완료",
-  ACCEPTED: "접수수락",
-  IN_REPAIR: "수리중",
-  REPAIR_DONE: "수리완료",
-  PAYMENT_COMPLETED: "결제완료",
-  CLAIM_COMPLETED: "인도완료",
-  REJECTED: "반려됨",
-  CANCELLED: "취소됨",
+  RECEIVED: "접수",
+  ACCEPTED: "예약확정",
+  REJECTED: "접수반려",
   NO_SHOW: "노쇼",
   REPAIR_IMPOSSIBLE: "수리불가",
+  IN_REPAIR: "수리중",
+  REPAIR_DONE: "수리완료·결제대기",
+  PAYMENT_COMPLETED: "결제완료",
+  CLAIM_REQUESTED: "청구요청",
+  CLAIM_COMPLETED: "청구완료",
 };
 
-const STATUS_VARIANT = {
-  RECEIVED: "accent",
+const STATUS_BADGE = {
+  RECEIVED: "yellow",
   ACCEPTED: "accent",
-  IN_REPAIR: "yellow",
+  IN_REPAIR: "teal",
   REPAIR_DONE: "green",
   PAYMENT_COMPLETED: "green",
+  CLAIM_REQUESTED: "accent",
   CLAIM_COMPLETED: "green",
   REJECTED: "red",
-  CANCELLED: "muted",
   NO_SHOW: "red",
   REPAIR_IMPOSSIBLE: "red",
 };
 
-function StatusStepper({ currentStage }) {
-  return (
-    <div className="bg-card border border-border rounded-2xl p-5">
-      <div className="flex items-center justify-between relative">
-        {/* Connecting line */}
-        <div className="absolute top-5 left-6 right-6 h-0.5 bg-secondary z-0" />
-        <div
-          className="absolute top-5 left-6 right-6 h-0.5 z-0 overflow-hidden"
-        >
-          <div
-            className="h-full bg-accent transition-all duration-500"
-            style={{
-              width: `${((currentStage - 1) / (STAGES.length - 1)) * 100}%`,
-            }}
-          />
-        </div>
+const ACTIVE_STATUSES = new Set([
+  "RECEIVED",
+  "ACCEPTED",
+  "IN_REPAIR",
+  "REPAIR_DONE",
+  "PAYMENT_COMPLETED",
+  "CLAIM_REQUESTED",
+]);
 
-        {STAGES.map((stage) => {
-          const Icon = stage.icon;
-          const isLastStage = stage.id === STAGES.length;
-          const done = stage.id < currentStage || (isLastStage && stage.id === currentStage);
-          const active = stage.id === currentStage && !done;
-          return (
-            <div
-              key={stage.id}
-              className="flex flex-col items-center gap-2 relative z-10"
-            >
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all ${
-                  done
-                    ? "bg-accent border-accent"
-                    : active
-                      ? "bg-card border-accent shadow-lg shadow-accent/20"
-                      : "bg-card border-secondary"
-                }`}
-              >
-                <Icon
-                  className={`w-4 h-4 ${done ? "text-white" : active ? "text-accent" : "text-muted-foreground/40"}`}
-                />
-              </div>
-              <span
-                className={`text-xs font-medium ${active ? "text-accent" : done ? "text-foreground" : "text-muted-foreground/50"}`}
-              >
-                {stage.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+function getContent(pageData) {
+  if (Array.isArray(pageData)) return pageData;
+  return pageData?.content ?? [];
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).replace("T", " ").slice(0, 16);
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function pickDashboardOrder(orders, savedOrderId) {
+  if (!orders.length) return null;
+  const saved = savedOrderId
+      ? orders.find((order) => String(order.id) === String(savedOrderId))
+      : null;
+  return saved ?? orders.find((order) => ACTIVE_STATUSES.has(order.status)) ?? orders[0];
+}
+
+function buildOrderForTimeline(order, timeline) {
+  if (!order && !timeline) return null;
+  return {
+    ...(order ?? {}),
+    id: order?.id ?? timeline?.orderId,
+    orderNo: order?.orderNo ?? timeline?.orderNo,
+    status: timeline?.currentStatus ?? order?.status,
+    shopName: order?.shopName ?? order?.repairShopName ?? timeline?.shopName,
+    reservedVisitAt: order?.reservedVisitAt ?? timeline?.reservedVisitAt,
+    createdAt: order?.createdAt ?? timeline?.createdAt,
+    damageDescription: order?.damageDescription ?? timeline?.damageDescription,
+  };
 }
 
 function ASRequestCard({ order }) {
-  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
-
   if (!order) return null;
 
-  const visitDate = order.reservedVisitAt
-    ? new Date(order.reservedVisitAt).toLocaleString("ko-KR", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "-";
+  const shopName = order.shopName ?? order.repairShopName ?? "-";
 
   return (
-    <Card className="p-5 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">
-          진행 중인 A/S 요청
-        </h3>
-        <Badge variant={STATUS_VARIANT[order.status] || "muted"}>
-          {STATUS_LABEL[order.status] || order.status}
-        </Badge>
-      </div>
-
-      <div className="flex items-center gap-3 bg-secondary rounded-xl p-3">
-        <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
-          <Phone className="w-5 h-5 text-accent" />
+      <div className="flex flex-col gap-6">
+      <Card className="p-5 flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Wrench className="w-4 h-4 text-accent" />
+            <h2 className="text-sm font-semibold text-foreground">진행 중인 A/S</h2>
+          </div>
+          <Badge variant={STATUS_BADGE[order.status] ?? "muted"}>
+            {STATUS_LABEL[order.status] ?? order.status ?? "상태 없음"}
+          </Badge>
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-foreground">
-            접수번호: {order.orderNo}
-          </p>
-          <p className="text-xs text-muted-foreground">{order.shopName}</p>
-        </div>
-      </div>
 
-      <div className="flex flex-col gap-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">담당 수리점</span>
-          <span className="font-medium text-foreground">{order.shopName}</span>
+        <div className="flex items-center gap-3 bg-secondary rounded-xl p-3">
+          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+            <Phone className="w-5 h-5 text-accent" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">
+              접수번호: {order.orderNo ?? `주문 #${order.id}`}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">{shopName}</p>
+          </div>
         </div>
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">예약 일시</span>
-          <span className="font-medium text-foreground">{visitDate}</span>
+
+        <div className="grid sm:grid-cols-2 gap-3 text-sm">
+          <div className="rounded-xl bg-secondary border border-border p-3">
+            <p className="text-xs text-muted-foreground">방문 예약</p>
+            <p className="font-medium text-foreground mt-1">{formatDateTime(order.reservedVisitAt)}</p>
+          </div>
+          <div className="rounded-xl bg-secondary border border-border p-3">
+            <p className="text-xs text-muted-foreground">접수 일시</p>
+            <p className="font-medium text-foreground mt-1">{formatDateTime(order.createdAt)}</p>
+          </div>
         </div>
-      </div>
 
-      {/* Expandable breakdown */}
-      {order.damageDescription && (
-        <>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center justify-between py-2 px-3 bg-secondary rounded-xl text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors"
-          >
-            <span>파손 상세 내역</span>
-            {expanded ? (
-              <ChevronUp className="w-4 h-4" />
-            ) : (
-              <ChevronDown className="w-4 h-4" />
-            )}
-          </button>
-          {expanded && (
-            <div className="text-xs text-muted-foreground px-1 animate-in fade-in slide-in-from-top-1 duration-150 whitespace-pre-line">
-              {order.damageDescription}
-            </div>
-          )}
-        </>
-      )}
+        {order.damageDescription && (
+            <>
+              <button
+                  type="button"
+                  onClick={() => setExpanded((value) => !value)}
+                  className="flex items-center justify-between py-2 px-3 bg-secondary rounded-xl text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <span>파손 상세 내역</span>
+                {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+              {expanded && (
+                  <p className="text-xs text-muted-foreground px-1 whitespace-pre-line">
+                    {order.damageDescription}
+                  </p>
+              )}
+            </>
+        )}
 
-      {order.status === "REPAIR_DONE" && (
-        <Button
-          variant="accent"
-          size="sm"
-          className="self-end"
-          onClick={() => navigate(`/customer/payment/${order.id}`)}
-        >
-          결제하러 가기
-        </Button>
-      )}
+        {order.status === "REPAIR_DONE" && (
+            <Link
+                to={`/customer/payment/${order.id}`}
+                className="inline-flex items-center gap-2 self-end text-sm font-semibold text-accent hover:underline"
+            >
+              <CreditCard className="w-4 h-4" />
+              결제하러 가기
+            </Link>
+        )}
+      </Card>
 
       {REVIEWABLE_STATUSES.includes(order.status) && (
-        <ShopReviewCard orderId={order.id} shopName={order.shopName} />
+          <ShopReviewCard orderId={order.id} shopName={order.shopName ?? order.repairShopName} />
       )}
-    </Card>
+      </div>
   );
 }
 
 function OrderPickerModal({ orders, loading, selectedId, onSelect, onClose }) {
   return (
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
       <div
-        className="bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={onClose}
       >
-        <div className="flex items-center justify-between p-5 border-b border-border shrink-0">
-          <h3 className="text-base font-semibold text-foreground">내 접수건</h3>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <XIcon className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
-          {loading && (
-            <div className="flex items-center justify-center py-10">
-              <Loader2 className="w-5 h-5 animate-spin text-accent" />
-            </div>
-          )}
-          {!loading && orders.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-10">
-              접수 내역이 없습니다.
-            </p>
-          )}
-          {!loading &&
-            orders.map((order) => (
-              <button
-                key={order.id}
-                onClick={() => onSelect(order)}
-                className={`flex flex-col gap-1.5 p-4 rounded-xl border text-left transition-all ${
-                  order.id === selectedId
-                    ? "border-accent bg-accent/10"
-                    : "border-border hover:border-accent/30 hover:bg-secondary"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-semibold text-foreground">
-                    {order.orderNo}
-                  </span>
-                  <Badge variant={STATUS_VARIANT[order.status] || "muted"}>
-                    {STATUS_LABEL[order.status] || order.status}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span>{order.shopName}</span>
-                  <span>
-                    {order.createdAt
-                      ? new Date(order.createdAt).toLocaleDateString("ko-KR")
-                      : "-"}
-                  </span>
-                </div>
-              </button>
-            ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function NotificationFeed({ histories }) {
-  return (
-    <Card className="p-5 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">상태 이력</h3>
-      </div>
-      <div className="flex flex-col divide-y divide-border/40">
-        {histories.length === 0 && (
-          <p className="text-xs text-muted-foreground py-3">아직 이력이 없습니다.</p>
-        )}
-        {histories.map((h, i) => (
-          <div key={i} className="flex gap-3 py-3">
-            <div className="flex flex-col items-center gap-1 shrink-0 pt-1">
-              <div className="w-2 h-2 rounded-full bg-accent" />
-              {i < histories.length - 1 && (
-                <div className="w-px flex-1 bg-border/40" />
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs leading-relaxed text-foreground font-medium">
-                {STATUS_LABEL[h.previousStatus] || h.previousStatus} → {STATUS_LABEL[h.changedStatus] || h.changedStatus}
-              </p>
-              {h.note && (
-                <p className="text-[11px] text-muted-foreground mt-0.5">{h.note}</p>
-              )}
-              <p className="text-[11px] text-muted-foreground/60 mt-0.5">
-                {new Date(h.changedAt).toLocaleString("ko-KR")}
-              </p>
-            </div>
+        <div
+            className="bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col"
+            onClick={(event) => event.stopPropagation()}
+        >
+          <div className="flex items-center justify-between p-5 border-b border-border shrink-0">
+            <h3 className="text-base font-semibold text-foreground">내 접수건</h3>
+            <button
+                type="button"
+                onClick={onClose}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <XIcon className="w-4 h-4" />
+            </button>
           </div>
-        ))}
+
+          <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-2">
+            {loading && (
+                <div className="flex items-center justify-center py-10">
+                  <Loader2 className="w-5 h-5 animate-spin text-accent" />
+                </div>
+            )}
+            {!loading && orders.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-10">
+                  접수 내역이 없습니다.
+                </p>
+            )}
+            {!loading &&
+                orders.map((order) => (
+                    <button
+                        type="button"
+                        key={order.id}
+                        onClick={() => onSelect(order)}
+                        className={`flex flex-col gap-1.5 p-4 rounded-xl border text-left transition-all ${
+                            String(order.id) === String(selectedId)
+                                ? "border-accent bg-accent/10"
+                                : "border-border hover:border-accent/30 hover:bg-secondary"
+                        }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-foreground">
+                    {order.orderNo ?? `주문 #${order.id}`}
+                  </span>
+                        <Badge variant={STATUS_BADGE[order.status] || "muted"}>
+                          {STATUS_LABEL[order.status] || order.status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                        <span>{order.shopName ?? order.repairShopName ?? "-"}</span>
+                        <span>{formatDateTime(order.createdAt).slice(0, 12)}</span>
+                      </div>
+                    </button>
+                ))}
+          </div>
+        </div>
       </div>
-    </Card>
   );
 }
 
 export default function CustomerDashboard() {
+  const { user } = useAuth();
   const [latestOrder, setLatestOrder] = useState(null);
-  const [histories, setHistories] = useState([]);
+  const [timeline, setTimeline] = useState(null);
+  const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // 내 접수건 모달
+  const [error, setError] = useState("");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [allOrders, setAllOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
 
-  const loadHistoriesFor = async (order) => {
-    setLatestOrder(order);
-    try {
-      const histRes = await getStatusHistories(order.id);
-      const histData = histRes.data.data?.histories;
-      setHistories(Array.isArray(histData) ? histData : []);
-    } catch {
-      setHistories([]);
+  const loadTimelineForOrder = useCallback(async (orderOrId) => {
+    const orderId = typeof orderOrId === "object" ? orderOrId?.id : orderOrId;
+    if (!orderId) {
+      setLatestOrder(null);
+      setTimeline(null);
+      return;
     }
-  };
+
+    const nextTimeline = await getOrderStatusHistories(orderId);
+    setTimeline(nextTimeline);
+    setLatestOrder(buildOrderForTimeline(typeof orderOrId === "object" ? orderOrId : null, nextTimeline));
+    localStorage.setItem("caremate-current-order-id", String(orderId));
+  }, []);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const [notificationPage, orderPage] = await Promise.all([
+        getNotifications({ page: 0, size: 5 }),
+        getCustomerRepairOrders({ page: 0, size: 20 }),
+      ]);
+
+      setNotifications(getContent(notificationPage));
+
+      const orders = getContent(orderPage);
+      const selectedOrder = pickDashboardOrder(
+          orders,
+          localStorage.getItem("caremate-current-order-id"),
+      );
+
+      if (selectedOrder?.id) {
+        await loadTimelineForOrder(selectedOrder);
+      } else {
+        setLatestOrder(null);
+        setTimeline(null);
+      }
+    } catch (e) {
+      setError(e.message || "대시보드 데이터를 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }, [loadTimelineForOrder]);
 
   useEffect(() => {
-    async function load() {
-      try {
-        const { data } = await getRepairOrders(0, 1);
-        const orders = data.data?.content ?? [];
-        if (orders.length > 0) {
-          await loadHistoriesFor(orders[0]);
-        }
-      } catch (e) {
-        setError(e.response?.data?.error?.message || "데이터를 불러올 수 없습니다.");
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
-  }, []);
+  }, [load]);
+
+  const handleSseNotification = useCallback((notification) => {
+    if (!notification?.id) return;
+    setNotifications((prev) => [
+      { ...notification, isRead: false },
+      ...prev.filter((item) => item.id !== notification.id),
+    ].slice(0, 5));
+
+    if (notification.repairOrderId) {
+      loadTimelineForOrder(notification.repairOrderId).catch(() => {});
+    }
+  }, [loadTimelineForOrder]);
+
+  const { connectionState } = useNotificationSse({
+    enabled: true,
+    onNotification: handleSseNotification,
+  });
+
+  const handleRead = async (notification) => {
+    if (!notification?.id || notification.isRead || notification.read) return;
+    setNotifications((prev) => prev.map((item) => (
+        item.id === notification.id ? { ...item, isRead: true, read: true } : item
+    )));
+    try {
+      await markNotificationRead(notification.id);
+    } catch {
+      await load();
+    }
+  };
 
   const openPicker = async () => {
     setPickerOpen(true);
     setOrdersLoading(true);
     try {
-      const { data } = await getRepairOrders(0, 50);
-      setAllOrders(data.data?.content ?? []);
+      const pageData = await getCustomerRepairOrders({ page: 0, size: 50 });
+      setAllOrders(getContent(pageData));
     } catch {
       setAllOrders([]);
     } finally {
@@ -364,69 +353,105 @@ export default function CustomerDashboard() {
 
   const handleSelectOrder = async (order) => {
     setPickerOpen(false);
-    await loadHistoriesFor(order);
+    setLoading(true);
+    setError("");
+    try {
+      await loadTimelineForOrder(order);
+    } catch (e) {
+      setError(e.message || "선택한 접수건의 상태 이력을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-accent" />
-      </div>
-    );
-  }
-
-  const currentStage = latestOrder ? STATUS_TO_STAGE[latestOrder.status] ?? 1 : 0;
-
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">대시보드</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {latestOrder ? "현재 진행 중인 A/S가 있습니다." : "현재 진행 중인 A/S가 없습니다."}
-          </p>
+      <div className="flex flex-col gap-6 max-w-5xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold text-foreground">대시보드</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              접수부터 수리중, 수리완료, 결제대기, 청구 완료까지 실시간으로 확인합니다.
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="secondary" size="sm" onClick={openPicker} disabled={loading}>
+              <ListFilter className="w-4 h-4" />
+              내 접수건
+            </Button>
+            <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+              새로고침
+            </Button>
+          </div>
         </div>
-        <button
-          onClick={openPicker}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium border border-border rounded-xl text-foreground hover:bg-secondary transition-all shrink-0"
-        >
-          <ListFilter className="w-3.5 h-3.5" />
-          내 접수건
-        </button>
-      </div>
 
-      {pickerOpen && (
-        <OrderPickerModal
-          orders={allOrders}
-          loading={ordersLoading}
-          selectedId={latestOrder?.id}
-          onSelect={handleSelectOrder}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
+        {pickerOpen && (
+            <OrderPickerModal
+                orders={allOrders}
+                loading={ordersLoading}
+                selectedId={latestOrder?.id}
+                onSelect={handleSelectOrder}
+                onClose={() => setPickerOpen(false)}
+            />
+        )}
 
-      {error && (
-        <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-xl text-sm text-red-700 dark:text-red-400">
-          {error}
-        </div>
-      )}
+        {error && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {error}
+            </div>
+        )}
 
-      {latestOrder && <StatusStepper currentStage={currentStage} />}
+        {loading ? (
+            <Card className="p-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              데이터를 불러오는 중입니다.
+            </Card>
+        ) : latestOrder ? (
+            <>
+              <ASRequestCard order={latestOrder} />
+              <section id="repair-status-section" className="scroll-mt-24 flex flex-col gap-6">
+                <RepairStatusStepper
+                    milestones={timeline?.milestones}
+                    currentStatus={timeline?.currentStatus ?? latestOrder?.status}
+                />
+                <OrderStatusHistoryList histories={timeline?.histories ?? []} />
+              </section>
+            </>
+        ) : (
+            <Card className="p-8 text-center flex flex-col items-center gap-4">
+              <CheckCircle2 className="w-10 h-10 text-muted-foreground" />
+              <div>
+                <h2 className="text-base font-semibold text-foreground">진행 중인 A/S가 없습니다.</h2>
+                <p className="text-sm text-muted-foreground mt-1">새 비대면 A/S 접수를 시작해보세요.</p>
+              </div>
+              <Link to="/customer/request">
+                <Button variant="accent">새 A/S 접수</Button>
+              </Link>
+            </Card>
+        )}
 
-      {latestOrder && (
-        <div className="grid md:grid-cols-2 gap-5">
-          <ASRequestCard order={latestOrder} />
-          <NotificationFeed histories={histories} />
-        </div>
-      )}
-
-      {!latestOrder && !error && (
-        <Card className="p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            A/S 접수 내역이 없습니다. 새로운 A/S를 접수해 보세요.
-          </p>
+        <Card className="overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4 text-accent" />
+              <h2 className="text-sm font-semibold text-foreground">최근 실시간 알림</h2>
+            </div>
+            <span className="text-[11px] text-muted-foreground">
+            {connectionState === "connected" ? "SSE 연결됨" : "SSE 대기/재연결 중"}
+          </span>
+          </div>
+          <NotificationList
+              items={notifications}
+              onRead={handleRead}
+              compact
+              role={user?.role}
+          />
+          <div className="px-5 py-3 border-t border-border text-center">
+            <Link to="/notifications" className="text-xs font-semibold text-accent hover:underline">
+              전체 알림 보기
+            </Link>
+          </div>
         </Card>
-      )}
-    </div>
+      </div>
   );
 }

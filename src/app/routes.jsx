@@ -4,6 +4,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import LandingPage from "../pages/LandingPage";
 import AuthPage from "../pages/AuthPage";
 import OAuthCallbackPage from "../pages/OAuthCallbackPage"; // Google OAuth2 콜백 처리
+import NotificationPage from "../pages/NotificationPage";
 
 // 수리 고객용 import
 import CustomerDashboard from "../pages/customer/DashboardPage";
@@ -59,6 +60,9 @@ export const router = createBrowserRouter([
       { path: "/customer/payment/:orderId", Component: CustomerPayment   }, // 결제·청구
       { path: "/customer/find-shop",  Component: CustomerFindShop  }, // 서비스 센터 찾기
       { path: "/customer/profile",    Component: CustomerProfile   }, // 프로필
+
+      // 역할 공통
+      { path: "/notifications", Component: NotificationPage },
 
       // 수리점
       { path: "/shop/dashboard",    Component: ShopDashboard   }, // 메인 대시보드

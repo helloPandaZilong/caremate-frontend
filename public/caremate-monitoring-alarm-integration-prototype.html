@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CareMate 모니터링·알림 연동 테스트 프로토타입</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --panel: #ffffff;
+      --text: #182033;
+      --muted: #64748b;
+      --line: #dde6f0;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --green: #059669;
+      --red: #dc2626;
+      --amber: #d97706;
+      --violet: #7c3aed;
+      --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+      font-family: Inter, Pretendard, Apple SD Gothic Neo, Noto Sans KR, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); }
+    header {
+      padding: 28px 32px 20px;
+      background: linear-gradient(135deg, #12233f, #234d89 55%, #2f7bdc);
+      color: white;
+    }
+    header h1 { margin: 0; font-size: 26px; letter-spacing: -0.04em; }
+    header p { margin: 10px 0 0; color: rgba(255,255,255,0.82); line-height: 1.55; max-width: 1080px; }
+    main { max-width: 1480px; margin: 0 auto; padding: 24px; }
+    .grid { display: grid; gap: 16px; }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 18px; letter-spacing: -0.03em; }
+    .card h3 { margin: 0 0 8px; font-size: 14px; color: #334155; }
+    .caption { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    label { display: block; color: #334155; font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%; border: 1px solid #cbd5e1; border-radius: 12px; padding: 10px 12px; background: white;
+      color: var(--text); font-size: 13px; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+    textarea { min-height: 74px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .row > * { flex: 1; min-width: 140px; }
+    .row.tight > * { flex: initial; min-width: auto; }
+    button, .link-btn {
+      border: 0; border-radius: 12px; padding: 10px 12px; font-weight: 800; font-size: 13px; cursor: pointer;
+      background: var(--primary); color: white; transition: 0.16s ease; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    button:hover, .link-btn:hover { background: var(--primary-dark); transform: translateY(-1px); }
+    button.secondary { background: #e2e8f0; color: #1e293b; }
+    button.secondary:hover { background: #cbd5e1; }
+    button.green { background: var(--green); }
+    button.green:hover { background: #047857; }
+    button.red { background: var(--red); }
+    button.red:hover { background: #b91c1c; }
+    button.amber { background: var(--amber); }
+    button.amber:hover { background: #b45309; }
+    button.violet { background: var(--violet); }
+    button.violet:hover { background: #6d28d9; }
+    button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
+    .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; background: #e2e8f0; color: #334155; }
+    .pill.ok { background: #dcfce7; color: #166534; }
+    .pill.fail { background: #fee2e2; color: #991b1b; }
+    .pill.warn { background: #fef3c7; color: #92400e; }
+    .pill.live { background: #dbeafe; color: #1d4ed8; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .log {
+      background: #07111f; color: #d8ecff; border-radius: 16px; padding: 14px; height: 380px; overflow: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 1.48; white-space: pre-wrap;
+    }
+    .log .ok { color: #86efac; }
+    .log .fail { color: #fca5a5; }
+    .log .warn { color: #fde68a; }
+    .log .info { color: #93c5fd; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; overflow: hidden; border-radius: 12px; }
+    th, td { border-bottom: 1px solid #e2e8f0; padding: 10px 8px; text-align: left; vertical-align: top; }
+    th { background: #f8fafc; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
+    tbody tr:hover { background: #f8fafc; }
+    .status-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .status-flow span { padding: 7px 10px; border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 900; }
+    .section { margin-bottom: 16px; }
+    .notice { border: 1px solid #fde68a; background: #fffbeb; color: #78350f; border-radius: 16px; padding: 14px; font-size: 13px; line-height: 1.55; }
+    .notice strong { color: #92400e; }
+    .toast-wrap { position: fixed; right: 18px; top: 18px; z-index: 10; display: flex; flex-direction: column; gap: 10px; max-width: 430px; }
+    .toast { background: #0f172a; color: white; border-radius: 16px; padding: 14px 16px; box-shadow: var(--shadow); animation: slide .18s ease; }
+    .toast strong { display: block; margin-bottom: 4px; }
+    .toast small { color: rgba(255,255,255,.72); }
+    @keyframes slide { from { transform: translateX(16px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .mini { color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .copy { user-select: all; }
+    .muted { color: var(--muted); }
+    .danger-zone { border: 1px dashed #fecaca; background: #fff7f7; }
+    details summary { cursor: pointer; font-weight: 800; color: #334155; }
+    @media (max-width: 1100px) { .grid.two, .grid.three, .grid.four { grid-template-columns: 1fr; } main { padding: 16px; } header { padding: 24px 18px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CareMate 모니터링·알림 연동 테스트 프로토타입</h1>
+    <p>
+      프론트 dev 서버에서 이 파일을 열면 실제 백엔드 API와 SSE를 브라우저 기준으로 점검합니다.
+      로그인 → SSE 구독 → 알림 목록/읽음 → 고객 타임라인 → 수리점 상태 전이 → 결제/청구 흐름까지 한 화면에서 확인할 수 있습니다.
+    </p>
+  </header>
+
+  <div class="toast-wrap" id="toastWrap"></div>
+
+  <main class="grid" style="gap: 18px;">
+    <section class="notice">
+      <strong>사용 방법:</strong> 이 파일을 <span class="mono">caremate-frontend/public/caremate-monitoring-alarm-integration-prototype.html</span>에 넣고
+      <span class="mono">npm run dev</span> 실행 후
+      <span class="mono copy">http://localhost:3000/caremate-monitoring-alarm-integration-prototype.html</span> 로 접속하세요.
+      Vite 프록시를 타면 API Base는 기본값 <span class="mono">/api</span> 그대로 쓰면 됩니다. 상태 전이/결제/청구 버튼은 실제 DB를 변경합니다.
+    </section>
+
+    <section class="card">
+      <h2>0. 환경 설정</h2>
+      <p class="caption">샘플 데이터 기준 기본 계정은 <span class="mono">customer1/2/3@test.com · shop1@test.com · admin@test.com</span> 입니다.</p>
+      <div class="grid four">
+        <div>
+          <label>API Base URL</label>
+          <input id="apiBase" value="/api" />
+        </div>
+        <div>
+          <label>선택 고객 세션</label>
+          <select id="activeCustomerKey">
+            <option value="customer1">customer1@test.com</option>
+            <option value="customer2">customer2@test.com</option>
+            <option value="customer3">customer3@test.com</option>
+          </select>
+        </div>
+        <div>
+          <label>선택 주문 ID</label>
+          <input id="activeOrderId" placeholder="예: 1" />
+        </div>
+        <div>
+          <label>선택 알림 ID</label>
+          <input id="activeNotificationId" placeholder="알림 목록에서 자동 선택" />
+        </div>
+      </div>
+      <div class="row tight" style="margin-top: 12px;">
+        <button onclick="runPreflight()">전체 계정 로그인 + 기본 점검</button>
+        <button class="secondary" onclick="copyInstallPath()">설치 경로 복사</button>
+        <button class="secondary" onclick="clearLog()">로그 지우기</button>
+        <button class="red" onclick="closeAllSse()">SSE 전체 종료</button>
+      </div>
+      <div class="status-flow">
+        <span>RECEIVED</span><b>→</b><span>ACCEPTED</span><b>→</b><span>IN_REPAIR</span><b>→</b><span>REPAIR_DONE</span><b>→</b><span>PAYMENT_COMPLETED</span><b>→</b><span>CLAIM_REQUESTED</span><b>→</b><span>CLAIM_COMPLETED</span>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <div class="card">
+        <h2>1. 로그인 세션</h2>
+        <div class="grid two">
+          <div>
+            <h3>고객 계정</h3>
+            <div class="row">
+              <input id="customer1Email" value="customer1@test.com" />
+              <input id="customer1Pw" value="test1234" type="password" />
+              <button onclick="loginAs('customer1')">고객1 로그인</button>
+            </div>
+            <div class="row" style="margin-top: 8px;">
+              <input id="customer2Email" value="customer2@test.com" />
+              <input id="customer2Pw" value="test1234" type="password" />
+              <button onclick="loginAs('customer2')">고객2 로그인</button>
+            </div>
+            <div class="row" style="margin-top: 8px;">
+              <input id="customer3Email" value="customer3@test.com" />
+              <input id="customer3Pw" value="test1234" type="password" />
+              <button onclick="loginAs('customer3')">고객3 로그인</button>
+            </div>
+          </div>
+          <div>
+            <h3>수리점 / 관리자 계정</h3>
+            <div class="row">
+              <input id="shopEmail" value="shop1@test.com" />
+              <input id="shopPw" value="test1234" type="password" />
+              <button onclick="loginAs('shop')">수리점 로그인</button>
+            </div>
+            <div class="row" style="margin-top: 8px;">
+              <input id="adminEmail" value="admin@test.com" />
+              <input id="adminPw" value="1234qwer!" type="password" />
+              <button onclick="loginAs('admin')">관리자 로그인</button>
+            </div>
+            <div class="row tight" style="margin-top: 8px;">
+              <button class="secondary" onclick="applySessionToFrontend()">선택 세션을 React localStorage에 적용</button>
+              <button class="secondary" onclick="showSessionState()">세션 상태 보기</button>
+            </div>
+          </div>
+        </div>
+        <div id="sessionBadges" style="margin-top: 12px;" class="row tight"></div>
+      </div>
+
+      <div class="card">
+        <h2>2. SSE 실시간 알림</h2>
+        <p class="caption">EventSource는 Authorization 헤더를 못 붙이므로, 백엔드 규약처럼 <span class="mono">?token=accessToken</span>으로 연결합니다.</p>
+        <div class="row tight">
+          <button class="green" onclick="openSse('customer1')">고객1 SSE</button>
+          <button class="green" onclick="openSse('customer2')">고객2 SSE</button>
+          <button class="green" onclick="openSse('customer3')">고객3 SSE</button>
+          <button class="violet" onclick="openSse('shop')">수리점 SSE</button>
+          <button class="secondary" onclick="openAllSse()">전체 SSE 열기</button>
+        </div>
+        <div id="sseState" class="grid two" style="margin-top: 12px;"></div>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <div class="card">
+        <h2>3. 알림 API 테스트</h2>
+        <p class="caption">알림 목록, 미읽음 개수, 읽음 처리를 확인합니다. 알림 클릭 이동 경로도 같이 표시합니다.</p>
+        <div class="row tight">
+          <button onclick="loadNotificationsForActiveCustomer()">선택 고객 알림 조회</button>
+          <button onclick="loadShopNotifications()">수리점 알림 조회</button>
+          <button onclick="getUnreadCountForActiveCustomer()">선택 고객 미읽음 개수</button>
+          <button class="amber" onclick="markActiveNotificationRead()">선택 알림 읽음</button>
+        </div>
+        <div id="notificationsTable" style="margin-top: 12px;"></div>
+      </div>
+
+      <div class="card">
+        <h2>4. 고객 모니터링 타임라인</h2>
+        <p class="caption">선택한 고객 토큰으로 <span class="mono">GET /customer/repair-orders/{orderId}/status-histories</span>를 호출합니다.</p>
+        <div class="row tight">
+          <button onclick="loadCustomerTimeline()">고객 타임라인 조회</button>
+          <button onclick="loadShopTimeline()">수리점 기준 이력 조회</button>
+          <button class="secondary" onclick="openFrontendRoute('customer-status')">React 고객 상태 화면 열기</button>
+          <button class="secondary" onclick="openFrontendRoute('notifications')">React 알림 화면 열기</button>
+        </div>
+        <div id="timelineBox" style="margin-top: 12px;"></div>
+      </div>
+    </section>
+
+    <section class="grid two">
+      <div class="card danger-zone">
+        <h2>5. 수리점 주문 워크플로우</h2>
+        <p class="caption">아래 버튼은 실제 주문 상태를 변경합니다. 먼저 주문 목록에서 테스트할 주문 ID를 선택하세요.</p>
+        <div class="row tight">
+          <button onclick="loadShopDashboard()">수리점 대시보드</button>
+          <button onclick="loadShopOrders()">전체 주문 조회</button>
+          <button onclick="loadShopOrders('RECEIVED')">RECEIVED</button>
+          <button onclick="loadShopOrders('ACCEPTED')">ACCEPTED</button>
+          <button onclick="loadShopOrders('IN_REPAIR')">IN_REPAIR</button>
+          <button onclick="loadShopOrders('REPAIR_DONE')">REPAIR_DONE</button>
+        </div>
+        <div class="row tight" style="margin-top: 10px;">
+          <button class="green" onclick="shopTransition('accept')">수락</button>
+          <button class="amber" onclick="shopTransition('start-repair')">수리 시작</button>
+          <button class="violet" onclick="shopTransition('complete-repair')">수리 완료</button>
+          <button class="red" onclick="shopTransition('no-show')">노쇼 처리</button>
+          <button class="red" onclick="shopReject()">반려 처리</button>
+        </div>
+        <div id="shopOrdersTable" style="margin-top: 12px;"></div>
+      </div>
+
+      <div class="card danger-zone">
+        <h2>6. 결제·청구 흐름</h2>
+        <p class="caption">REPAIR_DONE 상태 주문에서 결제 준비/승인 후 예상 환급, 청구 패키지 다운로드, 제출 링크를 확인합니다.</p>
+        <div class="grid two">
+          <div>
+            <label>결제 금액 수동 입력</label>
+            <input id="paymentAmount" placeholder="ready 호출 후 자동 입력" />
+          </div>
+          <div>
+            <label>paymentKey</label>
+            <input id="paymentKey" placeholder="ready 호출 후 자동 입력" />
+          </div>
+        </div>
+        <div class="row tight" style="margin-top: 10px;">
+          <button onclick="paymentInfo()">결제 정보</button>
+          <button onclick="paymentReady()">결제 준비</button>
+          <button class="green" onclick="paymentConfirm()">결제 승인</button>
+          <button onclick="loadClaims()">예상 보험금</button>
+          <button class="violet" onclick="claimRequest()">청구 패키지 요청</button>
+        </div>
+        <div id="paymentBox" style="margin-top: 12px;"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>7. 알림 타입별 이동 경로 점검</h2>
+      <p class="caption">현재 프론트의 NotificationBell 이동 규칙을 기준으로 빠르게 열어볼 수 있게 만들었습니다. 선택 주문 ID가 필요합니다.</p>
+      <div class="row tight">
+        <button onclick="renderRouteTable()">이동 경로 표 갱신</button>
+        <button class="secondary" onclick="openFrontendRoute('customer-payment')">고객 결제 화면 열기</button>
+        <button class="secondary" onclick="openFrontendRoute('shop-orders')">수리점 주문 목록 열기</button>
+        <button class="secondary" onclick="openFrontendRoute('shop-order-detail')">수리점 주문 상세 열기</button>
+      </div>
+      <div id="routeTable" style="margin-top: 12px;"></div>
+    </section>
+
+    <section class="grid two">
+      <div class="card">
+        <h2>실행 로그</h2>
+        <div id="log" class="log"></div>
+      </div>
+      <div class="card">
+        <h2>최근 원본 응답</h2>
+        <p class="caption">마지막 API 응답/오류를 그대로 확인합니다.</p>
+        <pre id="lastResponse" class="log"></pre>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      sessions: {},
+      eventSources: {},
+      sseStatus: {},
+      lastNotifications: [],
+      lastShopOrders: [],
+      lastPayment: null,
+    };
+
+    const accountConfig = {
+      customer1: { role: 'CUSTOMER', emailId: 'customer1Email', pwId: 'customer1Pw', label: '고객1' },
+      customer2: { role: 'CUSTOMER', emailId: 'customer2Email', pwId: 'customer2Pw', label: '고객2' },
+      customer3: { role: 'CUSTOMER', emailId: 'customer3Email', pwId: 'customer3Pw', label: '고객3' },
+      shop: { role: 'REPAIR_SHOP', emailId: 'shopEmail', pwId: 'shopPw', label: '수리점' },
+      admin: { role: 'ADMIN', emailId: 'adminEmail', pwId: 'adminPw', label: '관리자' },
+    };
+
+    const routeRules = [
+      { type: 'ORDER_RECEIVED', customer: '/customer/dashboard', shop: '/shop/orders', memo: '신규 접수 알림. 수리점은 목록에서 확인' },
+      { type: 'ORDER_ACCEPTED', customer: '/customer/repair-orders/{orderId}/status', shop: '/shop/orders/{orderId}', memo: '고객은 진행 상태 확인' },
+      { type: 'ORDER_REJECTED', customer: '/customer/repair-orders/{orderId}/status', shop: '/shop/orders/{orderId}', memo: '반려 사유 확인' },
+      { type: 'NO_SHOW_WARNING', customer: '/customer/dashboard', shop: '/shop/orders', memo: '수리점은 목록으로 이동하는 것이 안전' },
+      { type: 'NO_SHOW', customer: '/customer/repair-orders/{orderId}/status', shop: '/shop/orders/{orderId}', memo: '노쇼 안내/재접수 유도' },
+      { type: 'PAYMENT_REQUESTED', customer: '/customer/payment/{orderId}', shop: '/shop/orders/{orderId}', memo: '고객 결제창으로 바로 이동 권장' },
+      { type: 'PAYMENT_COMPLETED', customer: '/customer/payment/{orderId}', shop: '/shop/orders/{orderId}', memo: '결제 완료 및 예상 환급 확인' },
+      { type: 'ESTIMATED_CLAIM_NOTICE', customer: '/customer/payment/{orderId}', shop: '/shop/orders/{orderId}', memo: '예상 보험금 확인 화면' },
+      { type: 'CLAIM_DISPATCH_SUCCESS', customer: '/customer/payment/{orderId}', shop: '/shop/orders/{orderId}', memo: '패키지 다운로드/제출 링크' },
+      { type: 'CLAIM_DISPATCH_FAILED', customer: '/notifications', shop: '/notifications', memo: '실패 안내 및 관리자 재시도' },
+      { type: 'BATCH_COMPLETED', customer: '/notifications', shop: '/shop/settlement', memo: '수리점 정산 화면' },
+    ];
+
+    function $(id) { return document.getElementById(id); }
+    function apiBase() { return $('apiBase').value.replace(/\/$/, ''); }
+    function activeCustomerKey() { return $('activeCustomerKey').value; }
+    function activeOrderId() { return $('activeOrderId').value.trim(); }
+    function setActiveOrderId(value) { $('activeOrderId').value = value ?? ''; renderRouteTable(); }
+    function activeNotificationId() { return $('activeNotificationId').value.trim(); }
+    function now() { return new Date().toLocaleTimeString('ko-KR', { hour12: false }); }
+
+    function log(message, type = 'info') {
+      const line = document.createElement('div');
+      line.className = type;
+      line.textContent = `[${now()}] ${message}`;
+      $('log').appendChild(line);
+      $('log').scrollTop = $('log').scrollHeight;
+    }
+
+    function clearLog() {
+      $('log').textContent = '';
+      $('lastResponse').textContent = '';
+    }
+
+    function showLast(value) {
+      try {
+        $('lastResponse').textContent = JSON.stringify(value, null, 2);
+      } catch {
+        $('lastResponse').textContent = String(value);
+      }
+    }
+
+    function toast(title, body) {
+      const wrap = $('toastWrap');
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.innerHTML = `<strong>${escapeHtml(title)}</strong><small>${escapeHtml(body || '')}</small>`;
+      wrap.appendChild(el);
+      setTimeout(() => el.remove(), 6500);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function fmt(value) {
+      if (value === null || value === undefined || value === '') return '-';
+      if (typeof value === 'number') return value.toLocaleString('ko-KR');
+      return String(value);
+    }
+
+    function normalizePage(data) {
+      if (Array.isArray(data)) return data;
+      return data?.content ?? data?.items ?? [];
+    }
+
+    function sessionFor(key) {
+      const s = state.sessions[key];
+      if (!s?.accessToken) throw new Error(`${accountConfig[key]?.label ?? key} 세션이 없습니다. 먼저 로그인하세요.`);
+      return s;
+    }
+
+    async function request(method, path, { token, body, raw = false, headers = {} } = {}) {
+      const url = `${apiBase()}${path.startsWith('/') ? path : `/${path}`}`;
+      const reqHeaders = { ...headers };
+      if (token) reqHeaders.Authorization = `Bearer ${token}`;
+      if (body !== undefined && !(body instanceof FormData) && !reqHeaders['Content-Type']) {
+        reqHeaders['Content-Type'] = 'application/json';
+      }
+      const res = await fetch(url, {
+        method,
+        credentials: 'include',
+        headers: reqHeaders,
+        body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      if (raw) {
+        const blob = await res.blob();
+        const out = { ok: res.ok, status: res.status, contentType, blob };
+        showLast({ ok: out.ok, status: out.status, contentType, size: blob.size });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return out;
+      }
+
+      let payload;
+      if (contentType.includes('application/json')) {
+        payload = await res.json();
+      } else {
+        payload = await res.text();
+      }
+      showLast(payload);
+
+      if (!res.ok || payload?.success === false) {
+        const code = payload?.error?.code || `HTTP_${res.status}`;
+        const message = payload?.error?.message || res.statusText || '요청 실패';
+        const error = new Error(`${code}: ${message}`);
+        error.payload = payload;
+        error.status = res.status;
+        throw error;
+      }
+      return payload && typeof payload === 'object' && 'success' in payload ? payload.data : payload;
+    }
+
+    async function runStep(name, fn) {
+      log(`START ${name}`);
+      try {
+        const data = await fn();
+        log(`PASS  ${name}`, 'ok');
+        return data;
+      } catch (error) {
+        log(`FAIL  ${name} → ${error.message}`, 'fail');
+        showLast(error.payload ?? { message: error.message, status: error.status });
+        return null;
+      }
+    }
+
+    async function loginAs(key) {
+      const cfg = accountConfig[key];
+      const email = $(cfg.emailId).value.trim();
+      const password = $(cfg.pwId).value;
+      const data = await runStep(`${cfg.label} 로그인 (${email})`, () => request('POST', '/auth/login', { body: { email, password } }));
+      if (!data) return null;
+      const accessToken = data.accessToken || data.token || data.access_token;
+      state.sessions[key] = {
+        ...data,
+        accessToken,
+        email,
+        role: data.role || cfg.role,
+        name: data.name || cfg.label,
+        memberId: data.memberId,
+      };
+      renderSessionBadges();
+      return state.sessions[key];
+    }
+
+    function renderSessionBadges() {
+      const html = Object.entries(accountConfig).map(([key, cfg]) => {
+        const s = state.sessions[key];
+        const cls = s?.accessToken ? 'ok' : 'warn';
+        const text = s?.accessToken ? `${cfg.label} 로그인됨 · ${s.role || '-'}` : `${cfg.label} 미로그인`;
+        return `<span class="pill ${cls}">${escapeHtml(text)}</span>`;
+      }).join(' ');
+      $('sessionBadges').innerHTML = html;
+    }
+
+    function showSessionState() {
+      const view = Object.fromEntries(Object.entries(state.sessions).map(([key, value]) => [key, {
+        email: value.email,
+        role: value.role,
+        memberId: value.memberId,
+        tokenPreview: value.accessToken ? `${value.accessToken.slice(0, 16)}...` : null,
+      }]));
+      showLast(view);
+      log('세션 상태를 최근 원본 응답 영역에 표시했습니다.');
+    }
+
+    function applySessionToFrontend() {
+      const customerKey = activeCustomerKey();
+      const session = state.sessions[customerKey] || state.sessions.shop || state.sessions.admin;
+      if (!session?.accessToken) {
+        log('적용할 세션이 없습니다. 먼저 로그인하세요.', 'warn');
+        return;
+      }
+      localStorage.setItem('caremate_access_token', session.accessToken);
+      localStorage.setItem('caremate_user', JSON.stringify({
+        memberId: session.memberId,
+        role: session.role,
+        name: session.name,
+        email: session.email,
+      }));
+      log(`React localStorage 적용 완료: ${session.email} / ${session.role}`, 'ok');
+    }
+
+    function openFrontendRoute(kind) {
+      applySessionToFrontend();
+      const orderId = activeOrderId() || '{orderId}';
+      const map = {
+        notifications: '/notifications',
+        'customer-status': `/customer/repair-orders/${orderId}/status`,
+        'customer-payment': `/customer/payment/${orderId}`,
+        'shop-orders': '/shop/orders',
+        'shop-order-detail': `/shop/orders/${orderId}`,
+      };
+      const href = map[kind] || '/';
+      window.open(href, '_blank');
+      log(`React 라우트 열기: ${href}`);
+    }
+
+    async function runPreflight() {
+      await loginAs('customer1');
+      await loginAs('customer2');
+      await loginAs('customer3');
+      await loginAs('shop');
+      await runStep('수리점 대시보드 조회', () => request('GET', '/shop/dashboard', { token: sessionFor('shop').accessToken }));
+      await loadShopOrders();
+      await loadNotificationsForActiveCustomer();
+      renderRouteTable();
+      log('기본 점검 완료. 이제 SSE를 열고 상태 전이를 눌러 알림이 오는지 확인하세요.', 'ok');
+    }
+
+    function openSse(key) {
+      const cfg = accountConfig[key];
+      const session = sessionFor(key);
+      if (state.eventSources[key]) {
+        state.eventSources[key].close();
+        delete state.eventSources[key];
+      }
+      const url = `${apiBase()}/notifications/subscribe?token=${encodeURIComponent(session.accessToken)}`;
+      const es = new EventSource(url, { withCredentials: true });
+      state.eventSources[key] = es;
+      state.sseStatus[key] = 'connecting';
+      renderSseState();
+      log(`${cfg.label} SSE 연결 시도: ${url}`);
+
+      es.onopen = () => {
+        state.sseStatus[key] = 'connected';
+        renderSseState();
+        log(`${cfg.label} SSE 연결됨`, 'ok');
+      };
+      es.addEventListener('connected', (event) => {
+        state.sseStatus[key] = 'connected';
+        renderSseState();
+        log(`${cfg.label} SSE connected event: ${event.data || '{}'}`, 'ok');
+      });
+      es.addEventListener('heartbeat', () => {
+        state.sseStatus[key] = 'heartbeat';
+        renderSseState();
+        log(`${cfg.label} heartbeat 수신`, 'info');
+      });
+      es.addEventListener('notification', (event) => {
+        let payload = {};
+        try { payload = JSON.parse(event.data || '{}'); } catch { payload = { raw: event.data }; }
+        state.lastNotifications.unshift({ key, ...payload, lastEventId: event.lastEventId });
+        if (payload?.id) $('activeNotificationId').value = payload.id;
+        if (payload?.repairOrderId) setActiveOrderId(payload.repairOrderId);
+        renderSseState();
+        toast(`${cfg.label} 알림 수신 · ${payload.type || 'notification'}`, payload.message || event.data);
+        log(`${cfg.label} notification 수신: ${JSON.stringify(payload)}`, 'ok');
+      });
+      es.onerror = () => {
+        state.sseStatus[key] = 'error/reconnecting';
+        renderSseState();
+        log(`${cfg.label} SSE 오류 또는 재연결 중`, 'warn');
+      };
+    }
+
+    function openAllSse() {
+      ['customer1', 'customer2', 'customer3', 'shop'].forEach((key) => {
+        if (state.sessions[key]?.accessToken) openSse(key);
+      });
+    }
+
+    function closeAllSse() {
+      Object.values(state.eventSources).forEach((es) => es.close());
+      state.eventSources = {};
+      Object.keys(state.sseStatus).forEach((key) => state.sseStatus[key] = 'closed');
+      renderSseState();
+      log('모든 SSE 연결을 종료했습니다.', 'warn');
+    }
+
+    function renderSseState() {
+      const rows = Object.entries(accountConfig).filter(([key]) => key !== 'admin').map(([key, cfg]) => {
+        const status = state.sseStatus[key] || 'idle';
+        const cls = status === 'connected' || status === 'heartbeat' ? 'ok' : status.includes('error') ? 'fail' : 'warn';
+        return `<div class="card" style="box-shadow:none;padding:12px;"><span class="pill ${cls}">${escapeHtml(cfg.label)} · ${escapeHtml(status)}</span></div>`;
+      }).join('');
+      const events = state.lastNotifications.slice(0, 6).map((n) => `
+        <tr onclick="setActiveOrderId('${escapeHtml(n.repairOrderId || '')}'); $('activeNotificationId').value='${escapeHtml(n.id || '')}'">
+          <td>${escapeHtml(accountConfig[n.key]?.label || n.key)}</td>
+          <td class="mono">${escapeHtml(n.id || n.lastEventId || '-')}</td>
+          <td>${escapeHtml(n.type || '-')}</td>
+          <td>${escapeHtml(n.message || n.raw || '-')}</td>
+          <td class="mono">${escapeHtml(n.repairOrderId || '-')}</td>
+        </tr>`).join('');
+      $('sseState').innerHTML = rows + `<div style="grid-column:1/-1; margin-top:4px;">${events ? `<table><thead><tr><th>세션</th><th>ID</th><th>TYPE</th><th>MESSAGE</th><th>ORDER</th></tr></thead><tbody>${events}</tbody></table>` : '<p class="mini">아직 수신된 SSE 알림이 없습니다.</p>'}</div>`;
+    }
+
+    async function loadNotificationsForActiveCustomer() {
+      const key = activeCustomerKey();
+      const data = await runStep(`${accountConfig[key].label} 알림 목록 조회`, () => request('GET', '/notifications?page=0&size=20', { token: sessionFor(key).accessToken }));
+      renderNotifications(data, key);
+      return data;
+    }
+
+    async function loadShopNotifications() {
+      const data = await runStep('수리점 알림 목록 조회', () => request('GET', '/notifications?page=0&size=20', { token: sessionFor('shop').accessToken }));
+      renderNotifications(data, 'shop');
+      return data;
+    }
+
+    async function getUnreadCountForActiveCustomer() {
+      const key = activeCustomerKey();
+      const data = await runStep(`${accountConfig[key].label} 미읽음 개수 조회`, () => request('GET', '/notifications/unread-count', { token: sessionFor(key).accessToken }));
+      toast('미읽음 개수', JSON.stringify(data));
+      return data;
+    }
+
+    function renderNotifications(data, key) {
+      const items = normalizePage(data);
+      state.lastNotifications = items.map((n) => ({ key, ...n })).concat(state.lastNotifications).slice(0, 20);
+      const rows = items.map((n) => {
+        const read = Boolean(n.isRead ?? n.read);
+        const href = detailHref(n, state.sessions[key]?.role || accountConfig[key]?.role);
+        return `<tr onclick="setActiveOrderId('${escapeHtml(n.repairOrderId || '')}'); $('activeNotificationId').value='${escapeHtml(n.id || '')}'">
+          <td class="mono">${escapeHtml(n.id)}</td>
+          <td><span class="pill ${read ? 'ok' : 'warn'}">${read ? '읽음' : '미읽음'}</span></td>
+          <td>${escapeHtml(n.type)}</td>
+          <td>${escapeHtml(n.message)}</td>
+          <td class="mono">${escapeHtml(n.repairOrderId || '-')}</td>
+          <td><a href="${escapeHtml(href)}" target="_blank">${escapeHtml(href)}</a></td>
+        </tr>`;
+      }).join('');
+      $('notificationsTable').innerHTML = rows
+        ? `<table><thead><tr><th>ID</th><th>READ</th><th>TYPE</th><th>MESSAGE</th><th>ORDER</th><th>FE 이동 경로</th></tr></thead><tbody>${rows}</tbody></table>`
+        : '<p class="mini">알림이 없습니다.</p>';
+      renderSseState();
+    }
+
+    function detailHref(notification, role) {
+      const orderId = notification?.repairOrderId || activeOrderId() || '{orderId}';
+      if (role === 'REPAIR_SHOP') {
+        if (notification?.type === 'NO_SHOW_WARNING') return '/shop/orders';
+        return notification?.repairOrderId ? `/shop/orders/${orderId}` : '/notifications';
+      }
+      if (role === 'ADMIN') return '/admin/dashboard';
+      if (!notification?.repairOrderId) return '/notifications';
+      if (['PAYMENT_REQUESTED', 'PAYMENT_COMPLETED', 'ESTIMATED_CLAIM_NOTICE', 'CLAIM_DISPATCH_SUCCESS'].includes(notification.type)) {
+        return `/customer/payment/${orderId}`;
+      }
+      return `/customer/repair-orders/${orderId}/status`;
+    }
+
+    async function markActiveNotificationRead() {
+      const id = activeNotificationId();
+      if (!id) return log('알림 ID를 먼저 선택하세요.', 'warn');
+      const key = activeCustomerKey();
+      await runStep(`알림 읽음 처리 #${id}`, () => request('PATCH', `/notifications/${id}/read`, { token: sessionFor(key).accessToken }));
+      await loadNotificationsForActiveCustomer();
+    }
+
+    async function loadCustomerTimeline() {
+      const orderId = activeOrderId();
+      if (!orderId) return log('주문 ID를 먼저 입력/선택하세요.', 'warn');
+      const key = activeCustomerKey();
+      const data = await runStep(`${accountConfig[key].label} 타임라인 조회 #${orderId}`, () => request('GET', `/customer/repair-orders/${orderId}/status-histories`, { token: sessionFor(key).accessToken }));
+      renderTimeline(data);
+      return data;
+    }
+
+    async function loadShopTimeline() {
+      const orderId = activeOrderId();
+      if (!orderId) return log('주문 ID를 먼저 입력/선택하세요.', 'warn');
+      const data = await runStep(`수리점 주문 이력 조회 #${orderId}`, () => request('GET', `/shop/orders/${orderId}/status-histories`, { token: sessionFor('shop').accessToken }));
+      renderTimeline(data);
+      return data;
+    }
+
+    function renderTimeline(data) {
+      if (!data) return;
+      const milestones = data.milestones || [];
+      const histories = data.histories || (Array.isArray(data) ? data : []);
+      const milestoneHtml = milestones.length ? `<div class="status-flow">${milestones.map((m) => `<span style="background:${m.reached ? '#dcfce7' : '#eef2ff'};color:${m.reached ? '#166534' : '#3730a3'}">${escapeHtml(m.displayName || m.label || m.status)}${m.current ? ' · 현재' : ''}</span>`).join('<b>→</b>')}</div>` : '';
+      const historyRows = histories.map((h) => `<tr><td>${escapeHtml(h.previousStatus || '-')}</td><td>${escapeHtml(h.changedStatus || '-')}</td><td>${escapeHtml(h.note || '-')}</td><td>${escapeHtml(h.changedAt || '-')}</td><td>${escapeHtml(h.changedBy || '-')}</td></tr>`).join('');
+      $('timelineBox').innerHTML = `${milestoneHtml}<table style="margin-top:10px;"><thead><tr><th>FROM</th><th>TO</th><th>NOTE</th><th>AT</th><th>BY</th></tr></thead><tbody>${historyRows || '<tr><td colspan="5">이력이 없습니다.</td></tr>'}</tbody></table>`;
+    }
+
+    async function loadShopDashboard() {
+      const data = await runStep('수리점 대시보드 조회', () => request('GET', '/shop/dashboard', { token: sessionFor('shop').accessToken }));
+      if (data) toast('수리점 대시보드', JSON.stringify(data));
+      return data;
+    }
+
+    async function loadShopOrders(status) {
+      const qs = status ? `?status=${encodeURIComponent(status)}&page=0&size=50` : '?page=0&size=50';
+      const data = await runStep(`수리점 주문 목록 조회${status ? ` (${status})` : ''}`, () => request('GET', `/shop/orders${qs}`, { token: sessionFor('shop').accessToken }));
+      renderShopOrders(data);
+      return data;
+    }
+
+    function renderShopOrders(data) {
+      const items = normalizePage(data);
+      state.lastShopOrders = items;
+      const rows = items.map((o) => `<tr onclick="setActiveOrderId('${escapeHtml(o.id || o.orderId)}')">
+        <td class="mono">${escapeHtml(o.id || o.orderId)}</td>
+        <td>${escapeHtml(o.orderNo || '-')}</td>
+        <td>${escapeHtml(o.customerName || '-')}</td>
+        <td><span class="pill live">${escapeHtml(o.status || '-')}</span></td>
+        <td>${escapeHtml(o.reservedVisitAt || '-')}</td>
+        <td>${escapeHtml(o.damageDescription || '-')}</td>
+      </tr>`).join('');
+      $('shopOrdersTable').innerHTML = rows
+        ? `<table><thead><tr><th>ID</th><th>ORDER NO</th><th>CUSTOMER</th><th>STATUS</th><th>RESERVED</th><th>DAMAGE</th></tr></thead><tbody>${rows}</tbody></table>`
+        : '<p class="mini">주문이 없습니다. sample_data.sql 또는 팀원 접수 API 데이터가 필요할 수 있습니다.</p>';
+    }
+
+    async function shopTransition(action) {
+      const orderId = activeOrderId();
+      if (!orderId) return log('주문 ID를 먼저 입력/선택하세요.', 'warn');
+      const labelMap = { accept: '수락', 'start-repair': '수리 시작', 'complete-repair': '수리 완료', 'no-show': '노쇼 처리' };
+      if (!confirm(`실제 DB 주문 #${orderId} 상태를 '${labelMap[action] || action}' 처리합니다. 진행할까요?`)) return;
+      await runStep(`수리점 ${labelMap[action] || action} #${orderId}`, () => request('PATCH', `/shop/orders/${orderId}/${action}`, { token: sessionFor('shop').accessToken }));
+      await loadShopOrders();
+    }
+
+    async function shopReject() {
+      const orderId = activeOrderId();
+      if (!orderId) return log('주문 ID를 먼저 입력/선택하세요.', 'warn');
+      const reason = prompt('반려 사유를 입력하세요.', '테스트 반려: 예약 가능 시간이 아닙니다.');
+      if (!reason) return;
+      await runStep(`수리점 반려 #${orderId}`, () => request('PATCH', `/shop/orders/${orderId}/reject`, { token: sessionFor('shop').accessToken, body: { reason } }));
+      await loadShopOrders();
+    }
+
+    async function paymentInfo() {
+      const orderId = activeOrderId();
+      if (!orderId) return log('주문 ID를 먼저 입력/선택하세요.', 'warn');
+      const key = activeCustomerKey();
+      const data = await runStep(`결제 정보 조회 #${orderId}`, () => request('GET', `/customer/payments/info/${orderId}`, { token: sessionFor(key).accessToken }));
+      renderPayment(data);
+      return data;
+    }
+
+    async function paymentReady() {
+      const orderId = activeOrderId();
+      if (!orderId) return log('주문 ID를 먼저 입력/선택하세요.', 'warn');
+      const key = activeCustomerKey();
+      const data = await runStep(`결제 준비 #${orderId}`, () => request('POST', '/customer/payments/ready', { token: sessionFor(key).accessToken, body: { orderId: Number(orderId) } }));
+      if (data) {
+        $('paymentKey').value = data.paymentKey || '';
+        $('paymentAmount').value = data.amount || data.totalRepairCost || '';
+      }
+      renderPayment(data);
+      return data;
+    }
+
+    async function paymentConfirm() {
+      const orderId = activeOrderId();
+      const paymentKey = $('paymentKey').value.trim();
+      const amount = Number($('paymentAmount').value.trim());
+      if (!orderId || !paymentKey || !amount) return log('주문 ID, paymentKey, amount가 필요합니다. 먼저 결제 준비를 호출하세요.', 'warn');
+      const key = activeCustomerKey();
+      if (!confirm(`실제 DB 주문 #${orderId} 결제를 승인 처리합니다. 진행할까요?`)) return;
+      const data = await runStep(`결제 승인 #${orderId}`, () => request('POST', '/customer/payments/confirm', { token: sessionFor(key).accessToken, body: { orderId: Number(orderId), paymentKey, amount } }));
+      renderPayment(data);
+      return data;
+    }
+
+    async function loadClaims() {
+      const orderId = activeOrderId();
+      if (!orderId) return log('주문 ID를 먼저 입력/선택하세요.', 'warn');
+      const key = activeCustomerKey();
+      const data = await runStep(`예상 보험금 조회 #${orderId}`, () => request('GET', `/customer/repair-orders/${orderId}/insurance-claims`, { token: sessionFor(key).accessToken }));
+      renderPayment(data);
+      return data;
+    }
+
+    async function claimRequest() {
+      const orderId = activeOrderId();
+      if (!orderId) return log('주문 ID를 먼저 입력/선택하세요.', 'warn');
+      const key = activeCustomerKey();
+      if (!confirm(`실제 DB 주문 #${orderId} 청구 패키지를 요청하고 zip을 다운로드합니다. 진행할까요?`)) return;
+      const data = await runStep(`청구 패키지 요청 #${orderId}`, async () => {
+        const result = await request('POST', `/customer/repair-orders/${orderId}/claim-request`, { token: sessionFor(key).accessToken, raw: true });
+        const url = URL.createObjectURL(result.blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `청구패키지_${orderId}.zip`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+        return { status: result.status, contentType: result.contentType, size: result.blob.size, downloaded: true };
+      });
+      renderPayment(data);
+      return data;
+    }
+
+    function renderPayment(data) {
+      state.lastPayment = data;
+      if (!data) return;
+      if (Array.isArray(data)) {
+        const rows = data.map((c) => `<tr><td class="mono">${escapeHtml(c.claimId || c.id)}</td><td>${escapeHtml(c.providerType || c.providerName || '-')}</td><td>${escapeHtml(c.claimOrder || '-')}</td><td>${fmt(c.expectedAmount)}</td><td>${escapeHtml(c.status || '-')}</td><td><button class="secondary" onclick="loadSubmissionLink('${escapeHtml(c.claimId || c.id)}')">제출 링크</button></td></tr>`).join('');
+        $('paymentBox').innerHTML = `<table><thead><tr><th>CLAIM</th><th>PROVIDER</th><th>ORDER</th><th>EXPECTED</th><th>STATUS</th><th>LINK</th></tr></thead><tbody>${rows || '<tr><td colspan="6">청구 내역 없음</td></tr>'}</tbody></table>`;
+      } else {
+        $('paymentBox').innerHTML = `<pre class="mini mono" style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;">${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+      }
+    }
+
+    async function loadSubmissionLink(claimId) {
+      const key = activeCustomerKey();
+      const data = await runStep(`제출 링크 조회 claim #${claimId}`, () => request('GET', `/customer/insurance-claims/${claimId}/submission-link`, { token: sessionFor(key).accessToken }));
+      toast('제출 링크', JSON.stringify(data));
+      return data;
+    }
+
+    function renderRouteTable() {
+      const orderId = activeOrderId() || '{orderId}';
+      const rows = routeRules.map((r) => `<tr>
+        <td class="mono">${escapeHtml(r.type)}</td>
+        <td><a target="_blank" href="${escapeHtml(r.customer.replaceAll('{orderId}', orderId))}">${escapeHtml(r.customer.replaceAll('{orderId}', orderId))}</a></td>
+        <td><a target="_blank" href="${escapeHtml(r.shop.replaceAll('{orderId}', orderId))}">${escapeHtml(r.shop.replaceAll('{orderId}', orderId))}</a></td>
+        <td>${escapeHtml(r.memo)}</td>
+      </tr>`).join('');
+      $('routeTable').innerHTML = `<table><thead><tr><th>알림 타입</th><th>고객 이동</th><th>수리점 이동</th><th>메모</th></tr></thead><tbody>${rows}</tbody></table>
+        <p class="mini" style="margin-top:10px;">참고: 현재 React 라우트가 <span class="mono">/customer/repair-orders/:orderId/status</span>를 대시보드로 redirect하도록 되어 있으면, 이 테스트에서 경로는 열리지만 상세 상태 화면이 직접 표시되지 않을 수 있습니다.</p>`;
+    }
+
+    function copyInstallPath() {
+      const text = 'caremate-frontend/public/caremate-monitoring-alarm-integration-prototype.html';
+      navigator.clipboard?.writeText(text);
+      log(`복사됨: ${text}`, 'ok');
+    }
+
+    renderSessionBadges();
+    renderSseState();
+    renderRouteTable();
+    log('테스트 러너 준비 완료. 먼저 전체 계정 로그인 + 기본 점검을 실행하세요.');
+  </script>
+</body>
+</html>
