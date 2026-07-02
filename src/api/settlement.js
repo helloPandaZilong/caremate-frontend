@@ -77,3 +77,41 @@ export const runSettlementBatch = (settlementMonth) =>
  */
 export const getBatchExecutionLogs = () =>
   apiClient.get('/admin/settlements/batch/logs')
+
+// ── 수수료 청구 관리 API ────────────────────────────────────────────────────────
+
+/**
+ * 관리자 — 수수료 청구 현황 페이징 조회
+ * GET /api/admin/settlements/commission?yearMonth=2026-06&page=0&size=10
+ * 응답 data: CommissionBillingPageResponse { content, page, size, totalElements, totalPages, totalFeeAmount, pendingCount }
+ */
+export const getCommissionBillings = (yearMonth, page = 0, size = 10) =>
+  apiClient.get('/admin/settlements/commission', { params: { yearMonth, page, size } })
+
+/**
+ * 관리자 — 개별 수리점 청구 발송 (PENDING/OVERDUE → NOTIFIED)
+ * POST /api/admin/settlements/commission/{settlementId}/notify
+ */
+export const notifyShop = (settlementId) =>
+  apiClient.post(`/admin/settlements/commission/${settlementId}/notify`)
+
+/**
+ * 관리자 — PENDING 수리점 전체 일괄 청구 발송
+ * POST /api/admin/settlements/commission/notify-all?yearMonth=2026-06
+ */
+export const notifyAllPending = (yearMonth) =>
+  apiClient.post('/admin/settlements/commission/notify-all', null, { params: { yearMonth } })
+
+/**
+ * 관리자 — 수리점 수수료율 변경
+ * PUT /api/admin/settlements/commission/shop/{shopId}/fee-rate?feeRate=12
+ */
+export const updateShopFeeRate = (shopId, feeRate) =>
+  apiClient.put(`/admin/settlements/commission/shop/${shopId}/fee-rate`, null, { params: { feeRate } })
+
+/**
+ * 관리자 — 납부 기한 변경
+ * PUT /api/admin/settlements/commission/{settlementId}/due-date?dueDate=2026-07-10
+ */
+export const updateCommissionDueDate = (settlementId, dueDate) =>
+  apiClient.put(`/admin/settlements/commission/${settlementId}/due-date`, null, { params: { dueDate } })
