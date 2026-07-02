@@ -234,8 +234,7 @@ export default function SettlementsPage() {
               월간 정산 통계 (수리점별)
             </h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              플랫폼 수수료는 매출의 {FEE_RATE * 100}%로 화면에서만 계산해 표시하는
-              참고값입니다(서버 저장값 아님).
+              플랫폼 수수료는 매출의 {FEE_RATE * 100}%가 기본이며, 조정될 수 있습니다.
             </p>
           </div>
           <div className="relative">
