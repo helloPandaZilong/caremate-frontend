@@ -1,13 +1,33 @@
-import apiClient from './client'
+import apiClient, { unwrapApiResponse } from "./client";
 
-export function getNotifications(page = 0, size = 20) {
-  return apiClient.get('/notifications', { params: { page, size } })
+function getPageContent(pageData) {
+  if (Array.isArray(pageData)) return pageData;
+  return pageData?.content ?? [];
 }
 
-export function getUnreadCount() {
-  return apiClient.get('/notifications/unread-count')
+export async function getNotifications({ page = 0, size = 20 } = {}) {
+  const response = await apiClient.get("/notifications", {
+    params: { page, size },
+  });
+  return unwrapApiResponse(response);
 }
 
-export function markNotificationRead(id) {
-  return apiClient.patch(`/notifications/${id}/read`)
+export async function getUnreadCount() {
+  try {
+    const response = await apiClient.get("/notifications/unread-count");
+    const data = unwrapApiResponse(response);
+    return Number(data?.unreadCount ?? data?.count ?? data ?? 0);
+  } catch (error) {
+    if (error.response?.status !== 404) throw error;
+
+    const page = await getNotifications({ page: 0, size: 100 });
+    return getPageContent(page).filter((notification) => {
+      return !Boolean(notification.isRead ?? notification.read);
+    }).length;
+  }
+}
+
+export async function markNotificationRead(id) {
+  const response = await apiClient.patch(`/notifications/${id}/read`);
+  return unwrapApiResponse(response);
 }

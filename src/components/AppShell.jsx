@@ -34,9 +34,7 @@ import {
   Sparkles, // AI 정확도 현황 메뉴 아이콘
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
-import { getGuides } from "../api/lmsService";
-import { getRepairOrders } from "../api/customerService";
-import { getNotifications, getUnreadCount, markNotificationRead } from "../api/notificationApi";
+import NotificationBell from "./notification/NotificationBell";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -46,29 +44,17 @@ function isShopLMSDone() {
 
 // ── Nav config ────────────────────────────────────────────────────────────────
 
-// 결제 대기 주문 ID가 아직 동적으로 채워지기 전 사용하는 플레이스홀더 href.
-// 실제 클릭 가능한 href는 렌더링 시 resolveNavHref()로 치환된다.
-const PAYMENT_NAV_HREF = "/customer/payment";
-
 const CUSTOMER_NAV = [
   { label: "대시보드", href: "/customer/dashboard", icon: LayoutDashboard },
   { label: "A/S 접수", href: "/customer/request", icon: FileText },
   { label: "보험 관리", href: "/customer/insurance", icon: Shield },
-  { label: "결제·청구", href: PAYMENT_NAV_HREF, icon: CreditCard },
+  { label: "결제·청구", href: "/customer/payment/1", icon: CreditCard },
   { label: "서비스 센터 찾기", href: "/customer/find-shop", icon: MapPin },
 ];
 
-// 사이드바 nav 항목의 실제 이동 경로를 계산한다.
-// "결제·청구"는 사용자마다 다른 주문(REPAIR_DONE 상태)으로 가야 하므로 고정 href가 없다.
-function resolveNavHref(item, paymentOrderId) {
-  if (item.href !== PAYMENT_NAV_HREF) return item.href;
-  return paymentOrderId ? `/customer/payment/${paymentOrderId}` : null; // null = 이동 불가(비활성화)
-}
-
-
 const SHOP_NAV = [
   { label: "대시보드", href: "/shop/dashboard", icon: Calendar },
-  { label: "접수 현황", href: "/shop/orders", icon: FileText },
+  { label: "주문 접수", href: "/shop/orders", icon: FileText },
   { label: "수리 리포트", href: "/shop/report", icon: Wrench },
   { label: "LMS 교육", href: "/shop/lms", icon: GraduationCap },
   { label: "월말 정산", href: "/shop/settlement", icon: Receipt },
@@ -85,8 +71,18 @@ const ADMIN_NAV = [
   { label: "운영 감사", href: "/admin/audit", icon: AlertTriangle },
 ];
 
-function getNavConfig(path) {
-  if (path.startsWith("/shop"))
+function normalizeRole(role) {
+  const value = String(role ?? "").toUpperCase();
+
+  if (value.includes("ADMIN")) return "ADMIN";
+  if (value.includes("REPAIR_SHOP") || value.includes("SHOP")) return "REPAIR_SHOP";
+  return "CUSTOMER";
+}
+
+function getNavConfig(path, userRole) {
+  const roleType = normalizeRole(userRole);
+
+  if (roleType === "REPAIR_SHOP")
     return {
       items: SHOP_NAV,
       role: "수리점 파트너",
@@ -96,7 +92,7 @@ function getNavConfig(path) {
       profileHref: "/shop/profile",
       profileLabel: "매장 프로필",
     };
-  if (path.startsWith("/admin"))
+  if (roleType === "ADMIN")
     return {
       items: ADMIN_NAV,
       role: "관리자",
@@ -113,46 +109,6 @@ function getNavConfig(path) {
     profileHref: "/customer/profile",
     profileLabel: "마이페이지",
   };
-}
-
-// ── Notification helpers ──────────────────────────────────────────────────────
-
-function formatRelativeTime(createdAt) {
-  const diff = Date.now() - new Date(createdAt).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "방금 전";
-  if (mins < 60) return `${mins}분 전`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}시간 전`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "어제";
-  return `${days}일 전`;
-}
-
-function getNotifMeta(type) {
-  switch (type) {
-    case "ORDER_RECEIVED":
-    case "ORDER_ACCEPTED":
-    case "PAYMENT_COMPLETED":
-    case "CLAIM_DISPATCH_SUCCESS":
-    case "BATCH_COMPLETED":
-    case "REPAIR_SHOP_APPROVED":
-      return { icon: CheckCircle2, color: "text-green-500" };
-    case "ORDER_REJECTED":
-    case "NO_SHOW_WARNING":
-    case "NO_SHOW":
-    case "REPAIR_IMPOSSIBLE":
-    case "CLAIM_DISPATCH_FAILED":
-      return { icon: AlertCircle, color: "text-red-500" };
-    case "PAYMENT_REQUESTED":
-      return { icon: Pay, color: "text-blue-500" };
-    case "ESTIMATED_CLAIM_NOTICE":
-      return { icon: Award, color: "text-amber-500" };
-    case "REPORT_MODIFIED":
-      return { icon: FileText, color: "text-violet-500" };
-    default:
-      return { icon: Bell, color: "text-muted-foreground" };
-  }
 }
 
 // ── Dark mode toggle ──────────────────────────────────────────────────────────
@@ -184,21 +140,21 @@ function DarkModeToggle({ dark, toggle }) {
 
 // ── Notification dropdown ─────────────────────────────────────────────────────
 
-function NotificationDropdown({ onClose }) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+function NotificationDropdown({ path, onClose }) {
+  const notifs = getRoleNotifs(path);
+  const [items, setItems] = useState(notifs);
   const ref = useRef(null);
 
   useEffect(() => {
     getNotifications()
-      .then(({ data }) => {
-        console.log('[Notification] API 응답:', data);
-        setItems(data.data?.content ?? []);
-      })
-      .catch((err) => {
-        console.error('[Notification] API 오류:', err?.response?.status, err?.response?.data ?? err?.message);
-      })
-      .finally(() => setLoading(false));
+        .then(({ data }) => {
+          console.log('[Notification] API 응답:', data);
+          setItems(data.data?.content ?? []);
+        })
+        .catch((err) => {
+          console.error('[Notification] API 오류:', err?.response?.status, err?.response?.data ?? err?.message);
+        })
+        .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -209,18 +165,10 @@ function NotificationDropdown({ onClose }) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [onClose]);
 
-  const unreadCount = items.filter((n) => !n.isRead).length;
+  const unreadCount = items.filter((n) => !n.read).length;
 
-  const handleMarkRead = (id) => {
-    setItems((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
-    markNotificationRead(id).catch(() => {});
-  };
-
-  const markAll = () => {
-    const unread = items.filter((n) => !n.isRead);
-    setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    Promise.all(unread.map((n) => markNotificationRead(n.id))).catch(() => {});
-  };
+  const markAll = () =>
+    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
 
   return (
     <div
@@ -249,40 +197,42 @@ function NotificationDropdown({ onClose }) {
 
       {/* Notification list */}
       <div className="max-h-72 overflow-y-auto">
-        {loading ? (
-          <div className="py-10 text-center text-sm text-muted-foreground">불러오는 중...</div>
-        ) : items.length === 0 ? (
+        {items.length === 0 ? (
           <div className="py-10 text-center text-sm text-muted-foreground">
             알림이 없습니다.
           </div>
         ) : (
           items.map((n) => {
-            const { icon: Icon, color } = getNotifMeta(n.type);
+            const Icon = n.icon;
             return (
               <div
                 key={n.id}
-                onClick={() => handleMarkRead(n.id)}
-                className={`flex gap-3 px-4 py-3 border-b border-border last:border-0 cursor-pointer transition-colors ${n.isRead ? "opacity-60 hover:opacity-80" : "hover:bg-secondary"}`}
+                onClick={() =>
+                  setItems((prev) =>
+                    prev.map((x) => (x.id === n.id ? { ...x, read: true } : x)),
+                  )
+                }
+                className={`flex gap-3 px-4 py-3 border-b border-border last:border-0 cursor-pointer transition-colors ${n.read ? "opacity-60 hover:opacity-80" : "hover:bg-secondary"}`}
               >
                 <div
-                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${n.isRead ? "bg-muted" : "bg-secondary"}`}
+                  className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${n.read ? "bg-muted" : "bg-secondary"}`}
                 >
                   <Icon
-                    className={`w-3.5 h-3.5 ${n.isRead ? "text-muted-foreground" : color}`}
+                    className={`w-3.5 h-3.5 ${n.read ? "text-muted-foreground" : n.color}`}
                   />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p
-                    className={`text-xs leading-relaxed ${n.isRead ? "text-muted-foreground" : "text-foreground font-medium"}`}
+                    className={`text-xs leading-relaxed ${n.read ? "text-muted-foreground" : "text-foreground font-medium"}`}
                   >
-                    {n.message}
+                    {n.msg}
                   </p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <Clock className="w-2.5 h-2.5 text-muted-foreground" />
                     <p className="text-[10px] text-muted-foreground">
-                      {formatRelativeTime(n.createdAt)}
+                      {n.time}
                     </p>
-                    {!n.isRead && (
+                    {!n.read && (
                       <span className="w-1.5 h-1.5 rounded-full bg-accent ml-auto" />
                     )}
                   </div>
@@ -307,20 +257,8 @@ function NotificationDropdown({ onClose }) {
 
 function BellButton({ path }) {
   const [open, setOpen] = useState(false);
-  const [unread, setUnread] = useState(0);
-
-  const fetchUnread = () => {
-    getUnreadCount()
-      .then(({ data }) => setUnread(data.data?.unreadCount ?? 0))
-      .catch(() => {});
-  };
-
-  useEffect(() => { fetchUnread(); }, []);
-
-  const handleClose = () => {
-    setOpen(false);
-    fetchUnread();
-  };
+  const notifs = getRoleNotifs(path);
+  const unread = notifs.filter((n) => !n.read).length;
 
   return (
     <div className="relative">
@@ -336,7 +274,7 @@ function BellButton({ path }) {
         )}
       </button>
       {open && (
-        <NotificationDropdown onClose={handleClose} />
+        <NotificationDropdown path={path} onClose={() => setOpen(false)} />
       )}
     </div>
   );
@@ -344,20 +282,7 @@ function BellButton({ path }) {
 
 // ── LMS Gate overlay ──────────────────────────────────────────────────────────
 
-const LMS_GATE_GUIDE_META = [
-  {
-    guideType: "REPAIR_REPORT_GUIDE",
-    desc: "필수 입력 항목, 사진 요건, 금지 사항",
-    icon: FileText,
-  },
-  {
-    guideType: "PLATFORM_PROCESS_GUIDE",
-    desc: "전체 절차, 부정 처리 금지",
-    icon: Shield,
-  },
-];
-
-function LMSGate({ guides, onNavigate }) {
+function LMSGate({ onNavigate }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] gap-8 max-w-md mx-auto text-center">
       <div className="w-20 h-20 rounded-3xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
@@ -380,13 +305,22 @@ function LMSGate({ guides, onNavigate }) {
         </p>
       </div>
       <div className="flex flex-col gap-3 w-full">
-        {LMS_GATE_GUIDE_META.map((meta) => {
-          const Icon = meta.icon;
-          const guide = guides?.find((g) => g.guideType === meta.guideType);
-          const completed = guide?.completed ?? false;
+        {[
+          {
+            title: "수리 리포트 작성 기준",
+            desc: "필수 입력 항목, 사진 요건, 금지 사항",
+            icon: FileText,
+          },
+          {
+            title: "플랫폼 A/S 처리 절차 및 준수 안내",
+            desc: "전체 절차, 부정 처리 금지",
+            icon: Shield,
+          },
+        ].map((g) => {
+          const Icon = g.icon;
           return (
             <div
-              key={meta.guideType}
+              key={g.title}
               className="flex items-center gap-3 p-4 bg-card border border-border rounded-xl text-left"
             >
               <div className="w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
@@ -394,19 +328,13 @@ function LMSGate({ guides, onNavigate }) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  {guide?.title ?? meta.guideType}
+                  {g.title}
                 </p>
-                <p className="text-xs text-muted-foreground">{meta.desc}</p>
+                <p className="text-xs text-muted-foreground">{g.desc}</p>
               </div>
               <div className="ml-auto">
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                    completed
-                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50"
-                      : "bg-secondary text-muted-foreground border-border"
-                  }`}
-                >
-                  {completed ? "수료 완료" : "미수료"}
+                <span className="text-xs px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border font-medium">
+                  미수료
                 </span>
               </div>
             </div>
@@ -426,11 +354,11 @@ function LMSGate({ guides, onNavigate }) {
 
 // ── Desktop Sidebar ───────────────────────────────────────────────────────────
 
-function DesktopSidebar({ collapsed, onToggle, dark, onLogout, paymentOrderId }) {
+function DesktopSidebar({ collapsed, onToggle, dark, onLogout, userRole }) {
   const loc = useLocation();
   const nav = useNavigate();
   const { items, role, roleColorLight, roleColorDark, profileHref, profileLabel } =
-    getNavConfig(loc.pathname);
+    getNavConfig(loc.pathname, userRole);
   const roleColor = dark ? roleColorDark : roleColorLight;
 
   return (
@@ -468,29 +396,11 @@ function DesktopSidebar({ collapsed, onToggle, dark, onLogout, paymentOrderId })
       <nav className="flex-1 px-2 py-4 flex flex-col gap-1 overflow-y-auto">
         {items.map((item) => {
           const Icon = item.icon;
-          const href = resolveNavHref(item, paymentOrderId);
-          const isActive = href != null && loc.pathname === href;
-
-          if (href == null) {
-            // 결제 대기 중인 주문이 없음 — 비활성화 상태로 표시
-            return (
-              <span
-                key={item.href}
-                title="결제 대기 중인 주문이 없습니다."
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-white/25 cursor-not-allowed select-none"
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                {!collapsed && (
-                  <span className="whitespace-nowrap">{item.label}</span>
-                )}
-              </span>
-            );
-          }
-
+          const isActive = loc.pathname === item.href;
           return (
             <Link
               key={item.href}
-              to={href}
+              to={item.href}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all ${isActive ? "bg-white/15 text-white" : "text-white/55 hover:text-white hover:bg-white/10"}`}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -536,7 +446,7 @@ function DesktopSidebar({ collapsed, onToggle, dark, onLogout, paymentOrderId })
 
 // ── Mobile Top Nav ────────────────────────────────────────────────────────────
 
-function MobileTopNav({ dark, toggleDark, onLogout, paymentOrderId }) {
+function MobileTopNav({ dark, toggleDark, onLogout }) {
   const loc = useLocation();
   const { items, role, roleColorLight, roleColorDark, profileHref, profileLabel } =
     getNavConfig(loc.pathname);
@@ -622,26 +532,11 @@ function MobileTopNav({ dark, toggleDark, onLogout, paymentOrderId }) {
             <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
               {items.map((item) => {
                 const Icon = item.icon;
-                const href = resolveNavHref(item, paymentOrderId);
-                const isActive = href != null && loc.pathname === href;
-
-                if (href == null) {
-                  return (
-                    <span
-                      key={item.href}
-                      title="결제 대기 중인 주문이 없습니다."
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white/25 cursor-not-allowed select-none"
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span>{item.label}</span>
-                    </span>
-                  );
-                }
-
+                const isActive = loc.pathname === item.href;
                 return (
                   <Link
                     key={item.href}
-                    to={href}
+                    to={item.href}
                     onClick={() => setOpen(false)}
                     className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${isActive ? "bg-white/15 text-white" : "text-white/60 hover:text-white hover:bg-white/10"}`}
                   >
@@ -695,7 +590,7 @@ function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
       style={{ left: collapsed ? "4rem" : "15rem" }}
     >
       <DarkModeToggle dark={dark} toggle={toggleDark} />
-      <BellButton path={loc.pathname} />
+      <NotificationBell />
       <Link
         to={profileHref}
         title={user?.name}
@@ -741,26 +636,6 @@ export default function AppShell() {
   const nav = useNavigate();
   const { user, clearAuth } = useAuth();
 
-  // 사이드바 "결제·청구" 메뉴용 — 고객의 결제 대기(REPAIR_DONE) 주문을 동적으로 조회.
-  // 역할이 CUSTOMER일 때만 조회하고, 경로가 바뀔 때마다(예: 결제 완료 후 복귀) 다시 확인한다.
-  const [paymentOrderId, setPaymentOrderId] = useState(null);
-  useEffect(() => {
-    if (user?.role !== "CUSTOMER") return;
-    let cancelled = false;
-    getRepairOrders(0, 1, "REPAIR_DONE")
-      .then((res) => {
-        if (cancelled) return;
-        const orders = res.data?.data?.content ?? [];
-        setPaymentOrderId(orders[0]?.id ?? null);
-      })
-      .catch(() => {
-        if (!cancelled) setPaymentOrderId(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.role, loc.pathname]);
-
   // 로그아웃: 서버에 토큰 무효화 요청 후 클라이언트 인증 정보 초기화
   const handleLogout = async () => {
     try {
@@ -773,33 +648,20 @@ export default function AppShell() {
     }
   };
 
-  // LMS gate state for shop — 서버의 실제 수료 상태를 직접 확인 (localStorage는 신뢰하지 않음)
-  const isShopRoute = loc.pathname.startsWith("/shop");
-  const isLMSPage = loc.pathname === "/shop/lms";
-
-  const [shopLMSDone, setShopLMSDone] = useState(null); // null = 아직 확인 전
-  const [gateGuides, setGateGuides] = useState([]);
-
-  const checkLMSStatus = () => {
-    getGuides()
-      .then(({ data }) => {
-        setShopLMSDone(data.allCompleted ?? false);
-        setGateGuides(data.guides ?? []);
-        if (data.allCompleted) localStorage.setItem("caremate-shop-lms", "done");
-      })
-      .catch(() => setShopLMSDone(isShopLMSDone()));
-  };
-
+  // LMS gate state for shop — re-check on navigation AND on custom "lms-completed" event
+  const [shopLMSDone, setShopLMSDone] = useState(isShopLMSDone);
   useEffect(() => {
-    if (!isShopRoute) return;
-    checkLMSStatus();
+    setShopLMSDone(isShopLMSDone());
   }, [loc.pathname]);
   useEffect(() => {
-    window.addEventListener("lms-completed", checkLMSStatus);
-    return () => window.removeEventListener("lms-completed", checkLMSStatus);
+    const handler = () => setShopLMSDone(true);
+    window.addEventListener("lms-completed", handler);
+    return () => window.removeEventListener("lms-completed", handler);
   }, []);
 
-  const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone === false;
+  const isShopRoute = loc.pathname.startsWith("/shop");
+  const isLMSPage = loc.pathname === "/shop/lms";
+  const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone;
 
   return (
     <div
@@ -811,13 +673,13 @@ export default function AppShell() {
         onToggle={() => setCollapsed((v) => !v)}
         dark={dark}
         onLogout={handleLogout}
-        paymentOrderId={paymentOrderId}
+        userRole={user?.role}
       />
       <DesktopTopBar collapsed={collapsed} dark={dark} toggleDark={toggle} user={user} />
-      <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} paymentOrderId={paymentOrderId} />
+      <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} userRole={user?.role} />
       <ContentArea collapsed={collapsed}>
         {showLMSGate ? (
-          <LMSGate guides={gateGuides} onNavigate={() => nav("/shop/lms")} />
+          <LMSGate onNavigate={() => nav("/shop/lms")} />
         ) : (
           <Outlet />
         )}

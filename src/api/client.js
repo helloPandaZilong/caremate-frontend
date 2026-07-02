@@ -2,6 +2,18 @@ import axios from 'axios'
 
 const TOKEN_KEY = 'caremate_access_token'
 
+export function unwrapApiResponse(response) {
+  const body = response?.data
+  if (!body || typeof body !== 'object' || !('success' in body)) return body
+  if (body.success) return body.data
+
+  const message = body.error?.message || '요청 처리 중 오류가 발생했습니다.'
+  const error = new Error(message)
+  error.code = body.error?.code
+  error.response = response
+  throw error
+}
+
 // ── 기본 API 클라이언트 ────────────────────────────────────────────────────────
 const apiClient = axios.create({
   baseURL: '/api',

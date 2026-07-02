@@ -22,6 +22,8 @@ const ROLE_PREFIX = {
   ADMIN:       '/admin',
 }
 
+const SHARED_AUTH_PATHS = ['/notifications']
+
 /**
  * 인증 및 역할 기반 라우트 가드.
  *
@@ -48,6 +50,10 @@ export default function ProtectedRoute({ children }) {
   // 3. 현재 경로가 해당 역할의 접두어로 시작하지 않으면 역할 대시보드로 강제 이동
   const prefix = ROLE_PREFIX[user.role]
   const home   = ROLE_HOME[user.role] ?? '/auth'
+
+  if (SHARED_AUTH_PATHS.some((path) => location.pathname.startsWith(path))) {
+    return children
+  }
 
   if (prefix && !location.pathname.startsWith(prefix)) {
     return <Navigate to={home} replace />
