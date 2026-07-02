@@ -121,6 +121,7 @@ export default function ShopProfilePage() {
         };
         await updateOperatingHours(hoursPayload);
         setHoursNotSaved(false);
+        window.dispatchEvent(new Event('hours-saved'));
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);

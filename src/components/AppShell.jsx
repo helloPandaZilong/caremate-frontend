@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
 import { getGuides } from "../api/lmsService";
+import { getOperatingHours } from "../api/repairshopApi";
 import { getRepairOrders } from "../api/customerService";
 import { getNotifications, getUnreadCount, markNotificationRead } from "../api/notificationApi";
 
@@ -709,7 +710,7 @@ function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
 
 // ── Content Area ─────────────────────────────────────────────────────────────
 
-function ContentArea({ collapsed, children }) {
+function ContentArea({ collapsed, children, topBanner }) {
   const [isLg, setIsLg] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth >= 1024 : true,
   );
@@ -727,6 +728,7 @@ function ContentArea({ collapsed, children }) {
         paddingLeft: isLg ? (collapsed ? "4rem" : "15rem") : "0",
       }}
     >
+      {topBanner}
       <div className="p-4 md:p-6 lg:p-8">{children}</div>
     </main>
   );
@@ -801,6 +803,32 @@ export default function AppShell() {
 
   const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone === false;
 
+  // ── 운영시간 미설정 감지 ───────────────────────────────────────────────────────
+  const [hoursNotSet, setHoursNotSet] = useState(false);
+  const hoursRedirectedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isShopRoute || !shopLMSDone) return;
+    getOperatingHours()
+      .then((data) => {
+        const list = data?.hours ?? data ?? [];
+        if (!list.length) {
+          setHoursNotSet(true);
+          if (!hoursRedirectedRef.current && loc.pathname !== '/shop/profile') {
+            hoursRedirectedRef.current = true;
+            nav('/shop/profile', { replace: true });
+          }
+        }
+      })
+      .catch(() => {});
+  }, [shopLMSDone]);
+
+  useEffect(() => {
+    const onSaved = () => setHoursNotSet(false);
+    window.addEventListener('hours-saved', onSaved);
+    return () => window.removeEventListener('hours-saved', onSaved);
+  }, []);
+
   return (
     <div
       className="min-h-screen bg-background"
@@ -815,7 +843,27 @@ export default function AppShell() {
       />
       <DesktopTopBar collapsed={collapsed} dark={dark} toggleDark={toggle} user={user} />
       <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} paymentOrderId={paymentOrderId} />
-      <ContentArea collapsed={collapsed}>
+      <ContentArea
+        collapsed={collapsed}
+        topBanner={hoursNotSet && isShopRoute && !showLMSGate && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '10px 20px',
+            background: '#fef3c7', borderBottom: '1px solid #fcd34d',
+            color: '#92400e', fontSize: '13px',
+          }}>
+            <span>⚠️</span>
+            <span>운영시간이 설정되지 않아 <strong>고객 예약이 불가능</strong>합니다.</span>
+            <button
+              onClick={() => nav('/shop/profile')}
+              style={{
+                marginLeft: '4px', fontWeight: 600, textDecoration: 'underline',
+                background: 'none', border: 'none', color: '#92400e', cursor: 'pointer', fontSize: '13px',
+              }}
+            >지금 설정하기 →</button>
+          </div>
+        )}
+      >
         {showLMSGate ? (
           <LMSGate guides={gateGuides} onNavigate={() => nav("/shop/lms")} />
         ) : (
