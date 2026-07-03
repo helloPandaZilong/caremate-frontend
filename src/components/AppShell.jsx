@@ -37,6 +37,7 @@ import { useDarkMode } from "../hooks/useDarkMode";
 import { getGuides } from "../api/lmsService";
 import { getRepairOrders } from "../api/customerService";
 import { getNotifications, getUnreadCount, markNotificationRead } from "../api/notificationApi";
+import NotificationBell from "./notification/NotificationBell";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -207,6 +208,7 @@ function NotificationDropdown({ onClose }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const ref = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     getNotifications()
@@ -314,7 +316,9 @@ function NotificationDropdown({ onClose }) {
 
         {/* Footer */}
         <div className="px-4 py-2.5 border-t border-border">
-          <button className="w-full text-center text-xs text-accent hover:underline font-medium py-0.5">
+          <button
+              onClick={() => navigate('/notifications')}
+              className="w-full text-center text-xs text-accent hover:underline font-medium py-0.5">
             전체 알림 보기
           </button>
         </div>
@@ -715,7 +719,7 @@ function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
           style={{ left: collapsed ? "4rem" : "15rem" }}
       >
         <DarkModeToggle dark={dark} toggle={toggleDark} />
-        <BellButton path={loc.pathname} />
+        <NotificationBell />
         <Link
             to={profileHref}
             title={user?.name}
