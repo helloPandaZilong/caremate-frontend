@@ -18,6 +18,7 @@ import {
   createRepairOrder,
   diagnoseImage,
   getShopOperatingHours,
+  getReservationCount,
 } from "../../api/customerService";
 
 const STEPS = [
@@ -109,6 +110,8 @@ export default function RequestPage() {
   const [loadingShops, setLoadingShops] = useState(true);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
   const [operatingHours, setOperatingHours] = useState(null);
+  const [reservationCounts, setReservationCounts] = useState({});
+  const [loadingCounts, setLoadingCounts] = useState(false);
 
   useEffect(() => {
     getRepairShops()
@@ -155,6 +158,25 @@ export default function RequestPage() {
   useEffect(() => {
     if (selectedSlot && !isSlotWithinHours(selectedSlot)) setSelectedSlot("");
   }, [selectedShop, selectedDate, operatingHours]);
+
+  useEffect(() => {
+    if (!selectedShop || isShopClosedToday) { setReservationCounts({}); return; }
+    let cancelled = false;
+    setLoadingCounts(true);
+    Promise.all(
+      TIME_SLOTS.map((t) =>
+        getReservationCount(selectedShop.id, `${selectedDate}T${t}:00`)
+          .then(({ data }) => [t, data.data?.count ?? 0])
+          .catch(() => [t, null]),
+      ),
+    ).then((entries) => {
+      if (cancelled) return;
+      setReservationCounts(Object.fromEntries(entries));
+    }).finally(() => {
+      if (!cancelled) setLoadingCounts(false);
+    });
+    return () => { cancelled = true; };
+  }, [selectedShop, selectedDate, isShopClosedToday]);
 
   const togglePolicy = (id) => {
     setSelectedPolicies((prev) =>
@@ -491,13 +513,14 @@ export default function RequestPage() {
                   const isPast = isToday && t <= now.toTimeString().slice(0, 5);
                   const outsideHours = !isSlotWithinHours(t);
                   const disabled = isPast || outsideHours;
+                  const count = reservationCounts[t];
                   return (
                     <button
                       key={t}
                       onClick={() => !disabled && setSelectedSlot(t)}
                       disabled={disabled}
                       title={outsideHours && !isPast ? "운영 시간이 아닙니다" : undefined}
-                      className={`py-2 text-xs font-medium rounded-xl border transition-all ${
+                      className={`flex flex-col items-center gap-0.5 py-2 text-xs font-medium rounded-xl border transition-all ${
                         disabled
                           ? "bg-secondary border-border text-muted-foreground/40 cursor-not-allowed"
                           : selectedSlot === t
@@ -505,7 +528,16 @@ export default function RequestPage() {
                             : "bg-card border-border text-foreground hover:border-accent/40"
                       }`}
                     >
-                      {t}
+                      <span>{t}</span>
+                      {!outsideHours && (
+                        <span
+                          className={`text-[10px] font-normal ${
+                            selectedSlot === t ? "text-white/80" : "text-muted-foreground"
+                          }`}
+                        >
+                          {loadingCounts ? "…" : count != null ? `예약 ${count}명` : ""}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
