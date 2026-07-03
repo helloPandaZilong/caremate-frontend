@@ -26,6 +26,7 @@ const TYPE_META = {
   ORDER_RECEIVED: { label: "접수 완료", icon: FileText, color: "text-blue-500" },
   ORDER_ACCEPTED: { label: "예약 확정", icon: CheckCircle2, color: "text-green-500" },
   ORDER_REJECTED: { label: "접수 반려", icon: AlertCircle, color: "text-red-500" },
+  REPAIR_STARTED: {label: "수리중", icon: Wrench, color: "text-blue-500",},
   NO_SHOW_WARNING: { label: "노쇼 예정", icon: AlertCircle, color: "text-amber-500" },
   NO_SHOW: { label: "노쇼", icon: AlertCircle, color: "text-amber-500" },
   PAYMENT_REQUESTED: { label: "결제 요청", icon: CreditCard, color: "text-blue-500" },
@@ -65,6 +66,7 @@ function getDetailHref(notification, role) {
     switch (type) {
       case "PAYMENT_REQUESTED":
       case "PAYMENT_COMPLETED":
+      case "REPAIR_STARTED":
       case "ESTIMATED_CLAIM_NOTICE":
       case "CLAIM_DISPATCH_SUCCESS":
       case "CLAIM_DISPATCH_FAILED":
