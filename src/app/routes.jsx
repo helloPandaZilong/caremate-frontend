@@ -19,6 +19,7 @@ import ShopDashboard  from "../pages/repairshop/DashboardPage";
 import ShopReport     from "../pages/repairshop/ReportPage";
 import ShopOrderList  from "../pages/repairshop/OrderList";
 import ShopOrderDetail from "../pages/repairshop/OrderDetail";
+import ShopPaymentHistory from "../pages/repairshop/PaymentHistoryPage";
 import ShopSettlement from "../pages/repairshop/SettlementPage";
 import ShopLMS        from "../pages/repairshop/LMSPage";
 import ShopProfile    from "../pages/repairshop/ProfilePage";
@@ -69,6 +70,7 @@ export const router = createBrowserRouter([
       { path: "/shop/orders",       Component: ShopOrderList   }, // 주문 접수 목록
       { path: "/shop/orders/:id",   Component: ShopOrderDetail }, // 주문 상세
       { path: "/shop/report",       Component: ShopReport      }, // 수리 리포트 목록
+      { path: "/shop/payments",     Component: ShopPaymentHistory }, // 전체 결제 내역
       { path: "/shop/settlement",   Component: ShopSettlement  }, // 월말 정산
       { path: "/shop/lms",          Component: ShopLMS         }, // LMS 교육
       { path: "/shop/profile",      Component: ShopProfile     }, // 수리점 프로필

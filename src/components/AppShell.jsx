@@ -70,6 +70,7 @@ const SHOP_NAV = [
   { label: "대시보드", href: "/shop/dashboard", icon: Calendar },
   { label: "주문 접수", href: "/shop/orders", icon: FileText },
   { label: "수리 리포트", href: "/shop/report", icon: Wrench },
+  { label: "결제 내역", href: "/shop/payments", icon: CreditCard },
   { label: "LMS 교육", href: "/shop/lms", icon: GraduationCap },
   { label: "월말 정산", href: "/shop/settlement", icon: Receipt },
 ];
