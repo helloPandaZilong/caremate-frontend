@@ -106,3 +106,8 @@ export const getOperatingHours = () =>
 
 export const updateOperatingHours = (data) =>
   apiClient.put('/shop/operating-hours', data).then((r) => r.data.data)
+
+// ─── Payment History (전체 결제 내역) ───────────────────────
+// params: { page, size, dateFrom, dateTo, keyword, paymentMethod }
+export const getPaymentHistory = (params = {}) =>
+  apiClient.get('/shop/payments', { params }).then((r) => r.data.data)

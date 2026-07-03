@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router'
+import { useParams, useNavigate, useLocation } from 'react-router'
 import {
   getOrderDetail, getStatusHistories,
   acceptOrder, rejectOrder, startRepair, manualNoShow,
 } from '../../api/repairshopApi.js'
 import './css/OrderDetail.css'
+
+// 뒤로가기 대상 — 어디서 진입했는지에 따라 되돌아갈 화면과 라벨을 다르게 한다.
+// state.from 이 없으면(직접 URL 진입 등) 기존 기본값인 접수 목록으로 되돌아간다.
+const BACK_TARGETS = {
+  '/shop/payments': { path: '/shop/payments', label: '← 결제 내역으로' },
+  '/shop/orders':   { path: '/shop/orders',   label: '← 접수 목록으로' },
+}
+const DEFAULT_BACK = BACK_TARGETS['/shop/orders']
 
 const STATUS_LABEL = {
   RECEIVED:'접수 대기', ACCEPTED:'방문 예정', REJECTED:'반려',
@@ -69,6 +77,8 @@ function RejectModal({ onConfirm, onCancel }) {
 export default function OrderDetail() {
   const { id: orderId } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const backTarget = BACK_TARGETS[location.state?.from] ?? DEFAULT_BACK
   const [order, setOrder] = useState(MOCK_DETAIL)
   const [histories, setHistories] = useState(MOCK_HISTORIES)
   const [loading, setLoading] = useState(false)
@@ -109,8 +119,8 @@ export default function OrderDetail() {
   return (
     <div>
       {/* Back */}
-      <button className="od-back" onClick={() => navigate('/shop/orders')}>
-        ← 접수 목록으로
+      <button className="od-back" onClick={() => navigate(backTarget.path)}>
+        {backTarget.label}
       </button>
 
       {/* Header */}
