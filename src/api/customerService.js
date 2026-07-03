@@ -40,6 +40,12 @@ export function cancelRepairOrder(orderId) {
     return apiClient.post(`/customer/repair-orders/${orderId}/cancel`)
 }
 
+export function getReservationCount(repairShopId, reservedVisitAt) {
+    return apiClient.get('/customer/repair-orders/reservation-count', {
+        params: { repairShopId, reservedVisitAt },
+    })
+}
+
 export function diagnoseImage(imageFile) {
     const formData = new FormData()
     formData.append('image', imageFile)
