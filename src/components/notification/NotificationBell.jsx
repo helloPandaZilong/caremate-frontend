@@ -12,6 +12,8 @@ import {
   PackageCheck,
   RefreshCw,
   Wrench,
+  Store,
+  Receipt,
 } from "lucide-react";
 import {
   getNotifications,
@@ -32,6 +34,9 @@ const TYPE_META = {
   CLAIM_DISPATCH_SUCCESS: { label: "청구 패키지 완료", icon: PackageCheck, color: "text-green-500" },
   CLAIM_DISPATCH_FAILED: { label: "청구 패키지 실패", icon: AlertCircle, color: "text-red-500" },
   BATCH_COMPLETED: { label: "배치 완료", icon: Wrench, color: "text-purple-500" },
+  BATCH_FAILED: {label: "월말 정산 실패", icon: AlertCircle, color: "text-red-500",},
+  FEE_CHARGE_REQUESTED: {label: "수수료 납부 요청", icon: CreditCard, color: "text-red-500",},
+  FEE_PAYMENT_DUE_SOON: {label: "납부 마감 임박", icon: AlertCircle, color: "text-amber-500",},
   SHOP_SIGNUP_REQUESTED: {label: "가입 요청",icon: Store,color: "text-amber-500",},
 };
 
@@ -84,6 +89,8 @@ function getDetailHref(notification, role) {
         return "/shop/orders";
 
       case "BATCH_COMPLETED":
+      case "FEE_CHARGE_REQUESTED":
+      case "FEE_PAYMENT_DUE_SOON":
         return "/shop/settlement";
 
       case "REPAIR_SHOP_APPROVED":
@@ -102,16 +109,14 @@ function getDetailHref(notification, role) {
 
   if (role === "ADMIN") {
     switch (type) {
-      case "CLAIM_DISPATCH_FAILED":
-      case "BATCH_FAILED":
-        return "/admin/audit";
-
       case "BATCH_COMPLETED":
+      case "BATCH_FAILED":
         return "/admin/settlements";
 
-      case "SHOP_SIGNUP_REQUESTED":
-        return "/admin/shop-approvals";
+      case "CLAIM_DISPATCH_FAILED":
+        return "/admin/audit";
 
+      case "SHOP_SIGNUP_REQUESTED":
       case "REPAIR_SHOP_APPROVED":
         return "/admin/shop-approvals";
 

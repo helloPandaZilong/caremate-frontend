@@ -37,6 +37,7 @@ import { useDarkMode } from "../hooks/useDarkMode";
 import { getGuides } from "../api/lmsService";
 import { getRepairOrders } from "../api/customerService";
 import { getNotifications, getUnreadCount, markNotificationRead } from "../api/notificationApi";
+import NotificationBell from "./notification/NotificationBell";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -717,7 +718,7 @@ function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
           style={{ left: collapsed ? "4rem" : "15rem" }}
       >
         <DarkModeToggle dark={dark} toggle={toggleDark} />
-        <BellButton path={loc.pathname} />
+        <NotificationBell />
         <Link
             to={profileHref}
             title={user?.name}
