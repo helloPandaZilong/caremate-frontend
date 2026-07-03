@@ -206,6 +206,7 @@ function NotificationDropdown({ onClose }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const ref = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     getNotifications()
@@ -313,7 +314,9 @@ function NotificationDropdown({ onClose }) {
 
         {/* Footer */}
         <div className="px-4 py-2.5 border-t border-border">
-          <button className="w-full text-center text-xs text-accent hover:underline font-medium py-0.5">
+          <button
+              onClick={() => navigate('/notifications')}
+              className="w-full text-center text-xs text-accent hover:underline font-medium py-0.5">
             전체 알림 보기
           </button>
         </div>
