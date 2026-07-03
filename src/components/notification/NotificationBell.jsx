@@ -136,8 +136,6 @@ function getDetailHref(notification, role) {
         return "/admin/dashboard";
     }
   }
-  }
-
   return "/notifications";
 }
 
