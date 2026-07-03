@@ -33,8 +33,8 @@ const DEMO_SHOPS = [
 ];
 
 const DEMO_POLICIES = [
-  { id: 801, productName: "삼성 갤럭시 케어+", providerName: "삼성화재", status: "ACTIVE", policyNumber: "SF-2025-001" },
-  { id: 802, productName: "SKT T다이렉트 보험", providerName: "SK텔레콤", status: "ACTIVE", policyNumber: "SK-2025-042" },
+  { id: 801, productName: "삼성 갤럭시 케어+", providerName: "삼성화재", status: "ACTIVE", policyNumber: "SF-2025-001", annualClaimLimit: 3, remainingClaimCount: 2 },
+  { id: 802, productName: "SKT T다이렉트 보험", providerName: "SK텔레콤", status: "ACTIVE", policyNumber: "SK-2025-042", annualClaimLimit: 2, remainingClaimCount: 2 },
 ];
 
 const TIME_SLOTS = [
@@ -167,10 +167,23 @@ export default function RequestPage() {
     setStep(1);
   };
 
+  const isPolicyExhausted = (p) =>
+    p.annualClaimLimit != null &&
+    (p.remainingClaimCount ?? p.annualClaimLimit - (p.annualClaimCount ?? 0)) <= 0;
+
   const handleSubmit = async () => {
     if (!selectedShop) { setSubmitError("서비스 센터를 선택해주세요."); return; }
     if (!selectedSlot) { setSubmitError("방문 시간을 선택해주세요."); return; }
     if (selectedPolicies.length === 0) { setSubmitError("보험을 1개 이상 선택해주세요."); return; }
+    const exhaustedPolicy = policies.find(
+      (p) => selectedPolicies.includes(p.id) && isPolicyExhausted(p),
+    );
+    if (exhaustedPolicy) {
+      setSubmitError(
+        `선택한 보험(${exhaustedPolicy.productName})은 이번 보험 기간의 청구 횟수를 모두 사용했습니다. 잔여 횟수가 남아있다면 정상적으로 접수할 수 있으니, 보험을 재등록한 후 다시 접수해주세요.`,
+      );
+      return;
+    }
     const reservedVisitAt = `${selectedDate}T${selectedSlot}:00`;
     if (new Date(reservedVisitAt) < new Date()) {
       setSubmitError("현재 시간 이전으로는 예약할 수 없습니다.");
@@ -476,12 +489,14 @@ export default function RequestPage() {
             policies.map((p) => {
               const checked = selectedPolicies.includes(p.id);
               const isActive = p.status === "ACTIVE";
+              const exhausted = isPolicyExhausted(p);
+              const selectable = isActive && !exhausted;
               return (
                 <div
                   key={p.id}
-                  onClick={() => isActive && togglePolicy(p.id)}
+                  onClick={() => selectable && togglePolicy(p.id)}
                   className={`flex items-start gap-3 p-4 border rounded-xl transition-all ${
-                    !isActive
+                    !selectable
                       ? "opacity-50 cursor-not-allowed bg-secondary"
                       : checked
                         ? "border-accent bg-accent/10 cursor-pointer"
@@ -509,8 +524,13 @@ export default function RequestPage() {
                         증권번호: {p.policyNumber}
                       </p>
                     )}
+                    {exhausted && (
+                      <p className="text-xs text-red-500 mt-1">
+                        청구 횟수를 모두 사용했습니다. 잔여 횟수가 남아있다면 정상 접수할 수 있으니, 보험을 재등록해주세요.
+                      </p>
+                    )}
                   </div>
-                  {!isActive && (
+                  {!selectable && (
                     <Shield className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                   )}
                 </div>
