@@ -71,6 +71,7 @@ const SHOP_NAV = [
   { label: "대시보드", href: "/shop/dashboard", icon: Calendar },
   { label: "주문 접수", href: "/shop/orders", icon: FileText },
   { label: "수리 리포트", href: "/shop/report", icon: Wrench },
+  { label: "결제 내역", href: "/shop/payments", icon: CreditCard },
   { label: "LMS 교육", href: "/shop/lms", icon: GraduationCap },
   { label: "월말 정산", href: "/shop/settlement", icon: Receipt },
 ];
@@ -80,7 +81,7 @@ const ADMIN_NAV = [
   { label: "수리점 가입 승인", href: "/admin/shop-approvals", icon: Store },
   { label: "회원 관리", href: "/admin/members", icon: Users }, // 고객·수리점 차단/해제
   { label: "보험 약관 관리", href: "/admin/policies", icon: BookOpen },
-  { label: "수수료 청구 관리", href: "/admin/settlements", icon: Package },
+  { label: "정산·배치 관리", href: "/admin/settlements", icon: Package },
   { label: "LMS 관리", href: "/admin/lms", icon: GraduationCap },
   { label: "AI 정확도 현황", href: "/admin/ai-accuracy", icon: Sparkles },
   { label: "운영 감사", href: "/admin/audit", icon: AlertTriangle },

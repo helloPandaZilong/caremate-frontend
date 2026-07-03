@@ -250,7 +250,7 @@ export default function OrderList() {
                   <tr
                     key={order.id}
                     className="ol-row"
-                    onClick={() => navigate(`/shop/orders/${order.id}`)}
+                    onClick={() => navigate(`/shop/orders/${order.id}`, { state: { from: '/shop/orders' } })}
                   >
                     <td className="ol-order-no">{order.orderNo}</td>
                     <td className="ol-customer">{order.customerName}</td>

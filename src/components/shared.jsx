@@ -1,3 +1,5 @@
+import { Star } from "lucide-react";
+
 export function Button({
   children,
   variant = "primary",
@@ -141,6 +143,54 @@ export function SectionTitle({ title, subtitle, action }) {
         )}
       </div>
       {action && <div className="shrink-0">{action}</div>}
+    </div>
+  );
+}
+
+// ── StarRating (표시용) ──────────────────────────────────────────────────────
+export function StarRating({ rating, reviewCount, size = "sm", className = "" }) {
+  const sizeClass = size === "sm" ? "w-3 h-3" : "w-4 h-4";
+  const textClass = size === "sm" ? "text-xs" : "text-sm";
+
+  if (!rating || !reviewCount) {
+    return (
+      <span className={`${textClass} text-muted-foreground/60 ${className}`}>
+        아직 리뷰가 없어요
+      </span>
+    );
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1 ${className}`}>
+      <Star className={`${sizeClass} fill-amber-400 text-amber-400 shrink-0`} />
+      <span className={`${textClass} font-semibold text-foreground`}>
+        {Number(rating).toFixed(1)}
+      </span>
+      <span className={`${textClass} text-muted-foreground`}>
+        ({reviewCount})
+      </span>
+    </span>
+  );
+}
+
+// ── StarRatingInput (입력용) ─────────────────────────────────────────────────
+export function StarRatingInput({ value = 0, onChange, size = "md" }) {
+  const sizeClass = size === "sm" ? "w-5 h-5" : "w-7 h-7";
+
+  return (
+    <div className="inline-flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange?.(n)}
+          className="p-0.5 transition-transform hover:scale-110"
+        >
+          <Star
+            className={`${sizeClass} ${n <= value ? "fill-amber-400 text-amber-400" : "text-border"}`}
+          />
+        </button>
+      ))}
     </div>
   );
 }
