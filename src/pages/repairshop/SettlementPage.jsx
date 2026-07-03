@@ -5,6 +5,8 @@ import {
   Download,
   TrendingUp,
   Loader2,
+  CheckCircle2,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, Badge } from "../../components/shared";
 import {
@@ -120,6 +122,21 @@ export default function ShopSettlementPage() {
   const orderCount = detail?.orderCount ?? 0;
   const totalExpectedRefund = detail?.totalExpectedRefundAmount ?? 0;
   const displayMonth = month ? month.replace("-", "년 ") + "월" : "";
+  const billingStatus = detail?.billingStatus ?? "PENDING";
+  const dueDate = detail?.dueDate;
+  const notifiedAt = detail?.notifiedAt;
+
+  const BILLING_STATUS_CONFIG = {
+    PENDING: { label: "청구 대기", variant: "muted" },
+    NOTIFIED: { label: "납부 요청됨", variant: "yellow" },
+    PAID: { label: "납부 완료", variant: "green" },
+    OVERDUE: { label: "기한 초과", variant: "red" },
+  };
+
+  function BillingStatusBadge({ status }) {
+    const cfg = BILLING_STATUS_CONFIG[status] ?? BILLING_STATUS_CONFIG.PENDING;
+    return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
+  }
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
@@ -183,6 +200,38 @@ export default function ShopSettlementPage() {
         </div>
       ) : (
         <>
+          {billingStatus === "NOTIFIED" && (
+              <Card className="p-4 border-amber-200 bg-amber-50 dark:bg-amber-950/20">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                      수수료 납부 요청이 도착했습니다.
+                    </h3>
+                    <p className="text-xs text-amber-700 dark:text-amber-200 mt-1">
+                      납부 기한은 {dueDate ?? "미지정"}입니다.
+                      마감 하루 전 다시 알림이 발송됩니다.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+          )}
+
+          {billingStatus === "PAID" && (
+              <Card className="p-4 border-green-200 bg-green-50 dark:bg-green-950/20">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-green-800 dark:text-green-300">
+                      수수료 납부가 완료되었습니다.
+                    </h3>
+                    <p className="text-xs text-green-700 dark:text-green-200 mt-1">
+                      {displayMonth} 정산 건의 납부 처리가 완료되었습니다.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+          )}
           {/* KPI cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
@@ -226,9 +275,7 @@ export default function ShopSettlementPage() {
               <h3 className="text-sm font-semibold text-foreground">
                 {displayMonth} 수수료 정산 요약
               </h3>
-              <Badge variant="green" className="ml-auto">
-                집계 완료
-              </Badge>
+              <BillingStatusBadge status={billingStatus} />
             </div>
             <div className="flex flex-col gap-2 text-sm">
               {[
