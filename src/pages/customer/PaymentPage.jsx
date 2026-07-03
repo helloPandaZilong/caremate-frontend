@@ -12,6 +12,7 @@ import {
   Info,
   Loader2,
   Wrench,
+  Undo2,
 } from "lucide-react";
 import { Button, Card, Badge } from "../../components/shared";
 import ShopReviewCard from "../../components/ShopReviewCard";
@@ -22,6 +23,7 @@ import {
   confirmPayment,
   failPayment,
   fetchReceipt,
+  cancelPayment,
 } from "../../api/payment";
 // 5번(청구) API 추가
 import { getClaimEstimates, requestClaimPackage } from "../../api/claim";
@@ -70,7 +72,7 @@ function getTossPayments() {
 
 // ── Post-Payment: Claim Package Screen ───────────────────────────────────────
 // orderId 추가로 받음 (청구 API에 필요). claims 는 confirmData 대신 조회.
-function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
+function ClaimPackageScreen({ orderId, paymentId, confirmData, onRefunded }) {
   const navigate = useNavigate();
   const [receipt, setReceipt] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -80,6 +82,11 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
   const [downloading, setDownloading] = useState(false);
   const [claimError, setClaimError] = useState(null);
   const [showWarning, setShowWarning] = useState(false);
+
+  // 환불(결제 취소) — PAYMENT_COMPLETED 상태(=아직 청구 전)에서만 가능
+  const [refunding, setRefunding] = useState(false);
+  const [refundError, setRefundError] = useState(null);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
 
   // 영수증 조회 — paymentId가 없으면 로딩 즉시 해제
   useEffect(() => {
@@ -141,6 +148,26 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
   const handleSubmit = (claim) => {
     if (!isClaimed(claim)) return;
     window.open(claim.claimChannelValue, "_blank", "noopener");
+  };
+
+  // 환불 요청 — 청구 전(anyClaimed === false)에만 노출/허용됨
+  const handleRefund = async () => {
+    if (refunding || !paymentId) return;
+    setRefunding(true);
+    setRefundError(null);
+    try {
+      await cancelPayment(paymentId);
+      setShowRefundConfirm(false);
+      // 서버가 repair_orders.status 를 REPAIR_DONE 으로 롤백함 → 결제 폼 화면으로 되돌아가기
+      onRefunded?.();
+    } catch (e) {
+      setRefundError(
+        "환불 처리 실패: " +
+          (e.response?.data?.error?.message ?? e.message ?? "알 수 없는 오류"),
+      );
+    } finally {
+      setRefunding(false);
+    }
   };
 
   if (loading) {
@@ -223,6 +250,23 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
             <Download className="w-3.5 h-3.5" />
             PG 영수증 보기
           </a>
+        )}
+
+        {/* 환불 요청 — 청구(claim-request) 이전에만 가능. 청구 후에는 서버가 409로 거부한다 */}
+        {!anyClaimed && (
+          <div className="mt-4 pt-4 border-t border-border/40">
+            {refundError && (
+              <p className="text-xs text-red-600 mb-2">{refundError}</p>
+            )}
+            <button
+              onClick={() => setShowRefundConfirm(true)}
+              disabled={refunding}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-600 dark:hover:text-red-400 font-medium transition-colors"
+            >
+              <Undo2 className="w-3.5 h-3.5" />
+              결제 취소·환불 요청
+            </button>
+          </div>
         )}
       </Card>
 
@@ -458,6 +502,52 @@ function ClaimPackageScreen({ orderId, paymentId, confirmData }) {
           </div>
         </div>
       )}
+      {/* 환불 확인 모달 */}
+      {showRefundConfirm && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => !refunding && setShowRefundConfirm(false)}
+        >
+          <div
+            className="bg-card rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <h4 className="text-base font-semibold text-foreground mb-3">
+              결제 취소·환불 확인
+            </h4>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-5">
+              결제하신{" "}
+              <b className="text-foreground">{fmt(total)}</b>이(가) 취소되어
+              환불됩니다. 취소 후에는 결제 대기 상태로 되돌아가며, 다시
+              결제를 진행하실 수 있습니다.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex-1"
+                onClick={() => setShowRefundConfirm(false)}
+                disabled={refunding}
+              >
+                취소
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                className="flex-1"
+                onClick={handleRefund}
+                disabled={refunding}
+              >
+                {refunding ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "환불하기"
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -612,6 +702,17 @@ export default function PaymentPage() {
         orderId={orderId}
         paymentId={paymentId}
         confirmData={confirmData}
+        onRefunded={() => {
+          // 환불 완료 — 서버가 REPAIR_DONE 으로 롤백했으므로 결제 폼 화면으로 되돌아가서 최신 상태 재조회
+          setPaid(false);
+          setPaymentId(null);
+          setConfirmData(null);
+          setLoading(true);
+          fetchPaymentInfo(orderId)
+            .then((res) => setPaymentInfo(res.data.data))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+        }}
       />
     );
   }
