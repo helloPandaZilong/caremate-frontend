@@ -32,6 +32,7 @@ const TYPE_META = {
   CLAIM_DISPATCH_SUCCESS: { label: "청구 패키지 완료", icon: PackageCheck, color: "text-green-500" },
   CLAIM_DISPATCH_FAILED: { label: "청구 패키지 실패", icon: AlertCircle, color: "text-red-500" },
   BATCH_COMPLETED: { label: "배치 완료", icon: Wrench, color: "text-purple-500" },
+  SHOP_SIGNUP_REQUESTED: {label: "가입 요청",icon: Store,color: "text-amber-500",},
 };
 
 function getPageContent(pageData) {
@@ -107,6 +108,9 @@ function getDetailHref(notification, role) {
 
       case "BATCH_COMPLETED":
         return "/admin/settlements";
+
+      case "SHOP_SIGNUP_REQUESTED":
+        return "/admin/shop-approvals";
 
       case "REPAIR_SHOP_APPROVED":
         return "/admin/shop-approvals";
