@@ -92,3 +92,10 @@ export const deleteAllLmsGuides = (memberId) =>
 // → { totalCount, noCorrectionCount, accuracyRate, fieldCorrectionCounts, fieldCorrectionRates, recentLogs }
 export const getAiAccuracyStats = () =>
   apiClient.get('/admin/ai-accuracy').then((r) => r.data.data)
+
+// ── 통합 관제 대시보드 API ──────────────────────────────────────────────────────
+
+// 대시보드 전체 데이터 조회
+// → { metrics, monthlyRevenue, monthlyClaimPackets, recentAnomalies }
+export const getAdminDashboard = () =>
+  apiClient.get('/admin/dashboard').then((r) => r.data.data)

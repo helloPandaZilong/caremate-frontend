@@ -14,6 +14,7 @@ import {
   X as XIcon,
 } from "lucide-react";
 import { Badge, Button, Card } from "../../components/shared";
+import ShopReviewCard from "../../components/ShopReviewCard";
 import RepairStatusStepper, {
   OrderStatusHistoryList,
 } from "../../components/monitoring/RepairStatusStepper";
@@ -23,6 +24,13 @@ import { getOrderStatusHistories } from "../../api/monitoringApi";
 import { getCustomerRepairOrders } from "../../api/customerRepairOrderApi";
 import { getNotifications, markNotificationRead } from "../../api/notificationApi";
 import { useAuth } from "../../contexts/AuthContext";
+
+const REVIEWABLE_STATUSES = [
+  "PAYMENT_COMPLETED",
+  "CLAIM_REQUESTED",
+  "CLAIM_COMPLETED",
+  "RECEIPT_UPLOADED",
+];
 
 const STATUS_LABEL = {
   RECEIVED: "접수",
@@ -106,6 +114,7 @@ function ASRequestCard({ order }) {
   const shopName = order.shopName ?? order.repairShopName ?? "-";
 
   return (
+      <div className="flex flex-col gap-6">
       <Card className="p-5 flex flex-col gap-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-2">
@@ -168,6 +177,11 @@ function ASRequestCard({ order }) {
             </Link>
         )}
       </Card>
+
+      {REVIEWABLE_STATUSES.includes(order.status) && (
+          <ShopReviewCard orderId={order.id} shopName={order.shopName ?? order.repairShopName} />
+      )}
+      </div>
   );
 }
 

@@ -40,6 +40,12 @@ export function cancelRepairOrder(orderId) {
     return apiClient.post(`/customer/repair-orders/${orderId}/cancel`)
 }
 
+export function getReservationCount(repairShopId, reservedVisitAt) {
+    return apiClient.get('/customer/repair-orders/reservation-count', {
+        params: { repairShopId, reservedVisitAt },
+    })
+}
+
 export function diagnoseImage(imageFile) {
     const formData = new FormData()
     formData.append('image', imageFile)
@@ -102,4 +108,18 @@ export function getRepairShop(shopId) {
 
 export function getShopOperatingHours(shopId) {
     return apiClient.get(`/repair-shops/${shopId}/operating-hours`)
+}
+
+export function getShopReviews(shopId, page = 0, size = 10) {
+    return apiClient.get(`/repair-shops/${shopId}/reviews`, { params: { page, size } })
+}
+
+// ── Shop Reviews ─────────────────────────────────────────────────────────────
+
+export function createShopReview({ repairOrderId, rating }) {
+    return apiClient.post('/customer/shop-reviews', { repairOrderId, rating })
+}
+
+export function getOrderShopReview(orderId) {
+    return apiClient.get(`/customer/repair-orders/${orderId}/shop-review`)
 }
