@@ -17,6 +17,7 @@ import {
   getInsurancePolicies,
   createRepairOrder,
   diagnoseImage,
+  getShopOperatingHours,
 } from "../../api/customerService";
 
 const STEPS = [
@@ -33,8 +34,8 @@ const DEMO_SHOPS = [
 ];
 
 const DEMO_POLICIES = [
-  { id: 801, productName: "삼성 갤럭시 케어+", providerName: "삼성화재", status: "ACTIVE", policyNumber: "SF-2025-001" },
-  { id: 802, productName: "SKT T다이렉트 보험", providerName: "SK텔레콤", status: "ACTIVE", policyNumber: "SK-2025-042" },
+  { id: 801, productName: "삼성 갤럭시 케어+", providerName: "삼성화재", status: "ACTIVE", policyNumber: "SF-2025-001", annualClaimLimit: 3, remainingClaimCount: 2 },
+  { id: 802, productName: "SKT T다이렉트 보험", providerName: "SK텔레콤", status: "ACTIVE", policyNumber: "SK-2025-042", annualClaimLimit: 2, remainingClaimCount: 2 },
 ];
 
 const TIME_SLOTS = [
@@ -107,6 +108,7 @@ export default function RequestPage() {
   const [policies, setPolicies] = useState([]);
   const [loadingShops, setLoadingShops] = useState(true);
   const [loadingPolicies, setLoadingPolicies] = useState(true);
+  const [operatingHours, setOperatingHours] = useState(null);
 
   useEffect(() => {
     getRepairShops()
@@ -129,6 +131,30 @@ export default function RequestPage() {
       .catch(() => setPolicies(DEMO_POLICIES))
       .finally(() => setLoadingPolicies(false));
   }, []);
+
+  useEffect(() => {
+    if (!selectedShop) { setOperatingHours(null); return; }
+    setOperatingHours(null);
+    getShopOperatingHours(selectedShop.id)
+      .then(({ data }) => setOperatingHours(data.data?.hours ?? []))
+      .catch(() => setOperatingHours([]));
+  }, [selectedShop]);
+
+  const todayHours = operatingHours?.find(
+    (h) => h.dayOfWeek === new Date(`${selectedDate}T00:00:00`).getDay(),
+  );
+  const isShopClosedToday = !!todayHours && (todayHours.closed || todayHours.isClosed);
+  const isSlotWithinHours = (t) => {
+    if (!todayHours || isShopClosedToday) return false;
+    const open = todayHours.openTime?.slice(0, 5);
+    const close = todayHours.closeTime?.slice(0, 5);
+    if (!open || !close) return true;
+    return t >= open && t < close;
+  };
+
+  useEffect(() => {
+    if (selectedSlot && !isSlotWithinHours(selectedSlot)) setSelectedSlot("");
+  }, [selectedShop, selectedDate, operatingHours]);
 
   const togglePolicy = (id) => {
     setSelectedPolicies((prev) =>
@@ -167,10 +193,27 @@ export default function RequestPage() {
     setStep(1);
   };
 
+  const isPolicyExhausted = (p) =>
+    p.annualClaimLimit != null &&
+    (p.remainingClaimCount ?? p.annualClaimLimit - (p.annualClaimCount ?? 0)) <= 0;
+
   const handleSubmit = async () => {
     if (!selectedShop) { setSubmitError("서비스 센터를 선택해주세요."); return; }
     if (!selectedSlot) { setSubmitError("방문 시간을 선택해주세요."); return; }
+    if (!isSlotWithinHours(selectedSlot)) {
+      setSubmitError("선택한 시간은 서비스 센터의 운영 시간이 아닙니다. 다른 시간을 선택해주세요.");
+      return;
+    }
     if (selectedPolicies.length === 0) { setSubmitError("보험을 1개 이상 선택해주세요."); return; }
+    const exhaustedPolicy = policies.find(
+      (p) => selectedPolicies.includes(p.id) && isPolicyExhausted(p),
+    );
+    if (exhaustedPolicy) {
+      setSubmitError(
+        `선택한 보험(${exhaustedPolicy.productName})은 이번 보험 기간의 청구 횟수를 모두 사용했습니다. 잔여 횟수가 남아있다면 정상적으로 접수할 수 있으니, 보험을 재등록한 후 다시 접수해주세요.`,
+      );
+      return;
+    }
     const reservedVisitAt = `${selectedDate}T${selectedSlot}:00`;
     if (new Date(reservedVisitAt) < new Date()) {
       setSubmitError("현재 시간 이전으로는 예약할 수 없습니다.");
@@ -198,6 +241,13 @@ export default function RequestPage() {
 
   const next = () => setStep((s) => Math.min(s + 1, STEPS.length - 1));
   const prev = () => setStep((s) => Math.max(s - 1, 0));
+
+  const isStepComplete = [
+    true,
+    damage.trim().length > 0,
+    !!selectedShop && !!selectedSlot,
+    selectedPolicies.length > 0,
+  ][step];
 
   if (submitted) {
     return (
@@ -430,28 +480,37 @@ export default function RequestPage() {
             <label className="text-xs font-medium text-muted-foreground">
               방문 시간 선택
             </label>
-            <div className="grid grid-cols-4 gap-2">
-              {TIME_SLOTS.map((t) => {
-                const isToday = selectedDate === todayStr();
-                const isPast = isToday && t <= now.toTimeString().slice(0, 5);
-                return (
-                  <button
-                    key={t}
-                    onClick={() => !isPast && setSelectedSlot(t)}
-                    disabled={isPast}
-                    className={`py-2 text-xs font-medium rounded-xl border transition-all ${
-                      isPast
-                        ? "bg-secondary border-border text-muted-foreground/40 cursor-not-allowed"
-                        : selectedSlot === t
-                          ? "bg-accent text-white border-accent"
-                          : "bg-card border-border text-foreground hover:border-accent/40"
-                    }`}
-                  >
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
+            {isShopClosedToday ? (
+              <p className="text-xs text-red-500">
+                선택하신 날짜는 해당 서비스 센터의 휴무일입니다. 다른 날짜를 선택해주세요.
+              </p>
+            ) : (
+              <div className="grid grid-cols-4 gap-2">
+                {TIME_SLOTS.map((t) => {
+                  const isToday = selectedDate === todayStr();
+                  const isPast = isToday && t <= now.toTimeString().slice(0, 5);
+                  const outsideHours = !isSlotWithinHours(t);
+                  const disabled = isPast || outsideHours;
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => !disabled && setSelectedSlot(t)}
+                      disabled={disabled}
+                      title={outsideHours && !isPast ? "운영 시간이 아닙니다" : undefined}
+                      className={`py-2 text-xs font-medium rounded-xl border transition-all ${
+                        disabled
+                          ? "bg-secondary border-border text-muted-foreground/40 cursor-not-allowed"
+                          : selectedSlot === t
+                            ? "bg-accent text-white border-accent"
+                            : "bg-card border-border text-foreground hover:border-accent/40"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </Card>
         );
@@ -477,12 +536,14 @@ export default function RequestPage() {
             policies.map((p) => {
               const checked = selectedPolicies.includes(p.id);
               const isActive = p.status === "ACTIVE";
+              const exhausted = isPolicyExhausted(p);
+              const selectable = isActive && !exhausted;
               return (
                 <div
                   key={p.id}
-                  onClick={() => isActive && togglePolicy(p.id)}
+                  onClick={() => selectable && togglePolicy(p.id)}
                   className={`flex items-start gap-3 p-4 border rounded-xl transition-all ${
-                    !isActive
+                    !selectable
                       ? "opacity-50 cursor-not-allowed bg-secondary"
                       : checked
                         ? "border-accent bg-accent/10 cursor-pointer"
@@ -510,8 +571,13 @@ export default function RequestPage() {
                         증권번호: {p.policyNumber}
                       </p>
                     )}
+                    {exhausted && (
+                      <p className="text-xs text-red-500 mt-1">
+                        청구 횟수를 모두 사용했습니다. 잔여 횟수가 남아있다면 정상 접수할 수 있으니, 보험을 재등록해주세요.
+                      </p>
+                    )}
                   </div>
-                  {!isActive && (
+                  {!selectable && (
                     <Shield className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                   )}
                 </div>
@@ -542,7 +608,12 @@ export default function RequestPage() {
             취소
           </Button>
           {step < STEPS.length - 1 ? (
-            <Button variant="accent" size="md" onClick={next}>
+            <Button
+              variant="accent"
+              size="md"
+              onClick={next}
+              disabled={!isStepComplete}
+            >
               다음 단계
             </Button>
           ) : (
@@ -550,7 +621,7 @@ export default function RequestPage() {
               variant="accent"
               size="md"
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || !isStepComplete}
             >
               {submitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
