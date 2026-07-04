@@ -74,9 +74,10 @@ export default function OAuthCallbackPage() {
 
     // ── 백엔드 토큰 교환 ──────────────────────────────────────────────────────
     // redirectUri는 Google에 등록된 값과 정확히 일치해야 한다
+    // state도 함께 전달 — 백엔드가 Redis 저장값과 대조 후 1회 소비한다(서버 측 CSRF 검증)
     const redirectUri = `${window.location.origin}/auth/callback`
 
-    googleCallback(code, redirectUri)
+    googleCallback(code, redirectUri, state)
       .then((res) => {
         const { accessToken, memberId, role, name, email } = res.data.data
 

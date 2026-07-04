@@ -46,6 +46,7 @@ export const getGoogleAuthUrl = (redirectUri) =>
  *
  * @param {string} code        Google 콜백 URL에서 추출한 인가 코드
  * @param {string} redirectUri 인가 요청 시 사용한 것과 동일한 콜백 URL
+ * @param {string} state       authorize 단계에서 발급된 state — 백엔드가 Redis 저장값과 대조 후 소비한다
  */
-export const googleCallback = (code, redirectUri) =>
-  apiClient.post('/auth/oauth2/google/callback', { code, redirectUri })
+export const googleCallback = (code, redirectUri, state) =>
+  apiClient.post('/auth/oauth2/google/callback', { code, redirectUri, state })
