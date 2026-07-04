@@ -79,10 +79,11 @@ export default function OAuthCallbackPage() {
 
     googleCallback(code, redirectUri, state)
       .then((res) => {
-        const { accessToken, memberId, role, name, email } = res.data.data
+        const { accessToken, memberId, role, name, email, phoneNumber } = res.data.data
 
         // 인증 정보를 localStorage + Context에 저장 (일반 로그인과 동일)
-        saveAuth(accessToken, { memberId, role, name, email })
+        // 소셜 가입자는 phoneNumber가 빈 값 → 대시보드 진입 시 AppShell이 온보딩 모달을 띄운다
+        saveAuth(accessToken, { memberId, role, name, email, phoneNumber })
         toast.success(`${name}님, 환영합니다!`)
 
         // 역할별 대시보드로 이동 (ProtectedRoute 역할 검증과 일치)

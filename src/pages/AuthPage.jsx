@@ -300,10 +300,11 @@ export default function AuthPage() {
     setLoading(true);
     try {
       const res = await login({ email: form.email, password: form.password });
-      const { accessToken, memberId, role, name } = res.data.data;
+      const { accessToken, memberId, role, name, phoneNumber } = res.data.data;
 
       // 인증 정보 전역 저장 (localStorage + Context)
-      saveAuth(accessToken, { memberId, role, name, email: form.email });
+      // phoneNumber는 소셜 가입자 온보딩 판별용 — 일반 로그인은 항상 값이 있음
+      saveAuth(accessToken, { memberId, role, name, email: form.email, phoneNumber });
       toast.success(`${name}님, 환영합니다!`);
 
       // 역할별 기본 대시보드로 이동
