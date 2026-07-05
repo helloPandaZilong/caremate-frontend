@@ -421,7 +421,7 @@ export default function RequestPage() {
           />
 
           <div className="flex flex-wrap gap-2">
-            {["액정 파손", "침수", "배터리 불량", "카메라 파손", "분실"].map(
+            {["액정 파손", "침수", "배터리 불량", "카메라 파손"].map(
               (t) => (
                 <button
                   key={t}

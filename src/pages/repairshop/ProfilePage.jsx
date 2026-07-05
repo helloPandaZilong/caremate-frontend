@@ -17,6 +17,7 @@ import {
   getOperatingHours,
   updateOperatingHours,
 } from "../../api/repairshopApi";
+import { getGuides } from "../../api/lmsService";
 
 function GraduationCapIcon() {
   return (
@@ -61,7 +62,11 @@ export default function ShopProfilePage() {
     businessNo: "123-45-67890",
     address: "서울특별시 강남구 테헤란로 152",
   });
-  const lmsDone = localStorage.getItem("caremate-shop-lms") === "done";
+  const [lmsDone, setLmsDone] = useState(localStorage.getItem("caremate-shop-lms") === "done");
+  const [lmsCompletedAt, setLmsCompletedAt] = useState(null);
+  const lmsCompletedAtLabel = lmsCompletedAt
+    ? new Date(lmsCompletedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\. /g, ".").replace(/\.$/, "")
+    : "-";
 
   // 프로필 & 운영시간 로드
   useEffect(() => {
@@ -95,6 +100,24 @@ export default function ShopProfilePage() {
           }
         });
         setHours(next);
+      })
+      .catch(() => {});
+
+    getGuides()
+      .then(({ data }) => {
+        const guides = data.guides ?? [];
+        const allCompleted = data.allCompleted ?? false;
+        if (allCompleted) {
+          setLmsDone(true);
+          localStorage.setItem("caremate-shop-lms", "done");
+        }
+        const confirmedTimes = guides
+          .map((g) => g.confirmedAt)
+          .filter(Boolean)
+          .map((t) => new Date(t).getTime());
+        if (allCompleted && confirmedTimes.length) {
+          setLmsCompletedAt(new Date(Math.max(...confirmedTimes)).toISOString());
+        }
       })
       .catch(() => {});
   }, []);
@@ -154,7 +177,6 @@ export default function ShopProfilePage() {
           <p className="text-base font-semibold text-foreground">
             {profile.shopName}
           </p>
-          <p className="text-sm text-muted-foreground">shop@caremate.kr</p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50 font-medium">
               수리점 파트너
@@ -163,10 +185,6 @@ export default function ShopProfilePage() {
               승인됨
             </span>
           </div>
-        </div>
-        <div className="text-right text-xs text-muted-foreground">
-          <p>사업자번호: 123-45-67890</p>
-          <p className="mt-0.5">가입일: 2024.02.01</p>
         </div>
       </Card>
 
@@ -192,7 +210,7 @@ export default function ShopProfilePage() {
           </div>
           <div className="shrink-0 text-right text-xs text-amber-700 dark:text-amber-400">
             <p className="font-mono font-semibold">LMS-CERT</p>
-            <p className="opacity-60 mt-0.5">2024.06.13</p>
+            <p className="opacity-60 mt-0.5">{lmsCompletedAtLabel}</p>
           </div>
         </div>
       ) : (
@@ -237,26 +255,6 @@ export default function ShopProfilePage() {
             <Input label="사업자번호" value={profile.businessNo} onChange={(val) => setProfile((p) => ({ ...p, businessNo: val }))} />
             <div className="col-span-2">
               <Input label="주소" value={profile.address} onChange={(val) => setProfile((p) => ({ ...p, address: val }))} />
-            </div>
-            <div className="col-span-2 flex flex-col gap-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                취급 브랜드
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {["Apple", "Samsung", "Google", "LG", "기타"].map((b) => (
-                  <label
-                    key={b}
-                    className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs cursor-pointer hover:border-accent/40 has-[:checked]:border-accent has-[:checked]:bg-accent/5 has-[:checked]:text-accent transition-all"
-                  >
-                    <input
-                      type="checkbox"
-                      defaultChecked={["Apple", "Samsung"].includes(b)}
-                      className="accent-accent w-3 h-3"
-                    />
-                    {b}
-                  </label>
-                ))}
-              </div>
             </div>
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-border">
