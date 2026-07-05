@@ -75,6 +75,7 @@ export default function ShopProfilePage() {
           address: d.address ?? p.address,
           latitude: d.latitude ?? p.latitude,
           longitude: d.longitude ?? p.longitude,
+          joinedAt: d.joinedAt ?? p.joinedAt,
         }));
       })
       .catch(() => {});
@@ -165,8 +166,8 @@ export default function ShopProfilePage() {
           </div>
         </div>
         <div className="text-right text-xs text-muted-foreground">
-          <p>사업자번호: 123-45-67890</p>
-          <p className="mt-0.5">가입일: 2024.02.01</p>
+          <p>사업자번호: {profile.businessNo ?? '-'}</p>
+          <p className="mt-0.5">가입일: {profile.joinedAt ?? '-'}</p>
         </div>
       </Card>
 
