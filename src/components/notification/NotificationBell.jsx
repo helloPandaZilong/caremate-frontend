@@ -23,21 +23,33 @@ import {
 import { useNotificationSse } from "../../hooks/useNotificationSse";
 
 const TYPE_META = {
-  ORDER_RECEIVED: { label: "접수 완료", icon: FileText, color: "text-blue-500" },
+  ORDER_RECEIVED: { label: "수리 요청", icon: FileText, color: "text-blue-500" },
   ORDER_ACCEPTED: { label: "예약 확정", icon: CheckCircle2, color: "text-green-500" },
   ORDER_REJECTED: { label: "접수 반려", icon: AlertCircle, color: "text-red-500" },
+
+  REPAIR_STARTED: { label: "수리중", icon: Wrench, color: "text-blue-500" },
+  REPAIR_IMPOSSIBLE: { label: "수리 불가", icon: AlertCircle, color: "text-red-500" },
+  REPORT_MODIFIED: { label: "리포트 수정", icon: FileText, color: "text-violet-500" },
+
   NO_SHOW_WARNING: { label: "노쇼 예정", icon: AlertCircle, color: "text-amber-500" },
-  NO_SHOW: { label: "노쇼", icon: AlertCircle, color: "text-amber-500" },
+  NO_SHOW: { label: "노쇼 처리", icon: AlertCircle, color: "text-amber-500" },
+
   PAYMENT_REQUESTED: { label: "결제 요청", icon: CreditCard, color: "text-blue-500" },
   PAYMENT_COMPLETED: { label: "결제 완료", icon: CheckCircle2, color: "text-teal-500" },
   ESTIMATED_CLAIM_NOTICE: { label: "예상 환급", icon: Award, color: "text-amber-500" },
+
+  CLAIM_REQUESTED: { label: "청구 요청", icon: FileText, color: "text-blue-500" },
   CLAIM_DISPATCH_SUCCESS: { label: "청구 패키지 완료", icon: PackageCheck, color: "text-green-500" },
-  CLAIM_DISPATCH_FAILED: { label: "청구 패키지 실패", icon: AlertCircle, color: "text-red-500" },
-  BATCH_COMPLETED: { label: "배치 완료", icon: Wrench, color: "text-purple-500" },
-  BATCH_FAILED: {label: "월말 정산 실패", icon: AlertCircle, color: "text-red-500",},
-  FEE_CHARGE_REQUESTED: {label: "수수료 납부 요청", icon: CreditCard, color: "text-red-500",},
-  FEE_PAYMENT_DUE_SOON: {label: "납부 마감 임박", icon: AlertCircle, color: "text-amber-500",},
-  SHOP_SIGNUP_REQUESTED: {label: "가입 요청",icon: Store,color: "text-amber-500",},
+  CLAIM_DISPATCH_FAILED: { label: "패키지 생성 실패", icon: AlertCircle, color: "text-red-500" },
+
+  BATCH_COMPLETED: { label: "월말 정산 완료", icon: Receipt, color: "text-purple-500" },
+  BATCH_FAILED: { label: "월말 정산 실패", icon: AlertCircle, color: "text-red-500" },
+
+  FEE_CHARGE_REQUESTED: { label: "수수료 청구 요청", icon: CreditCard, color: "text-red-500" },
+  FEE_PAYMENT_DUE_SOON: { label: "수수료 마감 임박", icon: AlertCircle, color: "text-amber-500" },
+
+  SHOP_SIGNUP_REQUESTED: { label: "수리점 가입 요청", icon: Store, color: "text-amber-500" },
+  REPAIR_SHOP_APPROVED: { label: "수리점 가입 승인", icon: CheckCircle2, color: "text-green-500" },
 };
 
 function getPageContent(pageData) {
@@ -65,6 +77,7 @@ function getDetailHref(notification, role) {
     switch (type) {
       case "PAYMENT_REQUESTED":
       case "PAYMENT_COMPLETED":
+      case "REPORT_MODIFIED":
       case "ESTIMATED_CLAIM_NOTICE":
       case "CLAIM_DISPATCH_SUCCESS":
       case "CLAIM_DISPATCH_FAILED":
@@ -73,6 +86,9 @@ function getDetailHref(notification, role) {
       case "ORDER_ACCEPTED":
       case "ORDER_RECEIVED":
       case "ORDER_REJECTED":
+      case "REPAIR_STARTED":
+      case "REPAIR_IMPOSSIBLE":
+      case "NO_SHOW_WARNING":
       case "NO_SHOW":
         return "/customer/dashboard";
 
@@ -83,24 +99,21 @@ function getDetailHref(notification, role) {
 
   if (role === "REPAIR_SHOP") {
     switch (type) {
+      case "ORDER_RECEIVED":
       case "NO_SHOW_WARNING":
       case "NO_SHOW":
-      case "ORDER_RECEIVED":
-        return "/shop/orders";
+      case "CLAIM_REQUESTED":
+      case "PAYMENT_COMPLETED":
+        return orderId ? `/shop/orders/${orderId}` : "/shop/orders";
 
       case "BATCH_COMPLETED":
+      case "BATCH_FAILED":
       case "FEE_CHARGE_REQUESTED":
       case "FEE_PAYMENT_DUE_SOON":
         return "/shop/settlement";
 
       case "REPAIR_SHOP_APPROVED":
         return "/shop/profile";
-
-      case "ORDER_ACCEPTED":
-      case "ORDER_REJECTED":
-      case "PAYMENT_REQUESTED":
-      case "PAYMENT_COMPLETED":
-        return orderId ? `/shop/orders/${orderId}` : "/shop/orders";
 
       default:
         return orderId ? `/shop/orders/${orderId}` : "/shop/dashboard";
@@ -117,14 +130,12 @@ function getDetailHref(notification, role) {
         return "/admin/audit";
 
       case "SHOP_SIGNUP_REQUESTED":
-      case "REPAIR_SHOP_APPROVED":
         return "/admin/shop-approvals";
 
       default:
         return "/admin/dashboard";
     }
   }
-
   return "/notifications";
 }
 

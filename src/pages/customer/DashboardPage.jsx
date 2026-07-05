@@ -93,13 +93,27 @@ function pickDashboardOrder(orders, savedOrderId) {
   return saved ?? orders.find((order) => ACTIVE_STATUSES.has(order.status)) ?? orders[0];
 }
 
+function getLatestHistoryStatus(timeline) {
+  const histories = timeline?.histories ?? [];
+  if (!histories.length) return null;
+
+  return histories.reduce((latest, history) => {
+    if (!latest) return history;
+    const latestTime = new Date(latest.changedAt ?? 0).getTime();
+    const historyTime = new Date(history.changedAt ?? 0).getTime();
+    return historyTime >= latestTime ? history : latest;
+  }, null)?.changedStatus;
+}
+
 function buildOrderForTimeline(order, timeline) {
   if (!order && !timeline) return null;
+  const latestHistoryStatus = getLatestHistoryStatus(timeline);
+
   return {
     ...(order ?? {}),
     id: order?.id ?? timeline?.orderId,
     orderNo: order?.orderNo ?? timeline?.orderNo,
-    status: timeline?.currentStatus ?? order?.status,
+    status: latestHistoryStatus ?? timeline?.currentStatus ?? order?.status,
     shopName: order?.shopName ?? order?.repairShopName ?? timeline?.shopName,
     reservedVisitAt: order?.reservedVisitAt ?? timeline?.reservedVisitAt,
     createdAt: order?.createdAt ?? timeline?.createdAt,
@@ -412,7 +426,7 @@ export default function CustomerDashboard() {
               <section id="repair-status-section" className="scroll-mt-24 flex flex-col gap-6">
                 <RepairStatusStepper
                     milestones={timeline?.milestones}
-                    currentStatus={timeline?.currentStatus ?? latestOrder?.status}
+                    currentStatus={latestOrder?.status ?? timeline?.currentStatus}
                 />
                 <OrderStatusHistoryList histories={timeline?.histories ?? []} />
               </section>
