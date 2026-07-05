@@ -4,26 +4,27 @@ import { getOrders, acceptOrder, rejectOrder, startRepair, manualNoShow } from '
 import './css/OrderList.css'
 
 const STATUS_TABS = [
-  { label:'전체',    value:'' },
-  { label:'접수 대기', value:'RECEIVED' },
-  { label:'방문 예정', value:'ACCEPTED' },
-  { label:'수리 중', value:'IN_REPAIR' },
-  { label:'수리 완료', value:'REPAIR_DONE' },
-  { label:'수리 불가', value:'REPAIR_IMPOSSIBLE' },
-  { label:'반려',    value:'REJECTED' },
+  { label:'전체',    value:[] },
+  { label:'접수 대기', value:['RECEIVED'] },
+  { label:'방문 예정', value:['ACCEPTED'] },
+  { label:'수리 중', value:['IN_REPAIR'] },
+  { label:'수리 완료', value:['REPAIR_DONE', 'CLAIM_REQUESTED', 'CLAIM_COMPLETED'] },
+  { label:'결제 완료', value:['PAYMENT_COMPLETED'] },
+  { label:'수리 불가', value:['REPAIR_IMPOSSIBLE'] },
+  { label:'반려',    value:['REJECTED'] },
 ]
 
 const STATUS_LABEL = {
   RECEIVED:'접수 대기', ACCEPTED:'방문 예정', REJECTED:'반려',
   NO_SHOW:'노쇼', IN_REPAIR:'수리 중', REPAIR_IMPOSSIBLE:'수리 불가',
   REPAIR_DONE:'수리 완료', PAYMENT_COMPLETED:'결제 완료',
-  CLAIM_REQUESTED:'청구 요청', CLAIM_COMPLETED:'청구 완료',
+  CLAIM_REQUESTED:'수리 완료', CLAIM_COMPLETED:'수리 완료',
 }
 const STATUS_CLASS = {
   RECEIVED:'badge--received', ACCEPTED:'badge--accepted', REJECTED:'badge--rejected',
   NO_SHOW:'badge--no-show', IN_REPAIR:'badge--in-repair', REPAIR_IMPOSSIBLE:'badge--rejected',
   REPAIR_DONE:'badge--repair-done', PAYMENT_COMPLETED:'badge--payment-completed',
-  CLAIM_REQUESTED:'badge--claim-requested', CLAIM_COMPLETED:'badge--claim-completed',
+  CLAIM_REQUESTED:'badge--repair-done', CLAIM_COMPLETED:'badge--repair-done',
 }
 
 function formatDateTime(str) {
@@ -78,7 +79,7 @@ function RejectModal({ onConfirm, onCancel }) {
 /* ── Main ─────────────────────────────────────────────────── */
 export default function OrderList() {
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('')
+  const [activeTab, setActiveTab] = useState([])
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [customerName, setCustomerName] = useState('')
@@ -97,7 +98,7 @@ export default function OrderList() {
   const fetchOrders = useCallback(() => {
     setLoading(true)
     const params = { page, size: 20 }
-    if (activeTab) params.status = activeTab
+    if (activeTab.length > 0) params.status = activeTab
     if (dateFrom) params.dateFrom = dateFrom
     if (dateTo) params.dateTo = dateTo
     if (customerName.trim()) params.customerName = customerName.trim()
@@ -178,7 +179,7 @@ export default function OrderList() {
           {STATUS_TABS.map(tab => (
             <button
               key={tab.value}
-              className={`ol-tab${activeTab === tab.value ? ' ol-tab--active' : ''}`}
+              className={`ol-tab${JSON.stringify(activeTab) === JSON.stringify(tab.value) ? ' ol-tab--active' : ''}`}
               onClick={() => { setActiveTab(tab.value); setPage(0) }}
             >
               {tab.label}
