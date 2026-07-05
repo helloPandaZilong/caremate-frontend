@@ -25,6 +25,10 @@ export const scanPaymentIntegrity = () =>
 export const verifyPaymentIntegrity = () =>
   apiClient.post('/admin/audit/integrity/verify')
 
+// 개별 결제 무결성 검증 — 해당 결제만 기준 해시와 비교해 정상/위변조 판정
+export const verifyPaymentIntegrityOne = (paymentId) =>
+  apiClient.post(`/admin/audit/integrity/${paymentId}/verify`)
+
 export const getIntegrityLogs = (params) =>
   apiClient.get('/admin/audit/integrity/logs', { params })
 

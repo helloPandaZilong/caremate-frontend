@@ -25,7 +25,6 @@ import {
   getCommissionBillings,
   notifyShop as apiNotifyShop,
   notifyAllPending as apiNotifyAllPending,
-  updateShopFeeRate as apiUpdateFeeRate,
   updateCommissionDueDate as apiUpdateDueDate,
 } from "../../api/settlement";
 
@@ -114,7 +113,6 @@ export default function SettlementsPage() {
   const [loadingBillings, setLoadingBillings] = useState(false);
   const [sendingId, setSendingId] = useState(null);
   const [sendingAll, setSendingAll] = useState(false);
-  const [editingRate, setEditingRate] = useState(null);    // { shopId, value }
   const [editingDueDate, setEditingDueDate] = useState(null); // { settlementId, value }
   // 페이징
   const [page, setPage] = useState(0);
@@ -285,37 +283,6 @@ export default function SettlementsPage() {
     } catch {
       toast.error("납부 기한 변경에 실패했습니다.");
       loadBillings(commissionMonth, page);
-    }
-  };
-
-  const startEditRate = (b) =>
-    setEditingRate({ shopId: b.repairShopId, value: String(b.feeRate) });
-
-  const cancelEditRate = () => setEditingRate(null);
-
-  const saveEditRate = async () => {
-    if (!editingRate) return;
-    const newRate = parseInt(editingRate.value, 10);
-    if (isNaN(newRate) || newRate < 1 || newRate > 100) {
-      toast.error("수수료율은 1~100 사이 숫자여야 합니다.");
-      cancelEditRate();
-      return;
-    }
-    const { shopId } = editingRate;
-    setEditingRate(null);
-    try {
-      await apiUpdateFeeRate(shopId, newRate);
-      setBillings((prev) =>
-        prev.map((b) =>
-          b.repairShopId === shopId
-            ? { ...b, feeRate: newRate, feeAmount: Math.round((b.totalPaymentAmount * newRate) / 100) }
-            : b
-        )
-      );
-      toast.success("수수료율이 변경되었습니다.");
-    } catch {
-      toast.error("수수료율 변경에 실패했습니다.");
-      loadBillings(commissionMonth);
     }
   };
 
@@ -683,41 +650,14 @@ export default function SettlementsPage() {
                           {b.orderCount}건
                         </td>
 
-                        {/* 수수료율 — PENDING/OVERDUE만 인라인 편집 가능 */}
+                        {/* 수수료율 — 플랫폼 고정 10% (변경 불가) */}
                         <td className="py-3 px-4">
-                          {editingRate?.shopId === b.repairShopId ? (
-                            <input
-                              autoFocus
-                              type="number"
-                              min="1"
-                              max="100"
-                              value={editingRate.value}
-                              onChange={(e) =>
-                                setEditingRate({ ...editingRate, value: e.target.value })
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") saveEditRate();
-                                if (e.key === "Escape") cancelEditRate();
-                              }}
-                              onBlur={saveEditRate}
-                              className="w-16 px-2 py-1 text-xs bg-card border-2 border-accent rounded-lg text-foreground focus:outline-none font-mono"
-                            />
-                          ) : (b.billingStatus === "NOTIFIED" || b.billingStatus === "PAID") ? (
-                            <span
-                              className="px-2 py-1 text-muted-foreground font-semibold font-mono cursor-not-allowed"
-                              title="청구 발송 또는 납부 완료 후에는 수수료율을 변경할 수 없습니다."
-                            >
-                              {b.feeRate}%
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => startEditRate(b)}
-                              className="px-2 py-1 rounded-lg text-accent font-semibold hover:bg-accent/10 transition-colors border border-accent/30 font-mono"
-                              title="클릭하여 수수료율 편집"
-                            >
-                              {b.feeRate}%
-                            </button>
-                          )}
+                          <span
+                            className="px-2 py-1 text-muted-foreground font-semibold font-mono"
+                            title="플랫폼 수수료율은 10%로 고정되어 있습니다."
+                          >
+                            {b.feeRate}%
+                          </span>
                         </td>
 
                         {/* 청구 수수료 */}
@@ -869,7 +809,9 @@ export default function SettlementsPage() {
 
           {/* 안내 문구 */}
           <p className="text-[11px] text-muted-foreground pl-1">
-            · 수수료율(%)·납부 기한 셀은 미발송(PENDING)·연체(OVERDUE) 상태에서만 클릭하여 변경할 수 있습니다.
+            · 플랫폼 수수료율은 <span className="font-semibold text-foreground">10%로 고정</span>되어 있으며 변경할 수 없습니다.
+            <br />
+            · 납부 기한 셀은 미발송(PENDING)·연체(OVERDUE) 상태에서만 클릭하여 변경할 수 있습니다.
             <br />
             · 발송 시 해당 수리점 담당자의 앱 알림으로 청구 요청이 전달됩니다.
             PAID 상태는 수동으로 관리하세요.
