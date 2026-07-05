@@ -74,14 +74,16 @@ export default function OAuthCallbackPage() {
 
     // ── 백엔드 토큰 교환 ──────────────────────────────────────────────────────
     // redirectUri는 Google에 등록된 값과 정확히 일치해야 한다
+    // state도 함께 전달 — 백엔드가 Redis 저장값과 대조 후 1회 소비한다(서버 측 CSRF 검증)
     const redirectUri = `${window.location.origin}/auth/callback`
 
-    googleCallback(code, redirectUri)
+    googleCallback(code, redirectUri, state)
       .then((res) => {
-        const { accessToken, memberId, role, name, email } = res.data.data
+        const { accessToken, memberId, role, name, email, phoneNumber } = res.data.data
 
         // 인증 정보를 localStorage + Context에 저장 (일반 로그인과 동일)
-        saveAuth(accessToken, { memberId, role, name, email })
+        // 소셜 가입자는 phoneNumber가 빈 값 → 대시보드 진입 시 AppShell이 온보딩 모달을 띄운다
+        saveAuth(accessToken, { memberId, role, name, email, phoneNumber })
         toast.success(`${name}님, 환영합니다!`)
 
         // 역할별 대시보드로 이동 (ProtectedRoute 역할 검증과 일치)

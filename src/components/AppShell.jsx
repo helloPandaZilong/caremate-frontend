@@ -38,6 +38,7 @@ import { getGuides } from "../api/lmsService";
 import { getRepairOrders } from "../api/customerService";
 import { getNotifications, getUnreadCount, markNotificationRead } from "../api/notificationApi";
 import NotificationBell from "./notification/NotificationBell";
+import PhoneOnboardingModal from "./PhoneOnboardingModal";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -825,6 +826,14 @@ export default function AppShell() {
 
   const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone === false;
 
+  // 소셜(구글) 가입자 전화번호 온보딩 — CUSTOMER이면서 phoneNumber가 "명시적으로 빈 값"일 때만.
+  // phoneNumber 필드가 아예 없는 구(舊) 세션(이번 배포 전 로그인)은 대상에서 제외하고,
+  // 재로그인 시 서버 응답으로 값이 채워지면 자연히 판별된다.
+  const needsPhoneOnboarding =
+      normalizeRole(user?.role) === "CUSTOMER" &&
+      user?.phoneNumber !== undefined &&
+      !String(user.phoneNumber).trim();
+
   return (
       <div
           className="min-h-screen bg-background"
@@ -847,6 +856,7 @@ export default function AppShell() {
               <Outlet />
           )}
         </ContentArea>
+        {needsPhoneOnboarding && <PhoneOnboardingModal onLogout={handleLogout} />}
       </div>
   );
 }
