@@ -37,6 +37,8 @@ import { useDarkMode } from "../hooks/useDarkMode";
 import { getGuides } from "../api/lmsService";
 import { getRepairOrders } from "../api/customerService";
 import { getNotifications, getUnreadCount, markNotificationRead } from "../api/notificationApi";
+import NotificationBell from "./notification/NotificationBell";
+import PhoneOnboardingModal from "./PhoneOnboardingModal";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -207,6 +209,7 @@ function NotificationDropdown({ onClose }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const ref = useRef(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     getNotifications()
@@ -314,7 +317,9 @@ function NotificationDropdown({ onClose }) {
 
         {/* Footer */}
         <div className="px-4 py-2.5 border-t border-border">
-          <button className="w-full text-center text-xs text-accent hover:underline font-medium py-0.5">
+          <button
+              onClick={() => navigate('/notifications')}
+              className="w-full text-center text-xs text-accent hover:underline font-medium py-0.5">
             전체 알림 보기
           </button>
         </div>
@@ -715,7 +720,7 @@ function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
           style={{ left: collapsed ? "4rem" : "15rem" }}
       >
         <DarkModeToggle dark={dark} toggle={toggleDark} />
-        <BellButton path={loc.pathname} />
+        <NotificationBell />
         <Link
             to={profileHref}
             title={user?.name}
@@ -821,6 +826,14 @@ export default function AppShell() {
 
   const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone === false;
 
+  // 소셜(구글) 가입자 전화번호 온보딩 — CUSTOMER이면서 phoneNumber가 "명시적으로 빈 값"일 때만.
+  // phoneNumber 필드가 아예 없는 구(舊) 세션(이번 배포 전 로그인)은 대상에서 제외하고,
+  // 재로그인 시 서버 응답으로 값이 채워지면 자연히 판별된다.
+  const needsPhoneOnboarding =
+      normalizeRole(user?.role) === "CUSTOMER" &&
+      user?.phoneNumber !== undefined &&
+      !String(user.phoneNumber).trim();
+
   return (
       <div
           className="min-h-screen bg-background"
@@ -843,6 +856,7 @@ export default function AppShell() {
               <Outlet />
           )}
         </ContentArea>
+        {needsPhoneOnboarding && <PhoneOnboardingModal onLogout={handleLogout} />}
       </div>
   );
 }

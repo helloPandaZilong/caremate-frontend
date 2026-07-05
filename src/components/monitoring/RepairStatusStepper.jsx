@@ -25,6 +25,7 @@ const STATUS_ICON = {
   ACCEPTED: ShieldCheck,
   REJECTED: AlertCircle,
   NO_SHOW: AlertCircle,
+  REPAIR_IMPOSSIBLE: AlertCircle,
   IN_REPAIR: Wrench,
   REPAIR_DONE: CheckCircle2,
   PAYMENT_COMPLETED: CreditCard,
@@ -37,11 +38,27 @@ const STATUS_LABEL = {
   ACCEPTED: "예약확정",
   REJECTED: "접수반려",
   NO_SHOW: "노쇼",
+  REPAIR_IMPOSSIBLE: "수리불가",
   IN_REPAIR: "수리중",
   REPAIR_DONE: "수리완료",
   PAYMENT_COMPLETED: "결제완료",
   CLAIM_REQUESTED: "청구요청",
   CLAIM_COMPLETED: "청구완료",
+};
+
+const TERMINAL_STATUS_META = {
+  REJECTED: {
+    title: "접수가 반려되었습니다.",
+    description: "상세 사유는 아래 상태 이력의 note를 확인하고 필요하면 새 A/S 접수를 진행해 주세요.",
+  },
+  NO_SHOW: {
+    title: "예약 시간에 방문하지 않아 노쇼 처리되었습니다.",
+    description: "방문하지 못한 사유를 확인한 뒤 필요하면 새 A/S 접수를 진행해 주세요.",
+  },
+  REPAIR_IMPOSSIBLE: {
+    title: "수리점에서 수리불가로 판정했습니다.",
+    description: "수리불가 사유는 아래 상태 변경 이력의 note를 확인해 주세요.",
+  },
 };
 
 function formatDateTime(value) {
@@ -67,7 +84,8 @@ function normalizeMilestones(milestones, currentStatus) {
 }
 
 export default function RepairStatusStepper({ milestones, currentStatus }) {
-  const isTerminalIssue = currentStatus === "REJECTED" || currentStatus === "NO_SHOW";
+  const terminalMeta = TERMINAL_STATUS_META[currentStatus];
+  const isTerminalIssue = Boolean(terminalMeta);
   const normalized = normalizeMilestones(milestones, currentStatus);
   const currentLabel = STATUS_LABEL[currentStatus] ?? currentStatus ?? "상태 없음";
   const reachedCount = normalized.filter((item) => item.reached).length;
@@ -87,9 +105,9 @@ export default function RepairStatusStepper({ milestones, currentStatus }) {
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           <div className="font-semibold flex items-center gap-2">
             <AlertCircle className="w-4 h-4" />
-            {currentStatus === "REJECTED" ? "접수가 반려되었습니다." : "예약 시간에 방문하지 않아 노쇼 처리되었습니다."}
+            {terminalMeta.title}
           </div>
-          <p className="mt-1 text-xs text-red-600">상세 사유는 아래 상태 이력의 note를 확인하고 필요하면 새 A/S 접수를 진행해 주세요.</p>
+          <p className="mt-1 text-xs text-red-600">{terminalMeta.description}</p>
         </div>
       ) : (
         <div className="relative overflow-x-auto pb-1">
