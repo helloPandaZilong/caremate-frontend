@@ -10,66 +10,14 @@ import {
   Loader2,
   CheckCircle2,
   Shield,
-  Monitor,
-  Smartphone,
-  Globe,
 } from "lucide-react";
 import {
   getAdminProfile,
   updateAdminProfile,
   changeAdminPassword,
-  getAdminLoginHistory,
 } from "../../api/admin";
 import { useAuth } from "../../contexts/AuthContext";
 import { logout as logoutApi } from "../../api/auth";
-
-// ── 유틸: User-Agent 문자열에서 브라우저·기기 간단 파싱 ──────────────────────
-
-/**
- * User-Agent 문자열을 사람이 읽기 좋은 형태로 변환한다.
- * 서버에서 수집된 원본 User-Agent를 표시하기 위한 최소한의 파싱이다.
- *
- * @param {string} ua - User-Agent 헤더 값
- * @returns {{ browser: string, os: string, icon: string }}
- */
-function parseUserAgent(ua) {
-  if (!ua || ua === "unknown") return { browser: "알 수 없음", os: "", icon: "globe" };
-
-  // 브라우저 판별 (순서 중요: Edge는 Chrome 포함하므로 먼저 체크)
-  let browser = "기타";
-  if (ua.includes("Edg/"))        browser = "Edge";
-  else if (ua.includes("Chrome")) browser = "Chrome";
-  else if (ua.includes("Safari")) browser = "Safari";
-  else if (ua.includes("Firefox")) browser = "Firefox";
-  else if (ua.includes("OPR") || ua.includes("Opera")) browser = "Opera";
-
-  // OS 판별
-  let os = "";
-  if (ua.includes("Windows NT")) os = "Windows";
-  else if (ua.includes("Mac OS X")) os = "macOS";
-  else if (ua.includes("Android")) os = "Android";
-  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
-  else if (ua.includes("Linux")) os = "Linux";
-
-  // 기기 유형에 따른 아이콘 키
-  const isMobile = ua.includes("Mobile") || ua.includes("Android") || ua.includes("iPhone");
-  const icon = isMobile ? "mobile" : "monitor";
-
-  return { browser, os, icon };
-}
-
-/**
- * 접속 이력 날짜를 "YYYY.MM.DD HH:MM" 형식으로 변환한다.
- *
- * @param {string} isoString - ISO 8601 날짜 문자열 (LocalDateTime 직렬화)
- * @returns {string}
- */
-function formatLoginAt(isoString) {
-  if (!isoString) return "—";
-  const d = new Date(isoString);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 // ── 탭 설정 ────────────────────────────────────────────────────────────────────
 
@@ -374,90 +322,6 @@ function PasswordCard({ onPasswordChanged }) {
   );
 }
 
-// ── 접속 이력 카드 ─────────────────────────────────────────────────────────────
-
-function LoginHistoryCard() {
-  const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // 마운트 시 최근 접속 이력 조회 (최대 20건)
-  useEffect(() => {
-    getAdminLoginHistory()
-      .then((res) => setHistory(res.data.data))
-      .catch(() => toast.error("접속 이력을 불러오는 데 실패했습니다."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  return (
-    <div className="bg-card border border-border rounded-2xl p-6 flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">최근 접속 이력</h3>
-        <span className="text-xs text-muted-foreground">최근 20건</span>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          <span className="text-xs">불러오는 중...</span>
-        </div>
-      ) : history.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-8">
-          접속 이력이 없습니다.
-        </p>
-      ) : (
-        <div className="flex flex-col divide-y divide-border">
-          {history.map((item, idx) => {
-            const { browser, os, icon } = parseUserAgent(item.userAgent);
-            const DeviceIcon = icon === "mobile" ? Smartphone : Monitor;
-
-            return (
-              <div key={idx} className="py-3 flex items-start gap-3">
-                {/* 기기 아이콘 */}
-                <div className="w-7 h-7 rounded-lg bg-secondary flex items-center justify-center shrink-0 mt-0.5">
-                  <DeviceIcon className="w-3.5 h-3.5 text-muted-foreground" />
-                </div>
-
-                {/* 계정·환경 정보 */}
-                <div className="flex-1 min-w-0">
-                  {/* 이름 + 이메일 */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-semibold text-foreground">
-                      {item.name}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground truncate">
-                      {item.email}
-                    </span>
-                  </div>
-                  {/* 브라우저·OS·IP */}
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {browser}{os ? ` / ${os}` : ""}&nbsp;&middot;&nbsp;<span className="font-mono">{item.ipAddress}</span>
-                  </p>
-                </div>
-
-                {/* 성공/실패 배지 + 접속 일시 */}
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span
-                    className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                      item.success
-                        ? "bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50"
-                        : "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-200 dark:border-red-700/50"
-                    }`}
-                  >
-                    {item.success ? "성공" : "실패"}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                    {formatLoginAt(item.loginAt)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── 시스템 설정 탭 (UI 전용, 추후 API 연동 예정) ───────────────────────────────
 
 function SystemTab() {
@@ -474,9 +338,8 @@ function SystemTab() {
         <div className="flex flex-col gap-0 text-sm">
           {[
             { label: "월말 정산 배치 실행 시각", value: "매월 말일 자정 (00:00 KST)" },
-            { label: "플랫폼 수수료율",           value: "10%"                        },
+            { label: "플랫폼 수수료율",           value: "10% (고정)"                 },
             { label: "수수료 납부 기한",           value: "익월 5일"                   },
-            { label: "배치 실패 시 알림 대상",     value: "admin@caremate.kr"          },
           ].map((s) => (
             <div key={s.label} className="flex justify-between items-center py-2.5 border-b border-border last:border-0">
               <span className="text-muted-foreground">{s.label}</span>
@@ -605,7 +468,6 @@ export default function AdminProfilePage() {
       {tab === "security" && (
         <div className="flex flex-col gap-4">
           <PasswordCard onPasswordChanged={handlePasswordChanged} />
-          <LoginHistoryCard />
         </div>
       )}
       {tab === "system"   && <SystemTab />}

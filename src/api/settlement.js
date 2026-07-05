@@ -121,13 +121,6 @@ export const notifyAllPending = (yearMonth) =>
   apiClient.post('/admin/settlements/commission/notify-all', null, { params: { yearMonth } })
 
 /**
- * 관리자 — 수리점 수수료율 변경
- * PUT /api/admin/settlements/commission/shop/{shopId}/fee-rate?feeRate=12
- */
-export const updateShopFeeRate = (shopId, feeRate) =>
-  apiClient.put(`/admin/settlements/commission/shop/${shopId}/fee-rate`, null, { params: { feeRate } })
-
-/**
  * 관리자 — 납부 기한 변경
  * PUT /api/admin/settlements/commission/{settlementId}/due-date?dueDate=2026-07-10
  */
