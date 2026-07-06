@@ -124,7 +124,7 @@ function ReportList({ onSelect }) {
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState("all");
   const [customerName, setCustomerName] = useState("");
-  const [items, setItems] = useState(REPORT_ITEMS);
+  const [items, setItems] = useState(null); // null = 로딩 중
   const [startingId, setStartingId] = useState(null);
 
   const loadOrders = useCallback(() => {
@@ -148,7 +148,7 @@ function ReportList({ onSelect }) {
           }));
         setItems(mapped);
       })
-      .catch(() => {});
+      .catch(() => { setItems([]); });
   }, []);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
@@ -164,6 +164,21 @@ function ReportList({ onSelect }) {
     } finally {
       setStartingId(null);
     }
+  }
+
+  if (items === null) {
+    return (
+      <div className="flex flex-col gap-5 max-w-3xl">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">수리 리포트</h1>
+        </div>
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-28 rounded-2xl bg-secondary animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const filtered = items.filter((r) => {
@@ -1015,8 +1030,8 @@ function ReportDetail({ item, onBack }) {
               : "임시 저장됐습니다."}
           </div>
         ) : (
-          /* 수리 불가 처리 버튼 — IN_REPAIR 상태에서만 노출 */
-          item.rawStatus === "IN_REPAIR" ? (
+          /* 수리 불가 처리 버튼 — IN_REPAIR 상태이고 수리완료 전이 안 된 경우에만 노출 */
+          item.rawStatus === "IN_REPAIR" && !statusTransitioned ? (
             <button
               onClick={() => setShowImpossibleModal(true)}
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-red-200 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"

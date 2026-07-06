@@ -56,11 +56,13 @@ export default function ShopProfilePage() {
   const [hours, setHours] = useState(DEFAULT_HOURS);
   const [hoursNotSaved, setHoursNotSaved] = useState(false);
   const [profile, setProfile] = useState({
-    shopName: "강남 스마트케어",
-    ownerName: "박기술",
-    phone: "02-1234-5678",
-    businessNo: "123-45-67890",
-    address: "서울특별시 강남구 테헤란로 152",
+    shopName: "",
+    ownerName: "",
+    phone: "",
+    businessNo: "",
+    address: "",
+    email: null,
+    brands: [],
   });
   const [lmsDone, setLmsDone] = useState(localStorage.getItem("caremate-shop-lms") === "done");
   const [lmsCompletedAt, setLmsCompletedAt] = useState(null);
@@ -75,12 +77,15 @@ export default function ShopProfilePage() {
         if (d) setProfile((p) => ({
           ...p,
           shopName: d.shopName ?? p.shopName,
+          ownerName: d.ownerName ?? p.ownerName,
           phone: d.phone ?? p.phone,
           businessNo: d.businessNumber ?? p.businessNo,
           address: d.address ?? p.address,
           latitude: d.latitude ?? p.latitude,
           longitude: d.longitude ?? p.longitude,
           joinedAt: d.joinedAt ?? p.joinedAt,
+          email: d.email ?? p.email,
+          brands: d.brands ? d.brands.split(",").map(b => b.trim()).filter(Boolean) : p.brands,
         }));
       })
       .catch(() => {});
@@ -129,10 +134,12 @@ export default function ShopProfilePage() {
       if (tab === "shop") {
         await updateShopProfile({
           shopName: profile.shopName,
+          ownerName: profile.ownerName,
           address: profile.address,
           phone: profile.phone,
           latitude: profile.latitude ?? null,
           longitude: profile.longitude ?? null,
+          brands: profile.brands.join(","),
         });
       } else if (tab === "hours") {
         const hoursPayload = {
@@ -178,6 +185,7 @@ export default function ShopProfilePage() {
           <p className="text-base font-semibold text-foreground">
             {profile.shopName}
           </p>
+          <p className="text-sm text-muted-foreground">{profile.email ?? '-'}</p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50 font-medium">
               수리점 파트너
@@ -260,6 +268,32 @@ export default function ShopProfilePage() {
             <Input label="사업자번호" value={profile.businessNo} onChange={(val) => setProfile((p) => ({ ...p, businessNo: val }))} />
             <div className="col-span-2">
               <Input label="주소" value={profile.address} onChange={(val) => setProfile((p) => ({ ...p, address: val }))} />
+            </div>
+            <div className="col-span-2 flex flex-col gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                취급 브랜드
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {["Apple", "Samsung", "Google", "LG", "기타"].map((b) => (
+                  <label
+                    key={b}
+                    className="flex items-center gap-1.5 px-3 py-1.5 border border-border rounded-lg text-xs cursor-pointer hover:border-accent/40 has-[:checked]:border-accent has-[:checked]:bg-accent/5 has-[:checked]:text-accent transition-all"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={profile.brands.includes(b)}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...profile.brands, b]
+                          : profile.brands.filter((x) => x !== b);
+                        setProfile((p) => ({ ...p, brands: next }));
+                      }}
+                      className="accent-accent w-3 h-3"
+                    />
+                    {b}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
           <div className="flex items-center justify-between pt-2 border-t border-border">
