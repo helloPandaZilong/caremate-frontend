@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { NavLink, useNavigate, useLocation } from 'react-router'
 import apiClient from '../../api/client.js'
 import { getOperatingHours } from '../../api/repairshopApi.js'
+import caremateLogo from '../../assets/caremate-logo.png'
 import './ShopLayout.css'
 
 const NAV_ITEMS = [
@@ -190,11 +191,7 @@ export default function ShopLayout({ children }) {
         {/* Logo */}
         <div className="shop-sidebar__logo">
           <div className="shop-sidebar__logo-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.25C17.25 22.15 21 17.25 21 12V7L12 2z"
-                fill="#D97706" stroke="none"/>
-              <path d="M9 12l2 2 4-4" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            <img src={caremateLogo} alt="CareMate" width="22" height="22" style={{ objectFit: 'contain' }} />
           </div>
           {sidebarOpen && <span className="shop-sidebar__logo-text">CareMate</span>}
         </div>
