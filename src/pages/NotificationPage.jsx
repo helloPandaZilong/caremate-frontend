@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { CheckCheck, RefreshCw } from "lucide-react";
 import { Button, Card, SectionTitle } from "../components/shared";
 import {
   getNotifications,
+  markAllNotificationsRead,
   markNotificationRead,
 } from "../api/notificationApi";
 import { NotificationList } from "../components/notification/NotificationBell";
@@ -20,6 +21,7 @@ export default function NotificationPage() {
   const [pageData, setPageData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [readAllLoading, setReadAllLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,6 +87,37 @@ export default function NotificationPage() {
     }
   };
 
+  const handleReadAll = async () => {
+    if (readAllLoading) return;
+
+    const previousPageData = pageData;
+    setReadAllLoading(true);
+    setError("");
+
+    setPageData((prev) =>
+        prev
+            ? {
+              ...prev,
+              content: getContent(prev).map((item) => ({
+                ...item,
+                isRead: true,
+                read: true,
+              })),
+            }
+            : prev,
+    );
+
+    try {
+      await markAllNotificationsRead();
+      await load();
+    } catch (e) {
+      setPageData(previousPageData);
+      setError(e.message || "모두 읽음 처리에 실패했습니다.");
+    } finally {
+      setReadAllLoading(false);
+    }
+  };
+
   const content = getContent(pageData);
 
   const currentPage = pageData?.page ?? page;
@@ -104,10 +137,22 @@ export default function NotificationPage() {
                   : "SSE 연결 대기/재연결 중 — 새로고침으로 최신 상태를 가져오세요."
             }
             action={
-              <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                새로고침
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleReadAll}
+                    disabled={loading || readAllLoading || totalElements === 0}
+                >
+                  <CheckCheck className={`w-4 h-4 ${readAllLoading ? "animate-pulse" : ""}`} />
+                  모두 읽음
+                </Button>
+
+                <Button variant="secondary" size="sm" onClick={load} disabled={loading || readAllLoading}>
+                  <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                  새로고침
+                </Button>
+              </div>
             }
         />
 
