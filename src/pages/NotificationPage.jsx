@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { CheckCheck, RefreshCw } from "lucide-react";
 import { Button, Card, SectionTitle } from "../components/shared";
 import {
   getNotifications,
+  markAllNotificationsRead,
   markNotificationRead,
 } from "../api/notificationApi";
 import { NotificationList } from "../components/notification/NotificationBell";
@@ -20,6 +21,7 @@ export default function NotificationPage() {
   const [pageData, setPageData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [readAllLoading, setReadAllLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,9 +87,45 @@ export default function NotificationPage() {
     }
   };
 
+  const handleReadAll = async () => {
+    if (readAllLoading) return;
+
+    const previousPageData = pageData;
+    setReadAllLoading(true);
+    setError("");
+
+    setPageData((prev) =>
+        prev
+            ? {
+              ...prev,
+              content: getContent(prev).map((item) => ({
+                ...item,
+                isRead: true,
+                read: true,
+              })),
+            }
+            : prev,
+    );
+
+    try {
+      await markAllNotificationsRead();
+      await load();
+    } catch (e) {
+      setPageData(previousPageData);
+      setError(e.message || "모두 읽음 처리에 실패했습니다.");
+    } finally {
+      setReadAllLoading(false);
+    }
+  };
+
   const content = getContent(pageData);
-  const first = pageData?.first ?? page <= 0;
-  const last = pageData?.last ?? content.length < 20;
+
+  const currentPage = pageData?.page ?? page;
+  const totalPages = Math.max(pageData?.totalPages ?? 1, 1);
+  const totalElements = pageData?.totalElements ?? content.length;
+
+  const first = pageData?.first ?? currentPage <= 0;
+  const last = pageData?.last ?? currentPage >= totalPages - 1;
 
   return (
       <div className="max-w-4xl flex flex-col gap-6">
@@ -99,10 +137,22 @@ export default function NotificationPage() {
                   : "SSE 연결 대기/재연결 중 — 새로고침으로 최신 상태를 가져오세요."
             }
             action={
-              <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                새로고침
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleReadAll}
+                    disabled={loading || readAllLoading || totalElements === 0}
+                >
+                  <CheckCheck className={`w-4 h-4 ${readAllLoading ? "animate-pulse" : ""}`} />
+                  모두 읽음
+                </Button>
+
+                <Button variant="secondary" size="sm" onClick={load} disabled={loading || readAllLoading}>
+                  <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+                  새로고침
+                </Button>
+              </div>
             }
         />
 
@@ -121,8 +171,8 @@ export default function NotificationPage() {
             이전
           </Button>
           <span className="text-xs text-muted-foreground">
-          page {pageData?.page ?? page} / {Math.max((pageData?.totalPages ?? 1) - 1, 0)} · 총 {pageData?.totalElements ?? content.length}건
-        </span>
+            {currentPage + 1} / {totalPages} 페이지 · 총 {totalElements}건
+          </span>
           <Button variant="secondary" size="sm" disabled={last || loading} onClick={() => setPage((value) => value + 1)}>
             다음
           </Button>

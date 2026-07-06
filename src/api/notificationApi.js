@@ -31,3 +31,8 @@ export async function markNotificationRead(id) {
   const response = await apiClient.patch(`/notifications/${id}/read`);
   return unwrapApiResponse(response);
 }
+
+export async function markAllNotificationsRead() {
+  const response = await apiClient.patch("/notifications/read-all");
+  return unwrapApiResponse(response);
+}
