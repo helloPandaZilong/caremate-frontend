@@ -435,9 +435,19 @@ export default function LMSPage() {
   useEffect(() => {
     if (allCompleted) {
       localStorage.setItem("caremate-shop-lms", "done");
+      const confirmedTimes = guides
+        .map((g) => g.confirmedAt)
+        .filter(Boolean)
+        .map((t) => new Date(t).getTime());
+      if (confirmedTimes.length) {
+        localStorage.setItem(
+          "caremate-shop-lms-completed-at",
+          new Date(Math.max(...confirmedTimes)).toISOString(),
+        );
+      }
       window.dispatchEvent(new Event("lms-completed"));
     }
-  }, [allCompleted]);
+  }, [allCompleted, guides]);
 
   const handleStart = (guideType) => {
     setLoadingDetail(true);
