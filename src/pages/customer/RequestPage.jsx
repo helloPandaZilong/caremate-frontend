@@ -34,11 +34,6 @@ const DEMO_SHOPS = [
   { id: 903, shopName: "닥터폰 건대입구점", address: "서울 광진구 아차산로 272", phone: "02-446-9012", avgRating: 4.9, reviewCount: 204 },
 ];
 
-const DEMO_POLICIES = [
-  { id: 801, productName: "삼성 갤럭시 케어+", providerName: "삼성화재", status: "ACTIVE", policyNumber: "SF-2025-001", annualClaimLimit: 3, remainingClaimCount: 2 },
-  { id: 802, productName: "SKT T다이렉트 보험", providerName: "SK텔레콤", status: "ACTIVE", policyNumber: "SK-2025-042", annualClaimLimit: 2, remainingClaimCount: 2 },
-];
-
 const TIME_SLOTS = [
   "10:00",
   "11:00",
@@ -127,11 +122,8 @@ export default function RequestPage() {
       .catch(() => setShops(preselectedShop ? [preselectedShop, ...DEMO_SHOPS] : DEMO_SHOPS))
       .finally(() => setLoadingShops(false));
     getInsurancePolicies()
-      .then(({ data }) => {
-        const list = data.data ?? [];
-        setPolicies(list.length > 0 ? list : DEMO_POLICIES);
-      })
-      .catch(() => setPolicies(DEMO_POLICIES))
+      .then(({ data }) => setPolicies(data.data ?? []))
+      .catch(() => setPolicies([]))
       .finally(() => setLoadingPolicies(false));
   }, []);
 
@@ -429,7 +421,7 @@ export default function RequestPage() {
           />
 
           <div className="flex flex-wrap gap-2">
-            {["액정 파손", "침수", "배터리 불량", "카메라 파손", "분실"].map(
+            {["액정 파손", "침수", "배터리 불량", "카메라 파손"].map(
               (t) => (
                 <button
                   key={t}
@@ -563,6 +555,16 @@ export default function RequestPage() {
           {loadingPolicies ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-5 h-5 animate-spin text-accent" />
+            </div>
+          ) : policies.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <Shield className="w-8 h-8 text-muted-foreground/50" />
+              <p className="text-sm text-muted-foreground">
+                연동된 보험이 없습니다. 보험을 연동한 후 다시 접수해주세요.
+              </p>
+              <Button variant="secondary" size="sm" onClick={() => navigate("/customer/insurance")}>
+                보험 연동하러 가기
+              </Button>
             </div>
           ) : (
             policies.map((p) => {

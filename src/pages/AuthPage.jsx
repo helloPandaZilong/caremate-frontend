@@ -300,10 +300,11 @@ export default function AuthPage() {
     setLoading(true);
     try {
       const res = await login({ email: form.email, password: form.password });
-      const { accessToken, memberId, role, name } = res.data.data;
+      const { accessToken, memberId, role, name, phoneNumber } = res.data.data;
 
       // 인증 정보 전역 저장 (localStorage + Context)
-      saveAuth(accessToken, { memberId, role, name, email: form.email });
+      // phoneNumber는 소셜 가입자 온보딩 판별용 — 일반 로그인은 항상 값이 있음
+      saveAuth(accessToken, { memberId, role, name, email: form.email, phoneNumber });
       toast.success(`${name}님, 환영합니다!`);
 
       // 역할별 기본 대시보드로 이동
@@ -476,7 +477,13 @@ export default function AuthPage() {
           ))}
         </div>
 
-        <div className="p-6 flex flex-col gap-5">
+        <form
+          className="p-6 flex flex-col gap-5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSubmit();
+          }}
+        >
           {/* 회원 유형 선택 (회원가입 모드에서만) */}
           {mode === "signup" && (
             <div className="animate-in fade-in duration-200">
@@ -490,6 +497,7 @@ export default function AuthPage() {
                 ].map((t) => (
                   <button
                     key={t.id}
+                    type="button"
                     onClick={() => handleTabChange(t.id)}
                     className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${
                       tab === t.id
@@ -700,9 +708,9 @@ export default function AuthPage() {
             </div>
           )}
 
-          {/* 제출 버튼 */}
+          {/* 제출 버튼 — type="submit"으로 폼의 Enter 키 제출을 받는다 */}
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading}
             className="w-full py-3 rounded-xl bg-accent text-white font-semibold text-sm hover:bg-accent/90 active:scale-[0.99] transition-all shadow-lg shadow-accent/25 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
@@ -764,7 +772,7 @@ export default function AuthPage() {
               Google 로그인
             </button>
           )}
-        </div>
+        </form>
       </div>
 
       <p className="mt-6 text-xs text-muted-foreground">

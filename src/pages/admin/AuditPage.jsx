@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import {
   RefreshCw, CheckCircle2, XCircle, Shield, ShieldCheck, ShieldAlert,
-  ScanLine, Activity, LogIn, X, ChevronRight, Search,
+  ScanLine, Activity, LogIn, X, ChevronRight, Search, Loader2,
 } from "lucide-react";
 import { Card, Badge, Button } from "../../components/shared";
 import {
@@ -9,6 +10,7 @@ import {
   getLoginHistory,
   scanPaymentIntegrity,
   verifyPaymentIntegrity,
+  verifyPaymentIntegrityOne,
   getIntegrityLogs,
 } from "../../api/audit";
 
@@ -397,6 +399,7 @@ function IntegrityTab() {
   const [paymentId, setPaymentId]       = useState(""); // 실제 검색에 사용
   const [scanning, setScanning]         = useState(false);
   const [verifying, setVerifying]       = useState(false);
+  const [verifyingId, setVerifyingId]   = useState(null); // 개별 검증 중인 결제 ID
   const [actionMsg, setActionMsg]       = useState(null);
   const [verifyResult, setVerifyResult] = useState(null);
 
@@ -451,6 +454,24 @@ function IntegrityTab() {
     } catch {
       setActionMsg({ type: "error", text: "검증 중 오류가 발생했습니다." });
     } finally { setVerifying(false); }
+  };
+
+  // 개별 결제 무결성 검증 — 해당 행만 재검증하고 상태를 즉시 갱신
+  const handleVerifyOne = async (pid) => {
+    setVerifyingId(pid); setActionMsg(null); setVerifyResult(null);
+    try {
+      const res = await verifyPaymentIntegrityOne(pid);
+      const updated = res.data?.data;
+      // 응답으로 받은 최신 로그로 해당 행 교체
+      setItems((prev) => prev.map((it) => (it.paymentId === pid ? { ...it, ...updated } : it)));
+      if (updated?.status === "TAMPERED") {
+        toast.error(`결제 #${pid} — 위변조가 감지되었습니다.`);
+      } else {
+        toast.success(`결제 #${pid} — 무결성 정상입니다.`);
+      }
+    } catch {
+      toast.error("개별 검증 중 오류가 발생했습니다.");
+    } finally { setVerifyingId(null); }
   };
 
   const tamperedCount = items.filter((i) => i.status === "TAMPERED").length;
@@ -583,18 +604,18 @@ function IntegrityTab() {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border/40 bg-secondary/50">
-                {["결제 ID", "주문 ID", "회원 ID", "결제 금액", "결제 수단", "결제일시", "SHA-256 해시", "상태", "검증 일시"].map((h) => (
+                {["결제 ID", "주문 ID", "회원 ID", "결제 금액", "결제 수단", "결제일시", "SHA-256 해시", "상태", "검증 일시", "개별 검증"].map((h) => (
                   <th key={h} className="text-left py-3 px-3 text-muted-foreground font-semibold whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="py-12 text-center text-muted-foreground">
+                <tr><td colSpan={10} className="py-12 text-center text-muted-foreground">
                   <RefreshCw className="w-4 h-4 animate-spin inline mr-2" /> 로딩 중...
                 </td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={9} className="py-10 text-center text-muted-foreground">
+                <tr><td colSpan={10} className="py-10 text-center text-muted-foreground">
                   <Shield className="w-8 h-8 mx-auto mb-2 opacity-40" />
                   <p className="font-medium">스캔 기록 없음</p>
                   <p className="text-[11px] mt-1 opacity-70">'전체 스캔' 버튼을 클릭하여 결제 데이터 무결성 감사를 시작하세요.</p>
@@ -625,6 +646,19 @@ function IntegrityTab() {
                     </td>
                     <td className="py-3 px-3"><IntegrityStatusBadge status={item.status} /></td>
                     <td className="py-3 px-3 font-mono text-muted-foreground text-[11px] whitespace-nowrap">{fmtDate(item.verifiedAt)}</td>
+                    <td className="py-3 px-3">
+                      <button
+                        onClick={() => handleVerifyOne(item.paymentId)}
+                        disabled={verifyingId === item.paymentId}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg bg-accent/10 text-accent border border-accent/20 hover:bg-accent/15 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                        title="이 결제만 무결성 검증"
+                      >
+                        {verifyingId === item.paymentId
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <ShieldCheck className="w-3 h-3" />}
+                        검증
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}

@@ -27,6 +27,16 @@ export function AuthProvider({ children }) {
     setUser(userInfo)
   }, [])
 
+  // 사용자 정보 부분 갱신 — 예: 소셜 가입자가 온보딩에서 전화번호를 입력한 뒤 user.phoneNumber 반영
+  const updateUser = useCallback((partial) => {
+    setUser((prev) => {
+      if (!prev) return prev
+      const next = { ...prev, ...partial }
+      localStorage.setItem(USER_KEY, JSON.stringify(next))
+      return next
+    })
+  }, [])
+
   // 로그아웃 또는 세션 만료 시 호출 — 인증 정보 전체 초기화
   const clearAuth = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
@@ -46,9 +56,10 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={{
       accessToken,
-      user,                       // { memberId, role, name, email }
+      user,                       // { memberId, role, name, email, phoneNumber }
       isAuthenticated: !!accessToken,
       saveAuth,
+      updateUser,
       clearAuth,
     }}>
       {children}

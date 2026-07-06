@@ -17,6 +17,7 @@ import {
   getOperatingHours,
   updateOperatingHours,
 } from "../../api/repairshopApi";
+import { getGuides } from "../../api/lmsService";
 
 function GraduationCapIcon() {
   return (
@@ -55,13 +56,19 @@ export default function ShopProfilePage() {
   const [hours, setHours] = useState(DEFAULT_HOURS);
   const [hoursNotSaved, setHoursNotSaved] = useState(false);
   const [profile, setProfile] = useState({
-    shopName: "강남 스마트케어",
-    ownerName: "박기술",
-    phone: "02-1234-5678",
-    businessNo: "123-45-67890",
-    address: "서울특별시 강남구 테헤란로 152",
+    shopName: "",
+    ownerName: "",
+    phone: "",
+    businessNo: "",
+    address: "",
+    email: null,
+    brands: [],
   });
-  const lmsDone = localStorage.getItem("caremate-shop-lms") === "done";
+  const [lmsDone, setLmsDone] = useState(localStorage.getItem("caremate-shop-lms") === "done");
+  const [lmsCompletedAt, setLmsCompletedAt] = useState(null);
+  const lmsCompletedAtLabel = lmsCompletedAt
+    ? new Date(lmsCompletedAt).toLocaleDateString("ko-KR", { year: "numeric", month: "2-digit", day: "2-digit" }).replace(/\. /g, ".").replace(/\.$/, "")
+    : "-";
 
   // 프로필 & 운영시간 로드
   useEffect(() => {
@@ -70,11 +77,15 @@ export default function ShopProfilePage() {
         if (d) setProfile((p) => ({
           ...p,
           shopName: d.shopName ?? p.shopName,
+          ownerName: d.ownerName ?? p.ownerName,
           phone: d.phone ?? p.phone,
           businessNo: d.businessNumber ?? p.businessNo,
           address: d.address ?? p.address,
           latitude: d.latitude ?? p.latitude,
           longitude: d.longitude ?? p.longitude,
+          joinedAt: d.joinedAt ?? p.joinedAt,
+          email: d.email ?? p.email,
+          brands: d.brands ? d.brands.split(",").map(b => b.trim()).filter(Boolean) : p.brands,
         }));
       })
       .catch(() => {});
@@ -97,6 +108,24 @@ export default function ShopProfilePage() {
         setHours(next);
       })
       .catch(() => {});
+
+    getGuides()
+      .then(({ data }) => {
+        const guides = data.guides ?? [];
+        const allCompleted = data.allCompleted ?? false;
+        if (allCompleted) {
+          setLmsDone(true);
+          localStorage.setItem("caremate-shop-lms", "done");
+        }
+        const confirmedTimes = guides
+          .map((g) => g.confirmedAt)
+          .filter(Boolean)
+          .map((t) => new Date(t).getTime());
+        if (allCompleted && confirmedTimes.length) {
+          setLmsCompletedAt(new Date(Math.max(...confirmedTimes)).toISOString());
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const handleSave = async () => {
@@ -105,10 +134,12 @@ export default function ShopProfilePage() {
       if (tab === "shop") {
         await updateShopProfile({
           shopName: profile.shopName,
+          ownerName: profile.ownerName,
           address: profile.address,
           phone: profile.phone,
           latitude: profile.latitude ?? null,
           longitude: profile.longitude ?? null,
+          brands: profile.brands.join(","),
         });
       } else if (tab === "hours") {
         const hoursPayload = {
@@ -154,7 +185,7 @@ export default function ShopProfilePage() {
           <p className="text-base font-semibold text-foreground">
             {profile.shopName}
           </p>
-          <p className="text-sm text-muted-foreground">shop@caremate.kr</p>
+          <p className="text-sm text-muted-foreground">{profile.email ?? '-'}</p>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/50 font-medium">
               수리점 파트너
@@ -165,8 +196,8 @@ export default function ShopProfilePage() {
           </div>
         </div>
         <div className="text-right text-xs text-muted-foreground">
-          <p>사업자번호: 123-45-67890</p>
-          <p className="mt-0.5">가입일: 2024.02.01</p>
+          <p>사업자번호: {profile.businessNo ?? '-'}</p>
+          <p className="mt-0.5">가입일: {profile.joinedAt ?? '-'}</p>
         </div>
       </Card>
 
@@ -192,7 +223,7 @@ export default function ShopProfilePage() {
           </div>
           <div className="shrink-0 text-right text-xs text-amber-700 dark:text-amber-400">
             <p className="font-mono font-semibold">LMS-CERT</p>
-            <p className="opacity-60 mt-0.5">2024.06.13</p>
+            <p className="opacity-60 mt-0.5">{lmsCompletedAtLabel}</p>
           </div>
         </div>
       ) : (
@@ -250,7 +281,13 @@ export default function ShopProfilePage() {
                   >
                     <input
                       type="checkbox"
-                      defaultChecked={["Apple", "Samsung"].includes(b)}
+                      checked={profile.brands.includes(b)}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...profile.brands, b]
+                          : profile.brands.filter((x) => x !== b);
+                        setProfile((p) => ({ ...p, brands: next }));
+                      }}
                       className="accent-accent w-3 h-3"
                     />
                     {b}

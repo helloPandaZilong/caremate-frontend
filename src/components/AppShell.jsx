@@ -37,7 +37,9 @@ import { useDarkMode } from "../hooks/useDarkMode";
 import { getGuides } from "../api/lmsService";
 import { getRepairOrders } from "../api/customerService";
 import { getNotifications, getUnreadCount, markNotificationRead } from "../api/notificationApi";
+import { getOperatingHours } from "../api/repairshopApi";
 import NotificationBell from "./notification/NotificationBell";
+import PhoneOnboardingModal from "./PhoneOnboardingModal";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -69,7 +71,7 @@ function resolveNavHref(item, paymentOrderId) {
 
 const SHOP_NAV = [
   { label: "대시보드", href: "/shop/dashboard", icon: Calendar },
-  { label: "주문 접수", href: "/shop/orders", icon: FileText },
+  { label: "접수 현황", href: "/shop/orders", icon: FileText },
   { label: "수리 리포트", href: "/shop/report", icon: Wrench },
   { label: "결제 내역", href: "/shop/payments", icon: CreditCard },
   { label: "LMS 교육", href: "/shop/lms", icon: GraduationCap },
@@ -733,7 +735,7 @@ function DesktopTopBar({ collapsed, dark, toggleDark, user }) {
 
 // ── Content Area ─────────────────────────────────────────────────────────────
 
-function ContentArea({ collapsed, children }) {
+function ContentArea({ collapsed, bannerVisible, children }) {
   const [isLg, setIsLg] = useState(() =>
       typeof window !== "undefined" ? window.innerWidth >= 1024 : true,
   );
@@ -743,11 +745,12 @@ function ContentArea({ collapsed, children }) {
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, []);
+  const topPad = isLg ? (bannerVisible ? "6.5rem" : "4rem") : (bannerVisible ? "6rem" : "3.5rem");
   return (
       <main
           className="min-h-screen transition-all duration-300"
           style={{
-            paddingTop: isLg ? "4rem" : "3.5rem",
+            paddingTop: topPad,
             paddingLeft: isLg ? (collapsed ? "4rem" : "15rem") : "0",
           }}
       >
@@ -825,6 +828,31 @@ export default function AppShell() {
 
   const showLMSGate = isShopRoute && !isLMSPage && shopLMSDone === false;
 
+  // 운영시간 미설정 감지 — 수리점 라우트에서만 체크
+  const [hoursNotSet, setHoursNotSet] = useState(false);
+  useEffect(() => {
+    if (!isShopRoute) { setHoursNotSet(false); return; }
+    getOperatingHours()
+      .then((data) => {
+        const list = data?.hours ?? data ?? [];
+        setHoursNotSet(!list.length);
+      })
+      .catch(() => {});
+  }, [loc.pathname]);
+  useEffect(() => {
+    const onSaved = () => setHoursNotSet(false);
+    window.addEventListener('hours-saved', onSaved);
+    return () => window.removeEventListener('hours-saved', onSaved);
+  }, []);
+
+  // 소셜(구글) 가입자 전화번호 온보딩 — CUSTOMER이면서 phoneNumber가 "명시적으로 빈 값"일 때만.
+  // phoneNumber 필드가 아예 없는 구(舊) 세션(이번 배포 전 로그인)은 대상에서 제외하고,
+  // 재로그인 시 서버 응답으로 값이 채워지면 자연히 판별된다.
+  const needsPhoneOnboarding =
+      normalizeRole(user?.role) === "CUSTOMER" &&
+      user?.phoneNumber !== undefined &&
+      !String(user.phoneNumber).trim();
+
   return (
       <div
           className="min-h-screen bg-background"
@@ -840,13 +868,37 @@ export default function AppShell() {
         />
         <DesktopTopBar collapsed={collapsed} dark={dark} toggleDark={toggle} user={user} />
         <MobileTopNav dark={dark} toggleDark={toggle} onLogout={handleLogout} paymentOrderId={paymentOrderId} userRole={user?.role} />
-        <ContentArea collapsed={collapsed}>
+        {hoursNotSet && (
+          <div
+            style={{
+              position: 'fixed', top: '4rem', left: collapsed ? '4rem' : '15rem', right: 0,
+              display: 'flex', alignItems: 'center', gap: '10px',
+              padding: '10px 20px', zIndex: 29,
+              background: '#fef3c7', borderBottom: '1px solid #fcd34d',
+              color: '#92400e', fontSize: '13px',
+            }}
+          >
+            <span>⚠️</span>
+            <span>운영시간이 설정되지 않아 <strong>고객 예약이 불가능</strong>합니다.</span>
+            <button
+              onClick={() => nav('/shop/profile')}
+              style={{
+                marginLeft: '4px', fontWeight: 600, textDecoration: 'underline',
+                background: 'none', border: 'none', color: '#92400e', cursor: 'pointer', fontSize: '13px',
+              }}
+            >
+              지금 설정하기 →
+            </button>
+          </div>
+        )}
+        <ContentArea collapsed={collapsed} bannerVisible={hoursNotSet}>
           {showLMSGate ? (
               <LMSGate guides={gateGuides} onNavigate={() => nav("/shop/lms")} />
           ) : (
               <Outlet />
           )}
         </ContentArea>
+        {needsPhoneOnboarding && <PhoneOnboardingModal onLogout={handleLogout} />}
       </div>
   );
 }

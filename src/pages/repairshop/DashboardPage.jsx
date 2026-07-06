@@ -10,17 +10,22 @@ const STATUS_MAP = {
   ACCEPTED: "scheduled",
   IN_REPAIR: "in_repair",
   REPAIR_DONE: "done",
+  PAYMENT_COMPLETED: "payment_done",
+  CLAIM_REQUESTED: "done",
+  CLAIM_COMPLETED: "done",
   REJECTED: "rejected",
+  REPAIR_IMPOSSIBLE: "rejected",
   NO_SHOW: "no_show",
 };
 
 const STATUS_BADGE = {
-  pending:   { label: "대기",   barCls: "border-blue-500 bg-blue-50 text-blue-700",     badgeCls: "bg-blue-500 text-white" },
-  scheduled: { label: "방문 예정", barCls: "border-amber-400 bg-amber-50 text-amber-700",  badgeCls: "bg-amber-400 text-white" },
-  in_repair: { label: "수리중", barCls: "border-purple-500 bg-purple-50 text-purple-700", badgeCls: "bg-purple-500 text-white" },
-  done:      { label: "완료",   barCls: "border-green-500 bg-green-50 text-green-700",  badgeCls: "bg-green-500 text-white" },
-  rejected:  { label: "거절",   barCls: "border-red-400 bg-red-50 text-red-700",        badgeCls: "bg-red-400 text-white" },
-  no_show:   { label: "노쇼",   barCls: "border-gray-400 bg-gray-100 text-gray-600",    badgeCls: "bg-gray-400 text-white" },
+  pending:      { label: "대기",    barCls: "border-blue-500 bg-blue-50 text-blue-700",       badgeCls: "bg-blue-500 text-white" },
+  scheduled:    { label: "방문 예정", barCls: "border-amber-400 bg-amber-50 text-amber-700",    badgeCls: "bg-amber-400 text-white" },
+  in_repair:    { label: "수리중",   barCls: "border-purple-500 bg-purple-50 text-purple-700", badgeCls: "bg-purple-500 text-white" },
+  done:         { label: "수리완료", barCls: "border-green-500 bg-green-50 text-green-700",    badgeCls: "bg-green-500 text-white" },
+  payment_done: { label: "결제완료", barCls: "border-teal-500 bg-teal-50 text-teal-700",       badgeCls: "bg-teal-500 text-white" },
+  rejected:     { label: "거절",    barCls: "border-red-400 bg-red-50 text-red-700",           badgeCls: "bg-red-400 text-white" },
+  no_show:      { label: "노쇼",    barCls: "border-gray-400 bg-gray-100 text-gray-600",       badgeCls: "bg-gray-400 text-white" },
 };
 
 function formatHour(dateStr) { return dateStr ? new Date(dateStr).getHours() : 0; }
@@ -40,22 +45,35 @@ const MOCK_BOOKINGS = [
   { id:5, day:20, month:_now.getMonth(), year:_now.getFullYear(), hour:10, customer:"정우성", device:"Galaxy Z Flip 5", issue:"힌지 파손", status:"pending", phone:"010-5678-9012" },
 ];
 
-function CalendarCell({ day, bookings, onSelect, isToday }) {
+function CalendarCell({ day, bookings, onSelect, onSelectDay, onMoreClick, isToday }) {
   if (!day) return <div className="min-h-20 bg-secondary/30 rounded-lg" />;
+  const shown = bookings.slice(0, 2);
+  const extra = bookings.length - shown.length;
   return (
-    <div className={`min-h-20 p-2 rounded-lg border transition-colors ${isToday ? "border-accent/30 bg-accent/5" : "border-transparent hover:border-border hover:bg-card"}`}>
+    <div
+      className={`min-h-20 p-2 rounded-lg border transition-colors cursor-pointer ${isToday ? "border-accent/30 bg-accent/5" : "border-transparent hover:border-border hover:bg-card"}`}
+      onClick={() => onSelectDay(day)}
+    >
       <span className={`text-xs font-medium ${isToday ? "text-accent font-bold" : "text-muted-foreground"}`}>{day}</span>
       <div className="flex flex-col gap-1 mt-1">
-        {bookings.map((b) => {
+        {shown.map((b) => {
           const badge = STATUS_BADGE[b.status] ?? STATUS_BADGE.pending;
           return (
-            <button key={b.id} onClick={() => onSelect(b)}
+            <button key={b.id} onClick={(e) => { e.stopPropagation(); onSelect(b); }}
               className={`w-full text-left px-2 py-1 rounded text-[11px] font-semibold border-l-[3px] hover:opacity-75 transition-opacity flex items-center justify-between gap-1 ${badge.barCls}`}>
               <span className="truncate">{b.hour}:00 {b.customer}</span>
               <span className={`shrink-0 px-1 py-0.5 rounded text-[9px] font-bold ${badge.badgeCls}`}>{badge.label}</span>
             </button>
           );
         })}
+        {extra > 0 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoreClick(day, bookings); }}
+            className="text-[10px] text-accent font-semibold text-left px-1 hover:underline"
+          >
+            +{extra}건 더
+          </button>
+        )}
       </div>
     </div>
   );
@@ -143,7 +161,7 @@ function BookingDrawer({ booking, onClose, onAction }) {
             <p className="text-xs font-medium text-muted-foreground">첨부 이미지</p>
             <div className="flex gap-2 flex-wrap">
               {(() => {
-                const urls = [...(detail?.customerImageUrls ?? []), ...(detail?.beforeRepairImageUrls ?? [])];
+                const urls = detail?.customerImageUrls ?? [];
                 return urls.length > 0
                   ? urls.map((url, i) => (
                       <a key={i} href={url} target="_blank" rel="noopener noreferrer">
@@ -220,9 +238,42 @@ function BookingDrawer({ booking, onClose, onAction }) {
   );
 }
 
+function DayPopup({ day, month, year, bookings, onSelect, onClose }) {
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 max-h-[70vh] bg-card border border-border rounded-2xl shadow-2xl z-50 flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <p className="text-sm font-semibold text-foreground">{month + 1}월 {day}일 예약</p>
+          <button onClick={onClose} className="p-1 rounded-lg hover:bg-secondary transition-colors">
+            <X className="w-4 h-4 text-muted-foreground" />
+          </button>
+        </div>
+        <div className="overflow-y-auto flex flex-col gap-1.5 p-3">
+          {bookings.map((b) => {
+            const badge = STATUS_BADGE[b.status] ?? STATUS_BADGE.pending;
+            return (
+              <button
+                key={b.id}
+                onClick={() => { onClose(); onSelect(b); }}
+                className={`w-full text-left px-3 py-2 rounded-xl border-l-[3px] hover:opacity-75 transition-opacity flex items-center justify-between gap-2 ${badge.barCls}`}
+              >
+                <span className="text-xs font-medium truncate">{b.hour}:00 {b.customer}</span>
+                <span className={`shrink-0 px-2 py-0.5 rounded text-[10px] font-bold ${badge.badgeCls}`}>{badge.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function ShopDashboard() {
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const [bookings, setBookings] = useState(MOCK_BOOKINGS);
+  const [bookings, setBookings] = useState([]);
+  const [selectedDay, setSelectedDay] = useState(null); // null = 오늘
+  const [dayPopup, setDayPopup] = useState(null); // { day, bookings }
   const todayListRef = useRef(null);
   const [curYear, setCurYear] = useState(new Date().getFullYear());
   const [curMonth, setCurMonth] = useState(new Date().getMonth());
@@ -232,7 +283,7 @@ export default function ShopDashboard() {
     getOrders({ size: 100 })
       .then((data) => {
         const items = data?.content ?? data ?? [];
-        if (!items.length) return;
+        if (!items.length) { setBookings([]); return; }
         const mapped = items
           .filter((o) => o.reservedVisitAt)
           .map((o) => {
@@ -268,12 +319,21 @@ export default function ShopDashboard() {
     return day >= 1 && day <= daysInMonth ? day : null;
   });
 
-  const bookingsByDay = (day) => bookings.filter((b) => b.day === day && b.month === curMonth && b.year === curYear);
+  const bookingsByDay = (day) => bookings
+    .filter((b) => b.day === day && b.month === curMonth && b.year === curYear)
+    .sort((a, b) => a.hour - b.hour);
   const _today = new Date();
-  const todayBookings = bookings.filter((b) => b.day === _today.getDate() && b.month === _today.getMonth() && b.year === _today.getFullYear());
+  const todayBookings = bookings
+    .filter((b) => b.day === _today.getDate() && b.month === _today.getMonth() && b.year === _today.getFullYear())
+    .sort((a, b) => a.hour - b.hour);
 
-  const prevMonth = () => { if (curMonth === 0) { setCurYear(y => y-1); setCurMonth(11); } else setCurMonth(m => m-1); };
-  const nextMonth = () => { if (curMonth === 11) { setCurYear(y => y+1); setCurMonth(0); } else setCurMonth(m => m+1); };
+  const prevMonth = () => { setSelectedDay(null); if (curMonth === 0) { setCurYear(y => y-1); setCurMonth(11); } else setCurMonth(m => m-1); };
+  const nextMonth = () => { setSelectedDay(null); if (curMonth === 11) { setCurYear(y => y+1); setCurMonth(0); } else setCurMonth(m => m+1); };
+
+  const handleSelectDay = (day) => {
+    setSelectedDay(day);
+    setTimeout(() => todayListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -285,7 +345,7 @@ export default function ShopDashboard() {
             {todayBookings.length > 0 ? (
               <button
                 className="text-accent font-semibold hover:underline"
-                onClick={() => todayListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                onClick={() => { setSelectedDay(null); setTimeout(() => todayListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); }}
               >
                 오늘 예약 {todayBookings.length}건
               </button>
@@ -298,7 +358,8 @@ export default function ShopDashboard() {
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-blue-500 bg-blue-50" />대기</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-amber-400 bg-amber-50" />접수완료</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-purple-500 bg-purple-50" />수리중</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-green-500 bg-green-50" />완료</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-green-500 bg-green-50" />수리완료</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-teal-500 bg-teal-50" />결제완료</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-red-400 bg-red-50" />거절</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm border-l-[3px] border-gray-400 bg-gray-100" />노쇼</span>
         </div>
@@ -323,18 +384,46 @@ export default function ShopDashboard() {
 
         <div className="grid grid-cols-7 gap-1 p-3">
           {MONTH_GRID.map((day, i) => (
-            <CalendarCell key={i} day={day} bookings={day ? bookingsByDay(day) : []} onSelect={setSelectedBooking} isToday={day === new Date().getDate() && curMonth === new Date().getMonth() && curYear === new Date().getFullYear()} />
+            <CalendarCell
+              key={i}
+              day={day}
+              bookings={day ? bookingsByDay(day) : []}
+              onSelect={setSelectedBooking}
+              onSelectDay={handleSelectDay}
+              onMoreClick={(d, bs) => setDayPopup({ day: d, bookings: bs })}
+              isToday={day === _today.getDate() && curMonth === _today.getMonth() && curYear === _today.getFullYear()}
+            />
           ))}
         </div>
       </div>
 
       <div ref={todayListRef} className="bg-card border border-border rounded-2xl p-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4">오늘 예약 목록</h3>
-        {todayBookings.length === 0
-          ? <p className="text-sm text-muted-foreground text-center py-6">오늘 예약이 없습니다.</p>
-          : (
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-foreground">
+            {selectedDay ? `${curMonth + 1}월 ${selectedDay}일 예약 목록` : "오늘 예약 목록"}
+          </h3>
+          {selectedDay && (
+            <button
+              onClick={() => setSelectedDay(null)}
+              className="text-xs text-accent hover:underline"
+            >
+              오늘로 돌아가기
+            </button>
+          )}
+        </div>
+        {(() => {
+          const displayBookings = selectedDay
+            ? bookings
+                .filter((b) => b.day === selectedDay && b.month === curMonth && b.year === curYear)
+                .sort((a, b) => a.hour - b.hour)
+            : todayBookings;
+          return displayBookings.length === 0
+            ? <p className="text-sm text-muted-foreground text-center py-6">
+                {selectedDay ? "이 날 예약이 없습니다." : "오늘 예약이 없습니다."}
+              </p>
+            : (
             <div className="flex flex-col gap-2">
-              {todayBookings.map((b) => {
+              {displayBookings.map((b) => {
                 const badge = STATUS_BADGE[b.status] ?? STATUS_BADGE.pending;
                 return (
                   <div key={b.id} onClick={() => setSelectedBooking(b)}
@@ -356,10 +445,20 @@ export default function ShopDashboard() {
                 );
               })}
             </div>
-          )
-        }
+          );
+        })()}
       </div>
 
+      {dayPopup && (
+        <DayPopup
+          day={dayPopup.day}
+          month={curMonth}
+          year={curYear}
+          bookings={dayPopup.bookings}
+          onSelect={setSelectedBooking}
+          onClose={() => setDayPopup(null)}
+        />
+      )}
       {selectedBooking && (
         <BookingDrawer booking={selectedBooking} onClose={() => setSelectedBooking(null)} onAction={loadOrders} />
       )}

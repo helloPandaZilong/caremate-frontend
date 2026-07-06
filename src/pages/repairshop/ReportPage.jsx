@@ -124,7 +124,7 @@ function ReportList({ onSelect }) {
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState("all");
   const [customerName, setCustomerName] = useState("");
-  const [items, setItems] = useState(REPORT_ITEMS);
+  const [items, setItems] = useState(null); // null = 로딩 중
   const [startingId, setStartingId] = useState(null);
 
   const loadOrders = useCallback(() => {
@@ -148,7 +148,7 @@ function ReportList({ onSelect }) {
           }));
         setItems(mapped);
       })
-      .catch(() => {});
+      .catch(() => { setItems([]); });
   }, []);
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
@@ -164,6 +164,21 @@ function ReportList({ onSelect }) {
     } finally {
       setStartingId(null);
     }
+  }
+
+  if (items === null) {
+    return (
+      <div className="flex flex-col gap-5 max-w-3xl">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">수리 리포트</h1>
+        </div>
+        <div className="flex flex-col gap-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-28 rounded-2xl bg-secondary animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const filtered = items.filter((r) => {
@@ -306,21 +321,27 @@ function ReportList({ onSelect }) {
                       리포트 작성
                     </button>
                   )}
-                  {/* 완료 → 내역 이동 + 수정하기 */}
+                  {/* 완료 → 내역 이동 + (결제완료면 뱃지 / 아니면 수정하기) */}
                   {item.status === "completed" && (
-                    <div className="flex gap-1.5">
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => navigate(`/shop/orders/${item.id}`)}
                         className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-muted-foreground hover:bg-secondary transition-all"
                       >
                         내역 이동
                       </button>
-                      <button
-                        onClick={() => onSelect(item)}
-                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent/90 transition-all"
-                      >
-                        수정하기
-                      </button>
+                      {["PAYMENT_COMPLETED", "CLAIM_REQUESTED", "CLAIM_COMPLETED"].includes(item.rawStatus) ? (
+                        <span className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-100 text-green-700 border border-green-200">
+                          결제 완료
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => onSelect(item)}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent text-white hover:bg-accent/90 transition-all"
+                        >
+                          수정하기
+                        </button>
+                      )}
                     </div>
                   )}
                   {/* 수리 불가 → 내역 이동만 */}
@@ -422,6 +443,7 @@ function ReportDetail({ item, onBack }) {
   const [saving, setSaving] = useState(false);
   const [aiDraft, setAiDraft] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiError, setAiError] = useState(null);
   const [aiSnapshot, setAiSnapshot] = useState(null); // AI 원본 결과 보존 (피드백용)
 
   // 수리 불가 처리
@@ -687,7 +709,7 @@ function ReportDetail({ item, onBack }) {
           <h3 className="text-sm font-semibold text-foreground">정비 내용 기록</h3>
           <div className="flex items-center gap-2">
             {/* 파일 업로드 버튼 */}
-            <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-violet-300 text-violet-600 hover:bg-violet-50 cursor-pointer transition-colors">
+            <label className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-violet-300 text-violet-600 transition-colors ${aiGenerating ? "opacity-50 cursor-not-allowed pointer-events-none" : "hover:bg-violet-50 cursor-pointer"}`}>
               <Upload className="w-3.5 h-3.5" />
               파일 첨부
               <input
@@ -696,7 +718,8 @@ function ReportDetail({ item, onBack }) {
                 className="hidden"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
-                  if (!file) return;
+                  if (!file || aiGenerating) return;
+                  setAiError(null);
                   setAiGenerating(true);
                   try {
                     const result = await parseRepairFile(file, {
@@ -709,21 +732,12 @@ function ReportDetail({ item, onBack }) {
                     if (item.customer) {
                       const parsedName = result.customerName?.trim() || null;
                       if (!parsedName) {
-                        alert(
-                          `⚠️ 파일에 고객 이름이 없습니다\n\n` +
-                          `현재 주문 고객: ${item.customer}\n\n` +
-                          `파일을 확인해주세요.`
-                        );
+                        setAiError(`파일에 고객 이름이 없습니다. 현재 주문 고객: ${item.customer} — 파일을 확인해주세요.`);
                         return;
                       }
                       const normalize = (s) => s.replace(/\s/g, "").toLowerCase();
                       if (normalize(parsedName) !== normalize(item.customer)) {
-                        alert(
-                          `⚠️ 고객 이름이 다릅니다\n\n` +
-                          `현재 주문 고객: ${item.customer}\n` +
-                          `파일의 고객 이름: ${parsedName}\n\n` +
-                          `파일을 확인해주세요.`
-                        );
+                        setAiError(`고객 이름이 다릅니다. 주문: ${item.customer} / 파일: ${parsedName} — 파일을 확인해주세요.`);
                         return;
                       }
                     }
@@ -742,7 +756,7 @@ function ReportDetail({ item, onBack }) {
                     setAiSnapshot(result); // AI 원본 보존 (피드백용)
                     setAiDraft(true);
                   } catch {
-                    alert("파일 분석 중 오류가 발생했습니다. 파일 형식을 확인해주세요.");
+                    setAiError("AI 서버가 일시적으로 혼잡합니다. 잠시 후 다시 시도해주세요.");
                   } finally {
                     setAiGenerating(false);
                     e.target.value = "";
@@ -758,6 +772,10 @@ function ReportDetail({ item, onBack }) {
               </span>
             )}
           </div>
+          {/* AI 에러 메시지 */}
+          {aiError && (
+            <p className="text-xs text-red-500 mt-1">{aiError}</p>
+          )}
         </div>
 
         {/* 고장 진단 결과 */}
@@ -1012,8 +1030,8 @@ function ReportDetail({ item, onBack }) {
               : "임시 저장됐습니다."}
           </div>
         ) : (
-          /* 수리 불가 처리 버튼 — IN_REPAIR 상태에서만 노출 */
-          item.rawStatus === "IN_REPAIR" ? (
+          /* 수리 불가 처리 버튼 — IN_REPAIR 상태이고 수리완료 전이 안 된 경우에만 노출 */
+          item.rawStatus === "IN_REPAIR" && !statusTransitioned ? (
             <button
               onClick={() => setShowImpossibleModal(true)}
               className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium border border-red-200 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"

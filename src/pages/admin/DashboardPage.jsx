@@ -136,7 +136,8 @@ export default function AdminDashboard() {
   // 차트 데이터 가공
   const barData = (data?.monthlyRevenue ?? []).map((r) => ({
     month: fmtMonth(r.month),
-    amount: r.amount,
+    platformRevenue: r.platformRevenue,
+    settlementTotal: r.settlementTotal,
   }));
 
   const lineData = (data?.monthlyClaimPackets ?? []).map((r) => ({
@@ -195,14 +196,14 @@ export default function AdminDashboard() {
             value={m ? fmtWon(m.totalPlatformRevenue) : "₩0"}
             icon={DollarSign}
             color="#D97706"
-            sub="결제 완료 누적 합계"
+            sub="정산 총액의 10% 수수료 수익"
           />
           <KPICard
             title="수리점 전체 정산 총액"
             value={m ? fmtWon(m.totalSettlementAmount) : "₩0"}
             icon={TrendingUp}
             color="#0D9488"
-            sub="월별 정산 누적 합계"
+            sub="월별 정산 누적 합계 (수수료 차감 전)"
           />
           <KPICard
             title="실시간 엔진 가동 성공률"
@@ -223,21 +224,21 @@ export default function AdminDashboard() {
 
       {/* 차트 2개 */}
       <div className="grid md:grid-cols-2 gap-5">
-        {/* 막대 그래프 — 월별 수익 */}
+        {/* 막대 그래프 — 월별 수익 비교 (플랫폼 수익 vs 수리점 정산 총액) */}
         <Card className="p-5">
           <div className="mb-4">
             <p className="text-sm font-semibold text-foreground">
               월별 수익 비교
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
-              총 결제 수익 (단위: 만원)
+              플랫폼 수익(수수료 10%) vs 수리점 전체 정산 총액 (단위: 만원)
             </p>
           </div>
           {loading ? (
             <Skeleton className="h-[220px]" />
           ) : (
             <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={barData} barCategoryGap="35%">
+              <BarChart data={barData} barCategoryGap="25%">
                 <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                 <XAxis
                   dataKey="month"
@@ -253,13 +254,20 @@ export default function AdminDashboard() {
                   width={52}
                 />
                 <Tooltip
-                  formatter={(v) => [fmtWonShort(v), "총 수익"]}
+                  formatter={(v, name) => [fmtWonShort(v), name]}
                   labelStyle={{ fontSize: 12, color: tooltipStyle.color }}
                   contentStyle={tooltipStyle}
                 />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
                 <Bar
-                  dataKey="amount"
-                  name="총 수익"
+                  dataKey="settlementTotal"
+                  name="수리점 정산 총액"
+                  fill="#0D9488"
+                  radius={[4, 4, 0, 0]}
+                />
+                <Bar
+                  dataKey="platformRevenue"
+                  name="플랫폼 수익"
                   fill="#D97706"
                   radius={[4, 4, 0, 0]}
                 />

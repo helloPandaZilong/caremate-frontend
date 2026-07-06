@@ -20,6 +20,17 @@ const apiClient = axios.create({
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true, // httpOnly Refresh Token 쿠키 자동 전송
+  paramsSerializer: (params) => {
+    const parts = []
+    for (const [key, value] of Object.entries(params)) {
+      if (Array.isArray(value)) {
+        value.forEach(v => parts.push(`${key}=${encodeURIComponent(v)}`))
+      } else if (value !== undefined && value !== null) {
+        parts.push(`${key}=${encodeURIComponent(value)}`)
+      }
+    }
+    return parts.join('&')
+  },
 })
 
 // 토큰 갱신 전용 클라이언트 — 기본 클라이언트의 인터셉터를 재진입하지 않도록 분리
