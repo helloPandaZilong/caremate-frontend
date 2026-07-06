@@ -7,6 +7,7 @@ import {
   ChevronLeft, BarChart2, Download, Zap, Users,
 } from "lucide-react";
 import { useDarkMode } from "../hooks/useDarkMode";
+import caremateLogo from "../assets/caremate-logo.png";
 import "../styles/LandingPage.css";
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
@@ -122,9 +123,7 @@ function Header({ dark, toggle }) {
       <div className="max-w-6xl mx-auto px-5 md:px-8">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 lp-glow-btn" style={{ background: AMBER }}>
-              <Shield className="w-4 h-4 text-white" />
-            </div>
+            <img src={caremateLogo} alt="CareMate" className="w-8 h-8 object-contain shrink-0" />
             <span className="text-[17px] font-bold tracking-tight" style={{ color: solid ? s.text : "#FFFFFF" }}>
               Care<span style={{ color: AMBER }}>Mate</span>
             </span>
@@ -297,8 +296,7 @@ function HeroEcosystemVisual() {
         <div className="lp-hub-glow-anim w-20 h-20 rounded-2xl flex flex-col items-center justify-center gap-0.5 shadow-2xl"
           style={{ background: `linear-gradient(135deg, ${AMBER}, ${AMBER_D})` }}
         >
-          <Shield className="w-8 h-8 text-white" />
-          <span className="text-white text-[8px] font-black tracking-[0.18em]">CARE</span>
+          <img src={caremateLogo} alt="CareMate" className="w-10 h-10 object-contain brightness-0 invert" />
         </div>
       </div>
 
@@ -903,7 +901,7 @@ function Footer() {
         <div className="grid md:grid-cols-[2fr_1fr_1fr_1fr] gap-10 pb-12" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
           <div className="flex flex-col gap-5">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: AMBER }}><Shield className="w-4 h-4 text-white" /></div>
+              <img src={caremateLogo} alt="CareMate" className="w-8 h-8 object-contain shrink-0" />
               <span className="text-[17px] font-black text-white">Care<span style={{ color: AMBER }}>Mate</span></span>
             </div>
             <p className="text-sm leading-relaxed max-w-xs" style={{ color: "rgba(241,245,249,0.40)" }}>스마트폰 A/S 보험 통합 관리 플랫폼.</p>

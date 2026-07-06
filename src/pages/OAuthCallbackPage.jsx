@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
-import { Shield, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { googleCallback } from '../api/auth'
 import { useAuth } from '../contexts/AuthContext'
+import caremateLogo from '../assets/caremate-logo.png'
 
 /**
  * Google OAuth2 콜백 페이지 (/auth/callback).
@@ -112,9 +113,7 @@ export default function OAuthCallbackPage() {
     >
       {/* CareMate 로고 */}
       <div className="flex items-center gap-2.5">
-        <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center">
-          <Shield className="w-5 h-5 text-white" />
-        </div>
+        <img src={caremateLogo} alt="CareMate" className="w-9 h-9 object-contain shrink-0" />
         <span
           className="text-xl font-semibold text-foreground tracking-tight"
           style={{ fontFamily: "'DM Sans', sans-serif" }}
