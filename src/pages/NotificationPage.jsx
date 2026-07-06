@@ -86,8 +86,13 @@ export default function NotificationPage() {
   };
 
   const content = getContent(pageData);
-  const first = pageData?.first ?? page <= 0;
-  const last = pageData?.last ?? content.length < 20;
+
+  const currentPage = pageData?.page ?? page;
+  const totalPages = Math.max(pageData?.totalPages ?? 1, 1);
+  const totalElements = pageData?.totalElements ?? content.length;
+
+  const first = pageData?.first ?? currentPage <= 0;
+  const last = pageData?.last ?? currentPage >= totalPages - 1;
 
   return (
       <div className="max-w-4xl flex flex-col gap-6">
@@ -121,8 +126,8 @@ export default function NotificationPage() {
             이전
           </Button>
           <span className="text-xs text-muted-foreground">
-          page {pageData?.page ?? page} / {Math.max((pageData?.totalPages ?? 1) - 1, 0)} · 총 {pageData?.totalElements ?? content.length}건
-        </span>
+            {currentPage + 1} / {totalPages} 페이지 · 총 {totalElements}건
+          </span>
           <Button variant="secondary" size="sm" disabled={last || loading} onClick={() => setPage((value) => value + 1)}>
             다음
           </Button>
