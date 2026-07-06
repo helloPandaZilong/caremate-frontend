@@ -40,6 +40,7 @@ import { getNotifications, getUnreadCount, markNotificationRead } from "../api/n
 import { getOperatingHours } from "../api/repairshopApi";
 import NotificationBell from "./notification/NotificationBell";
 import PhoneOnboardingModal from "./PhoneOnboardingModal";
+import caremateLogo from "../assets/caremate-logo.png";
 
 // ── LMS gate helpers ──────────────────────────────────────────────────────────
 
@@ -466,9 +467,7 @@ function DesktopSidebar({collapsed,onToggle,dark,onLogout,paymentOrderId,userRol
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 h-16 border-b border-white/10 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-amber-600 flex items-center justify-center shrink-0">
-            <Shield className="w-4 h-4 text-white" />
-          </div>
+          <img src={caremateLogo} alt="CareMate" className="w-8 h-8 object-contain shrink-0" />
           {!collapsed && (
               <span
                   className="text-base font-semibold text-white tracking-tight whitespace-nowrap"
@@ -576,9 +575,7 @@ function MobileTopNav({ dark, toggleDark, onLogout, paymentOrderId, userRole }) 
             style={{ background: "#1E293B" }}
         >
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-amber-600 flex items-center justify-center shrink-0">
-              <Shield className="w-3.5 h-3.5 text-white" />
-            </div>
+            <img src={caremateLogo} alt="CareMate" className="w-7 h-7 object-contain shrink-0" />
             <span
                 className="text-sm font-semibold text-white tracking-tight"
                 style={{ fontFamily: "'DM Sans', sans-serif" }}
@@ -614,9 +611,7 @@ function MobileTopNav({ dark, toggleDark, onLogout, paymentOrderId, userRole }) 
               >
                 <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-amber-600 flex items-center justify-center">
-                      <Shield className="w-3.5 h-3.5 text-white" />
-                    </div>
+                    <img src={caremateLogo} alt="CareMate" className="w-7 h-7 object-contain shrink-0" />
                     <span
                         className="text-sm font-semibold text-white"
                         style={{ fontFamily: "'DM Sans', sans-serif" }}
