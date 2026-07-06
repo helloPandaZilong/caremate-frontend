@@ -1,10 +1,11 @@
 import { useState, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router";
-import { Shield, Eye, EyeOff, CheckCircle, Loader2, MapPin, Sun, Moon, Search, X, ChevronRight } from "lucide-react";
+import { Eye, EyeOff, CheckCircle, Loader2, MapPin, Sun, Moon, Search, X, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { login, signupCustomer, signupShop, checkEmail as apiCheckEmail, getGoogleAuthUrl } from "../api/auth";
 import { useAuth } from "../contexts/AuthContext";
 import { useDarkMode } from "../hooks/useDarkMode";
+import caremateLogo from "../assets/caremate-logo.png";
 
 // ── 주소 검색 (백엔드 프록시 경유 — API 키 서버 보관) ───────────────────────
 async function searchKakaoAddress(query) {
@@ -448,9 +449,7 @@ export default function AuthPage() {
       </button>
       {/* 로고 */}
       <Link to="/" className="flex items-center gap-2.5 mb-8">
-        <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-          <Shield className="w-4 h-4 text-white" />
-        </div>
+        <img src={caremateLogo} alt="CareMate" className="w-8 h-8 object-contain shrink-0" />
         <span
           className="text-lg font-semibold text-foreground tracking-tight"
           style={{ fontFamily: "'DM Sans', sans-serif" }}

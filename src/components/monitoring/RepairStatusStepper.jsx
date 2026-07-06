@@ -112,11 +112,12 @@ export default function RepairStatusStepper({ milestones, currentStatus }) {
       ) : (
         <div className="relative overflow-x-auto pb-1">
           <div className="min-w-[720px] relative flex items-start justify-between px-2">
-            <div className="absolute top-5 left-8 right-8 h-0.5 bg-secondary" />
-            <div
-              className="absolute top-5 left-8 h-0.5 bg-teal-500 transition-all duration-500"
-              style={{ width: `calc((100% - 4rem) * ${progress / 100})` }}
-            />
+            <div className="absolute top-5 left-14 right-14 h-0.5 bg-secondary">
+              <div
+                  className="h-full bg-teal-500 transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+              />
+            </div>
             {normalized.map((milestone) => {
               const Icon = STATUS_ICON[milestone.status] ?? CheckCircle2;
               const reached = Boolean(milestone.reached);
