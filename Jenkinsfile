@@ -26,7 +26,7 @@ pipeline {
         // 2. npm 빌드
         stage('npm Build') {
             steps {
-                sh 'npm ci --silent'
+                sh 'npm ci'
                 sh 'npm run build'
             }
         }
