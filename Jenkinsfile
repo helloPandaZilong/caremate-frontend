@@ -26,6 +26,7 @@ pipeline {
         // 2. npm 빌드
         stage('npm Build') {
             steps {
+                sh 'npm config set os linux'
                 sh 'npm install'
                 sh 'npm run build'
             }
