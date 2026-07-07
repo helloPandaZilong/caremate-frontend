@@ -1,5 +1,16 @@
 import { Star } from "lucide-react";
 
+// ── Brand constants ───────────────────────────────────────────────────────────
+export const BRAND_OPTIONS = ["Apple", "Samsung", "Google", "LG", "기타"];
+
+export function parseBrands(brands) {
+  if (Array.isArray(brands)) return brands;
+  if (typeof brands === "string") {
+    return brands.split(",").map((b) => b.trim()).filter(Boolean);
+  }
+  return [];
+}
+
 export function Button({
   children,
   variant = "primary",
@@ -57,6 +68,22 @@ export function Badge({ children, variant = "accent", className = "" }) {
     >
       {children}
     </span>
+  );
+}
+
+// ── BrandTags (표시용) ────────────────────────────────────────────────────────
+export function BrandTags({ brands, className = "" }) {
+  const list = parseBrands(brands);
+  if (list.length === 0) return null;
+
+  return (
+    <div className={`flex flex-wrap gap-1 ${className}`}>
+      {list.map((b) => (
+        <Badge key={b} variant="muted" className="px-2 py-0 text-[11px]">
+          {b}
+        </Badge>
+      ))}
+    </div>
   );
 }
 

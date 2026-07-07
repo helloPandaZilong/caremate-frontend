@@ -11,7 +11,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import { Button, Card, UploadZone, StarRating } from "../../components/shared";
+import { Button, Card, UploadZone, StarRating, BrandTags, BRAND_OPTIONS, parseBrands } from "../../components/shared";
 import {
   getRepairShops,
   getInsurancePolicies,
@@ -29,9 +29,9 @@ const STEPS = [
 ];
 
 const DEMO_SHOPS = [
-  { id: 901, shopName: "폰케어 강남점", address: "서울 강남구 테헤란로 152", phone: "02-555-1234", avgRating: 4.8, reviewCount: 132 },
-  { id: 902, shopName: "스마트픽스 홍대점", address: "서울 마포구 양화로 160", phone: "02-332-5678", avgRating: 4.6, reviewCount: 87 },
-  { id: 903, shopName: "닥터폰 건대입구점", address: "서울 광진구 아차산로 272", phone: "02-446-9012", avgRating: 4.9, reviewCount: 204 },
+  { id: 901, shopName: "폰케어 강남점", address: "서울 강남구 테헤란로 152", phone: "02-555-1234", avgRating: 4.8, reviewCount: 132, brands: "Apple,Samsung" },
+  { id: 902, shopName: "스마트픽스 홍대점", address: "서울 마포구 양화로 160", phone: "02-332-5678", avgRating: 4.6, reviewCount: 87, brands: "Samsung,LG,기타" },
+  { id: 903, shopName: "닥터폰 건대입구점", address: "서울 광진구 아차산로 272", phone: "02-446-9012", avgRating: 4.9, reviewCount: 204, brands: "Apple,Samsung,Google,LG" },
 ];
 
 const TIME_SLOTS = [
@@ -91,6 +91,7 @@ export default function RequestPage() {
   const [selectedSlot, setSelectedSlot] = useState("");
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [selectedShop, setSelectedShop] = useState(preselectedShop);
+  const [shopBrandFilter, setShopBrandFilter] = useState([]);
   const [selectedPolicies, setSelectedPolicies] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -447,13 +448,40 @@ export default function RequestPage() {
             </label>
           </div>
 
+          <div className="flex flex-wrap gap-1.5">
+            {BRAND_OPTIONS.map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() =>
+                  setShopBrandFilter((prev) =>
+                    prev.includes(b) ? prev.filter((x) => x !== b) : [...prev, b],
+                  )
+                }
+                className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  shopBrandFilter.includes(b)
+                    ? "bg-accent text-white border-accent"
+                    : "bg-secondary text-muted-foreground border-border hover:border-accent/40"
+                }`}
+              >
+                {b}
+              </button>
+            ))}
+          </div>
+
           {loadingShops ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-5 h-5 animate-spin text-accent" />
             </div>
           ) : (
             <div className="flex flex-col gap-2 max-h-48 overflow-y-auto">
-              {shops.map((shop) => (
+              {shops
+                .filter(
+                  (shop) =>
+                    shopBrandFilter.length === 0 ||
+                    parseBrands(shop.brands).some((b) => shopBrandFilter.includes(b)),
+                )
+                .map((shop) => (
                 <div
                   key={shop.id}
                   onClick={() => setSelectedShop(shop)}
@@ -468,6 +496,7 @@ export default function RequestPage() {
                     <p className="text-sm font-semibold text-foreground">{shop.shopName}</p>
                     <p className="text-xs text-muted-foreground">{shop.address}</p>
                     <StarRating rating={shop.avgRating} reviewCount={shop.reviewCount} size="sm" className="mt-1" />
+                    <BrandTags brands={shop.brands} className="mt-1" />
                   </div>
                 </div>
               ))}
