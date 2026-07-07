@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: caremate-fe-svc
+  namespace: caremate
+spec:
+  selector:
+    app: caremate-fe
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 80

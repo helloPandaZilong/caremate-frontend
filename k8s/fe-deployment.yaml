@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: caremate-fe
+  namespace: caremate
+  labels:
+    app: caremate-fe
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: caremate-fe
+  template:
+    metadata:
+      labels:
+        app: caremate-fe
+    spec:
+      containers:
+        - name: caremate-fe
+          image: pagnit/caremate-fe:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
